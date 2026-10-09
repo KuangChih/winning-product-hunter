@@ -9,17 +9,18 @@
 - [x] 寫 ADR：整體架構、資料庫、排程/抓取執行位置（考量 Vercel 限制）、驗證方案
 
 ## Phase 1 — 專案骨架
-- [ ] 建立 Next.js + TypeScript + Tailwind + shadcn/ui 專案；設定 ESLint、Prettier、Vitest、Playwright
-- [ ] `package.json` scripts：`lint`、`typecheck`、`test`、`build`、`e2e`
-- [ ] Drizzle + Postgres schema 初版（products、sources、signals 時間序列、ads、stores、scores、users、watchlists）與 migration
-- [ ] `.env.example`、README（本地開發步驟）
-- [ ] GitHub Actions CI（lint/typecheck/test/build）
+- [x] 建立 Next.js + TypeScript + Tailwind + shadcn/ui 專案；設定 ESLint、Prettier、Vitest、Playwright
+- [x] `package.json` scripts：`lint`、`typecheck`、`test`、`build`、`e2e`
+- [x] Drizzle + Postgres schema 初版（products、source_items、signal_snapshots、product_scores、ingestion_runs）與 migration；PGlite 測試環境
+  - users/session 表由 Better Auth 產生（Phase 5 註冊登入項目）；watchlists 隨 Phase 4 收藏功能加入
+- [x] `.env.example`、README（本地開發步驟）
+- [x] GitHub Actions CI（format/lint/typecheck/test/build + e2e）— 需 push 後才會實際執行
 
 ## Phase 2 — 資料蒐集層
 - [ ] 統一的 `SourceAdapter` 介面 + fixture 模式 + 重試/限流/錯誤紀錄
 - [ ] 各來源 adapter（依 Phase 0 研究結果決定順序與方式）
 - [ ] 正規化：原始資料 → 統一的 product candidate
-- [ ] 產品實體對應（圖片感知雜湊 + 文字相似度）與測試資料集
+- [ ] 產品實體對應（圖片感知雜湊 + 文字相似度）與測試資料集；embedding 欄位需 pgvector migration（PGlite 0.5 未內建 vector，測試需另找方式或以 Neon 分支測）
 - [ ] 排程與 ingestion pipeline（Vercel Cron / 外部 worker），含執行紀錄與監控頁
 
 ## Phase 3 — 評分引擎

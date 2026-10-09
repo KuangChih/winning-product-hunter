@@ -33,3 +33,23 @@
 - 驗證：尚無程式碼，品質閘門不適用。
 - commit：見 git log
 - 下一步：Phase 1 建立 Next.js 專案骨架
+
+## 2026-10-09 — 輪 5：Next.js 專案骨架
+- 完成：Next.js 16.4 + React 19.3 + Tailwind v4 + shadcn/ui；Vitest 5（jsdom + Testing Library）、Playwright（`e2e/`）、Prettier（含 Tailwind 排序）；scripts：lint/typecheck/test/build/e2e/format；首頁換成產品名稱佔位頁 + 單元測試與 e2e 測試。
+- 注意：vitest 3 與 @vitejs/plugin-react 6（vite 8/rolldown）型別衝突 → 改用 vitest 5 + @types/node 22。Next 16 有 `AGENTS.md` 要求先讀 `node_modules/next/dist/docs/`，已寫入 CLAUDE.md。
+- 驗證：lint ✅ typecheck ✅ test ✅ build ✅；e2e 尚未執行（Playwright 瀏覽器未安裝，CI 項目會處理）
+- commit：見 git log
+- 下一步：Drizzle + Postgres schema 初版
+
+## 2026-10-09 — 輪 6：資料庫 schema
+- 完成：Drizzle schema（products、source_items、append-only signal_snapshots、product_scores 含 breakdown、ingestion_runs）、`drizzle/0000_init.sql`、Neon client（lazy，build 不需 DATABASE_URL）、PGlite 測試 harness、`.env.example`、db:* scripts。
+- 決定：pgvector embedding 欄位延到實體對應項目（PGlite 0.5 不含 vector 擴充）；users/watchlists 延到 auth 與收藏功能。
+- 驗證：lint ✅ typecheck ✅ test ✅（4 tests）build ✅
+- commit：見 git log
+- 下一步：README（本地開發步驟）
+
+## 2026-10-09 — 輪 7：README + CI
+- 完成：README（本地開發、資料庫、品質閘門）、`.github/workflows/ci.yml`（format/lint/typecheck/test/build，e2e 另一個 job）、format:check 納入 CLAUDE.md 品質閘門。Phase 1 完成。
+- 驗證：format ✅ lint ✅ typecheck ✅ test ✅ build ✅ e2e ✅（本機 Chromium 首次執行通過）；CI workflow 尚未在 GitHub 上跑過（未 push）
+- commit：見 git log
+- 下一步：Phase 2 `SourceAdapter` 介面 + fixture 模式
