@@ -21,18 +21,37 @@
 - [x] 正規化 + 實體對應 v0：標題正規化、token 相似度把 source items 歸到 products；trend 關鍵字以 token 包含關係連到產品（圖片雜湊待有真實圖片時加入）；CLI `npm run match`
 - [x] 評分 v0：依 `docs/research/scoring.md` 實作可解釋子分數（longevity、scaling、demandTrend、marketplace、margin），寫入 product_scores；CLI `npm run score`
 - [x] 產品探索頁 v0：讀 DB 列出最新分數排名，標示「樣本資料」；無 DATABASE_URL 時顯示設定說明
-- [ ] 產品詳情頁 v0：分數拆解 + 證據清單（廣告連結、趨勢序列、AliExpress 價格）
+- [ ] 產品詳情頁 v0：分數拆解 + 證據清單（廣告連結、趨勢序列、供應商價格）
 - [x] `npm run seed`：一次跑 ingest(fixture) → match → score，方便本機與 preview 環境展示
 
-## Phase 2 — 資料蒐集層
-- [x] 統一的 `SourceAdapter` 介面 + fixture 模式 + 重試/限流/錯誤紀錄（`src/ingestion`）
-- [x] 第一批 fixture 資料集（Meta EU 廣告、Google Trends、AliExpress）+ 解析器 + CLI job `npm run ingest -- <source|all> --fixture`
-- [ ] 各來源 live adapter（依 Phase 0 研究結果決定順序與方式）：Meta /ads_archive、SerpApi google_trends、AliExpress affiliate（需金鑰，先實作請求與簽章並以 mock fetch 測試）
+## Phase 2B — 第一手真實資料（ADR-005，產品詳情頁之後最優先）
+目標：盡早開始每天累積英語系五國（US、CA、UK、AU、NZ）的真實資料，回測需要至少 4–8 週歷史。
+每個 live adapter 都先以 mock fetch 寫測試；沒有金鑰時在 HUMAN_TODO 標示並跳過，改做下一個。
+- [ ] 資料模型：訊號與 source item 帶「國家」維度（ISO 3166-1），支援目標市場清單設定（英語系五國優先、歐洲第二波）
+- [ ] 移除 AliExpress：fixture、解析器與來源 enum 改為 CJ Dropshipping 樣本（依 `docs/research/suppliers.md` 的真實回應格式）
+- [ ] Shopify Global Catalog adapter（MCP，agent profile 認證）：依 ships_to 國家查詢商品 → 零售價中位數、販售店家數、店家網域；需先確認 early access 權限與使用條款
+- [ ] CJ Dropshipping API v2 adapter：Trending 商品、90 天銷量（soldOut / orderCount）、各國運費與運送時間、各倉庫存 → 供應成本與需求訊號
+- [ ] Meta Ad Library 公開網站蒐集器（US、CA、AU、NZ 優先，ADR-006）：先研究公開頁面的資料格式（廣告開始日期、是否仍在投放、同創意廣告數、平台、landing page 網域），以 Playwright 低頻率蒐集；被擋即停止退避；在 GitHub Actions 或使用者電腦上執行（不在 Vercel）
+- [ ] Meta Ad Library API adapter（UK + EU，官方 API）：廣告持續天數、創意變體、廣告主、landing page 網域
+- [ ] Pinterest Trends API adapter（US、CA、GB、AU+NZ）：搜尋趨勢與成長
+- [ ] Google Merchant API Best sellers adapter：每週/每月熱銷排名、relative_demand 與變化（11 國）；需 Merchant Center 達到資格門檻
+- [ ] Google Ads API Keyword Planner adapter：關鍵字月搜尋量與趨勢（需 developer token Basic access）
+- [ ] TikTok Creative Center 公開頁面蒐集器（Top Ads 等不需登入的部分，依國家篩選，ADR-006）
+- [ ] TikTok Commercial Content API adapter（UK + EU）：廣告與觸及
+- [ ] 單一 Shopify 店家查詢（合規版）：robots.txt → `/meta.json`（國家、可出貨國家）→ 商品 `.js`；每店每天最多一次、遇 403/429/430 退避、不用 proxy；不追蹤庫存、訂單編號、best-selling 排序與 cart
+- [ ] 每日排程：GitHub Actions 依序跑 ingest（所有已設定金鑰的來源）→ match → score，含失敗通知
+- [ ] 資料來源健康度頁面：每個來源最近一次執行、筆數、錯誤
+
+## Phase 2C — 資料品質
 - [ ] 實體對應 v1：加入圖片感知雜湊 + 向量相似度與標註測試集；embedding 欄位需 pgvector migration（PGlite 0.5 未內建 vector，測試需另找方式或以 Neon 分支測）
-- [ ] 排程與 ingestion pipeline（Vercel Cron / 外部 worker），含執行紀錄與監控頁
+- [ ] 評分改用真實來源：margin（Shopify 零售價 − CJ 成本 − 運費）、demandTrend 改用 Pinterest / Google Best sellers、scaling 以國家加權（英語系五國優先）
+
+## Phase 2（已完成部分，保留紀錄）
+- [x] 統一的 `SourceAdapter` 介面 + fixture 模式 + 重試/限流/錯誤紀錄（`src/ingestion`）
+- [x] 第一批 fixture 資料集（Meta EU 廣告、Google Trends、AliExpress）+ 解析器 + CLI job `npm run ingest -- <source|all> --fixture`（AliExpress 將於 Phase 2B 移除）
 
 ## Phase 3 — 評分引擎
-- [ ] 評分 v1：engagementVelocity（robust z-score）、飽和度細化、利潤估算含運費
+- [ ] 評分 v1：engagementVelocity（robust z-score）、飽和度細化
 - [ ] 回測：用歷史資料驗證分數是否能提前抓到後來真的爆的產品，結果寫進 `docs/research/scoring.md`
 
 ## Phase 4 — 產品介面

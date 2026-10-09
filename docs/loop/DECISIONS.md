@@ -46,3 +46,27 @@
 - 決定：B。新增 ROADMAP「Phase 2A」。實體對應 v0 只用文字（fixture 圖片網址是假的，圖片雜湊等真實資料再做）。
 - 理由：越早有可展示、可點進去看證據的產品頁，越早發現 schema/評分設計的問題；拿到金鑰後只需替換 adapter 供應商。
 - 後果：live adapters 移到垂直切片之後；首頁/探索頁必須清楚標示樣本資料。
+
+## ADR-005：以第一手資料為主、英語系五國優先，移除 AliExpress（2026-10-10，狀態：採用；部分取代 ADR-001）
+- 背景：使用者決定目標市場為英語系五國優先（US、CA、UK、AU、NZ），其次歐洲（DE、FR、SE、BE、ES、NO）；要求優先使用第一手資料；Meta 資料可用於付費服務；不使用 AliExpress；花錢必須有實質成果。三份研究：`docs/research/first-party-sources.md`、`suppliers.md`、`store-signals.md`。
+- 主要發現：
+  - 沒有任何平台提供 US/CA/AU/NZ 商業廣告的官方 API。Meta `/ads_archive` 與 TikTok Commercial Content API 只涵蓋 UK + EU；Google Ads Transparency 的 BigQuery 資料集只涵蓋 EEA（不含 UK）。
+  - Meta 公開 Ad Library 網站有美國廣告，但 Meta 條款禁止自動化蒐集（不論是否登入）並禁止轉售蒐集到的資料 → 高風險。
+  - SerpApi 抓 Google 頁面（Google v. SerpApi 訴訟仍在進行）、Apify actor 抓平台公開介面、Keepa 自己爬 Amazon；Amazon 官方 API 的政策禁止把資料用於分析或資料販售服務。
+  - 可用的第一手來源：Google Merchant API Best sellers（11 國，需 Merchant Center 資格）、Shopify Global Catalog（官方 MCP，early access，可依出貨國家查零售價與販售店家數）、Pinterest Trends API、Google Ads Keyword Planner、Meta/TikTok 官方 API（UK + EU）、CJ Dropshipping API v2（Trending、90 天銷量、各國運費）。
+- 決定：
+  1. 資料來源改以官方第一手 API 為主（Phase 2B 清單）；中間商（SerpApi、Apify、Keepa）暫不採用，除非某個缺口無法由第一手來源補足且經使用者決定。
+  2. 美國等非 UK/EU 市場的廣告訊號，以 Google Merchant Best sellers、Shopify Global Catalog、Pinterest Trends、CJ 銷量補足；不自行爬 Meta/TikTok 公開網站（維持 CLAUDE.md 合規規則，若要改變需使用者明確決定）。
+  3. 移除 AliExpress，供應商先接 CJ Dropshipping API v2；Zendrop MCP 實測後再決定；歐洲第二波考慮 BigBuy。
+  4. 資料模型加入國家維度，評分可依目標市場加權。
+- 後果：ADR-001 的第一批來源（SerpApi、AliExpress）作廢；需要使用者申請 Google Cloud / Merchant Center / Google Ads / Pinterest / Meta / TikTok / CJ / Shopify 開發者帳號；Merchant Center 資格與 Shopify Catalog 使用條款需使用者確認。
+
+## ADR-006：蒐集 Meta / TikTok 公開廣告網站（2026-10-10，狀態：採用；修改 ADR-005 決定 2）
+- 背景：官方 API 只提供 UK + EU 的商業廣告，而使用者最優先的市場是 US、CA、AU、NZ。使用者認為 Meta 與 TikTok 的公開廣告網站是最重要的第一手資訊，決定要蒐集；平台初期由使用者個人研究使用。
+- 風險（已告知使用者）：Meta 條款禁止自動化蒐集（不論是否登入）並禁止轉售蒐集資料；TikTok 條款禁止 scraping。個人使用降低了商業風險，但條款本身仍適用；可能遭封鎖 IP 或帳號。之後若對外開放或收費，必須重新評估。
+- 決定：
+  1. 實作 Meta Ad Library 網站與 TikTok Creative Center 的公開頁面蒐集器，美國等英語系市場優先。
+  2. 界線：不破解 CAPTCHA、不繞過 bot 偵測（不用 proxy 輪替、不偽造指紋）、不用程式輸入帳密登入、不蒐集個人資料；被擋就停止退避並記錄。
+  3. 低頻率、有總量上限；在 GitHub Actions 或使用者電腦執行，不在 Vercel。
+  4. 若自建蒐集器長期被擋，再評估 Apify 等付費服務（依花錢原則，先說明能換到的成果再請使用者決定）。
+- 後果：CLAUDE.md 的「合規規則」改為「資料蒐集規則」；ROADMAP Phase 2B 新增兩個公開頁面蒐集器。
