@@ -11,6 +11,7 @@ import { getDb } from "@/db/client";
 import { fixtureAdapters } from "@/ingestion/fixtures";
 import { runIngestion } from "@/ingestion/run";
 import type { Source, SourceAdapter } from "@/ingestion/types";
+import { runJob } from "./run-job";
 
 export interface IngestArgs {
   sources: string[];
@@ -68,7 +69,7 @@ async function main() {
       console.log(`${label}: ${n} items (dry run)`);
       continue;
     }
-    const result = await runIngestion(getDb(), adapter, ctx);
+    const result = await runIngestion(await getDb(), adapter, ctx);
     console.log(`${label}: ${result.status}, ${result.itemsFetched} items, run #${result.runId}`);
     if (result.status === "failed") {
       failed = true;
@@ -79,8 +80,5 @@ async function main() {
 }
 
 if (process.argv[1]?.replace(/\\/g, "/").endsWith("jobs/ingest.ts")) {
-  main().catch((err) => {
-    console.error(err instanceof Error ? err.message : err);
-    process.exit(1);
-  });
+  runJob(main);
 }

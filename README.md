@@ -24,6 +24,13 @@ npm run dev                  # http://localhost:3000
 
 ### Database
 
+For a quick local demo without Neon, use the file-backed PGlite database and load sample data:
+
+```bash
+echo "DATABASE_URL=pglite:./.data/dev" > .env.local
+npm run ingest -- all --fixture && npm run match && npm run score
+```
+
 Tests use an in-memory Postgres (PGlite), so no database is needed to run them. For the app itself,
 create a Neon database, set `DATABASE_URL`, then apply migrations:
 

@@ -66,3 +66,35 @@
 - 驗證：format ✅ lint ✅ typecheck ✅ test ✅（25 tests）build ✅；CLI dry-run 正常（44 ads / 5 trends / 5 listings）
 - commit：見 git log
 - 下一步：live adapters（mock fetch 測試）或先做正規化/實體對應——下一輪依 ROADMAP 順序
+
+## 2026-10-09 — 輪 10：回顧輪
+- 回顧結論：
+  1. 優先順序調整為「端到端垂直切片」先行（ADR-004，ROADMAP 新增 Phase 2A），因為沒有金鑰時 live adapter 無法驗證，而對應/評分/頁面尚未驗證 schema 設計。
+  2. 技術債：Windows CRLF 警告 → 新增 `.gitattributes`（統一 LF）。
+  3. 風險：Meta 條款法律確認仍待使用者處理（HUMAN_TODO）；AliExpress 欄位名待真實回應確認。
+  4. Fixture 的 trend 查詢詞（如 "corrector brace"）與產品標題不同，實體對應需支援關鍵字 → 產品的部分比對。
+- 驗證：僅文件與設定變更；test ✅
+- commit：見 git log
+- 下一步：Phase 2A 正規化 + 實體對應 v0
+
+## 2026-10-09 — 輪 11：實體對應 v0
+- 完成：`src/matching/`：標題正規化（去行銷字、數字、複數）、Jaccard（廣告/商品 ≥ 0.6 合併，否則建新產品）、trend 關鍵字以「所有 token 都包含」連到最具體的產品、無法判斷的項目保留未對應不亂猜；純函式 `planMatches` + DB 套用 `runMatching`（冪等）；`npm run match`。
+- 驗證：format ✅ lint ✅ typecheck ✅ test ✅（35 tests；fixture 端到端：54 筆全對應到 5 個產品，每個產品都有 Meta/AliExpress/Trends 三個來源）build ✅
+- 已知限制：純文字比對，對不同語言或改寫幅度大的標題會失敗 → v1 加圖片雜湊與向量。
+- commit：見 git log
+- 下一步：評分 v0
+
+## 2026-10-09 — 輪 12：評分 v0
+- 完成：`src/scoring/`：stats（median、Theil-Sen、百分位排名）、features（longevity 依格式 τ、停投廣告半權重、14 天新廣告+新廣告主、trend 相對斜率、市集訂單、產品年齡取最早廣告）、score（可解釋 breakdown、缺資料不計分、佐證乘數、飽和懲罰、單一來源上限 70、信心度）、run（寫入 product_scores）；`npm run score`。
+- Fixture 排名：Paw Cleaner 73.4 > Posture 59.4 > LED Mask 52.8 > Blender 29.5 > Cloud Slides 24.4（符合樣本故事），寫入 scoring.md。
+- 驗證：format ✅ lint ✅ typecheck ✅ test ✅ build ✅
+- 注意：package.json 非 ESM，tsx 腳本不能用 top-level await（jobs 已用 main().catch）。
+- commit：見 git log
+- 下一步：產品探索頁 v0
+
+## 2026-10-09 — 輪 13：產品探索頁 v0
+- 完成：`/products` 排名頁（Suspense + `connection()`，部分預渲染）、`getRankedProducts`（每個產品最新分數、來源清單、全為 fixture 時標示「Sample data」）、ProductTable 元件、首頁按鈕連結；`DATABASE_URL=pglite:./.data/dev` 本機示範資料庫（不需 Neon）；`getDb()` 改為 async + `closeDb()`，jobs 統一用 `runJob` 結束連線。
+- 修正：PGlite 需 `serverExternalPackages`（否則 wasm 路徑壞掉）；shadcn init 產生的 `--font-sans: var(--font-sans)` 自我參照導致字型退回 Times；信心度標籤門檻提高（high ≥ 0.8），v0 缺 2 個子分數時顯示 Medium，避免誤導。
+- 驗證：format ✅ lint ✅ typecheck ✅ test ✅（46）build ✅ e2e ✅（2）；瀏覽器實際檢查排名頁顯示正確。
+- commit：見 git log
+- 下一步：產品詳情頁 v0

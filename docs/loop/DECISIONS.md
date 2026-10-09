@@ -39,3 +39,10 @@
   - 套件管理用 npm；Node 22 LTS 以上。
 - 理由：抓取與 embedding 計算時間不可控，不適合 Vercel function；GitHub Actions 無額外成本、跟 repo 同處；Better Auth 免費、資料自有、Next.js 生態主流。
 - 後果：jobs 不能依賴 Next.js runtime；需要 `DATABASE_URL` 與各 API key 同時設定在 Vercel 與 GitHub Secrets；Vercel Hobby 方案的 cron 只能每日，若需更頻繁要升級 Pro 或全交給 GitHub Actions。
+
+## ADR-004：先做端到端垂直切片，再接 live API（2026-10-09，回顧輪 10，狀態：採用）
+- 背景：前 9 輪完成研究、骨架、schema、adapter 層與 fixtures。所有 API 金鑰都還沒有，live adapter 寫了也無法驗證真實回應；而實體對應、評分、頁面都還沒開始，schema 與評分設計尚未被實際使用驗證。
+- 選項：(A) 照原順序先寫所有 live adapter；(B) 先用 fixtures 打通 蒐集 → 對應 → 評分 → 頁面 的最小版本，再回頭接 live API。
+- 決定：B。新增 ROADMAP「Phase 2A」。實體對應 v0 只用文字（fixture 圖片網址是假的，圖片雜湊等真實資料再做）。
+- 理由：越早有可展示、可點進去看證據的產品頁，越早發現 schema/評分設計的問題；拿到金鑰後只需替換 adapter 供應商。
+- 後果：live adapters 移到垂直切片之後；首頁/探索頁必須清楚標示樣本資料。

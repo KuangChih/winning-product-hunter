@@ -16,17 +16,23 @@
 - [x] `.env.example`、README（本地開發步驟）
 - [x] GitHub Actions CI（format/lint/typecheck/test/build + e2e）— 需 push 後才會實際執行
 
+## Phase 2A — 端到端垂直切片（回顧輪 10 決定優先，ADR-004）
+用 fixture 資料先打通「蒐集 → 對應 → 評分 → 頁面」，再接 live API。
+- [x] 正規化 + 實體對應 v0：標題正規化、token 相似度把 source items 歸到 products；trend 關鍵字以 token 包含關係連到產品（圖片雜湊待有真實圖片時加入）；CLI `npm run match`
+- [x] 評分 v0：依 `docs/research/scoring.md` 實作可解釋子分數（longevity、scaling、demandTrend、marketplace、margin），寫入 product_scores；CLI `npm run score`
+- [x] 產品探索頁 v0：讀 DB 列出最新分數排名，標示「樣本資料」；無 DATABASE_URL 時顯示設定說明
+- [ ] 產品詳情頁 v0：分數拆解 + 證據清單（廣告連結、趨勢序列、AliExpress 價格）
+- [ ] `npm run seed`：一次跑 ingest(fixture) → match → score，方便本機與 preview 環境展示
+
 ## Phase 2 — 資料蒐集層
 - [x] 統一的 `SourceAdapter` 介面 + fixture 模式 + 重試/限流/錯誤紀錄（`src/ingestion`）
 - [x] 第一批 fixture 資料集（Meta EU 廣告、Google Trends、AliExpress）+ 解析器 + CLI job `npm run ingest -- <source|all> --fixture`
 - [ ] 各來源 live adapter（依 Phase 0 研究結果決定順序與方式）：Meta /ads_archive、SerpApi google_trends、AliExpress affiliate（需金鑰，先實作請求與簽章並以 mock fetch 測試）
-- [ ] 正規化：原始資料 → 統一的 product candidate
-- [ ] 產品實體對應（圖片感知雜湊 + 文字相似度）與測試資料集；embedding 欄位需 pgvector migration（PGlite 0.5 未內建 vector，測試需另找方式或以 Neon 分支測）
+- [ ] 實體對應 v1：加入圖片感知雜湊 + 向量相似度與標註測試集；embedding 欄位需 pgvector migration（PGlite 0.5 未內建 vector，測試需另找方式或以 Neon 分支測）
 - [ ] 排程與 ingestion pipeline（Vercel Cron / 外部 worker），含執行紀錄與監控頁
 
 ## Phase 3 — 評分引擎
-- [ ] 實作 Winning Score（各子分數可解釋、可調權重）
-- [ ] 時間序列速度指標、飽和度、利潤估算
+- [ ] 評分 v1：engagementVelocity（robust z-score）、飽和度細化、利潤估算含運費
 - [ ] 回測：用歷史資料驗證分數是否能提前抓到後來真的爆的產品，結果寫進 `docs/research/scoring.md`
 
 ## Phase 4 — 產品介面

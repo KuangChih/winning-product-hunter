@@ -68,3 +68,11 @@ confidence = 有資料的權重總和 × 來源數因子（顯示為 低/中/高
 - 產品條件：[EComposer](https://ecomposer.io/blogs/dropshipping/find-winning-product-for-dropshipping)、[Zendrop](https://www.zendrop.com/blog/car-vacuum-cleaner-analysis/)
 - 圖片比對：[arXiv 1811.07996](https://arxiv.org/pdf/1811.07996)、[pHash vs dHash](https://ssojet.com/compare-hashing-algorithms/phash-vs-dhash)、[pHash in Python](https://ssojet.com/hashing/phash-in-python)、[Apify Image Similarity API](https://apify.com/johnvc/image-similarity-api)
 - 趨勢偵測：[smoothed z-score（php-zscore）](https://root.packagist.org/packages/gtjamesa/php-zscore)、[delaynet z-score](https://delaynet.readthedocs.io/en/stable/guide/10_detrending/z_score/)；median/MAD、Mann-Kendall、Theil-Sen 為標準統計方法
+
+## 6. v0 實作狀態（2026-10-09）
+
+已實作於 `src/scoring/`（版本 `v0`）：longevity、scaling、demandTrend、marketplace（以訂單「水準」排名，成長率待有多次快照）、佐證乘數、飽和懲罰（活躍廣告主數與產品年齡的百分位平均）、單一來源上限 70、信心度。
+
+尚缺：engagementVelocity（需 TikTok 資料）、margin（需零售價；廣告與 Shopify 店家價格接上後計算）。缺的子分數不計分並降低信心度，目前信心度上限約 0.7。
+
+Fixture 排名（`2026-10-09`）：爆發中的新品 73.4 > 穩定上升 59.4 > 高原但飽和 52.8 > 下滑 29.5 > 冷門 24.4，符合樣本設計的故事。這只是合理性檢查，不是回測。

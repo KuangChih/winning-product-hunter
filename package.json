@@ -17,7 +17,9 @@
     "db:migrate": "drizzle-kit migrate",
     "db:studio": "drizzle-kit studio",
     "ingest": "tsx src/jobs/ingest.ts",
-    "fixtures:generate": "node scripts/generate-fixtures.mjs src/ingestion/fixtures"
+    "fixtures:generate": "node scripts/generate-fixtures.mjs src/ingestion/fixtures",
+    "match": "tsx src/jobs/match.ts",
+    "score": "tsx src/jobs/score.ts"
   },
   "dependencies": {
     "@base-ui/react": "^1.9.0",
