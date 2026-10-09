@@ -15,7 +15,9 @@
     "format:check": "prettier --check .",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
-    "db:studio": "drizzle-kit studio"
+    "db:studio": "drizzle-kit studio",
+    "ingest": "tsx src/jobs/ingest.ts",
+    "fixtures:generate": "node scripts/generate-fixtures.mjs src/ingestion/fixtures"
   },
   "dependencies": {
     "@base-ui/react": "^1.9.0",

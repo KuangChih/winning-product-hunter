@@ -1,8 +1,12 @@
 import { neon } from "@neondatabase/serverless";
 import { drizzle } from "drizzle-orm/neon-http";
+import type { PgDatabase, PgQueryResultHKT } from "drizzle-orm/pg-core";
 import * as schema from "./schema";
 
 export type Database = ReturnType<typeof createDb>;
+
+/** Any Drizzle Postgres database with our schema (Neon in production, PGlite in tests). */
+export type AnyDatabase = PgDatabase<PgQueryResultHKT, typeof schema>;
 
 export function createDb(databaseUrl: string) {
   return drizzle(neon(databaseUrl), { schema });

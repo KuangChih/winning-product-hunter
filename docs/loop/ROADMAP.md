@@ -17,8 +17,9 @@
 - [x] GitHub Actions CI（format/lint/typecheck/test/build + e2e）— 需 push 後才會實際執行
 
 ## Phase 2 — 資料蒐集層
-- [ ] 統一的 `SourceAdapter` 介面 + fixture 模式 + 重試/限流/錯誤紀錄
-- [ ] 各來源 adapter（依 Phase 0 研究結果決定順序與方式）
+- [x] 統一的 `SourceAdapter` 介面 + fixture 模式 + 重試/限流/錯誤紀錄（`src/ingestion`）
+- [x] 第一批 fixture 資料集（Meta EU 廣告、Google Trends、AliExpress）+ 解析器 + CLI job `npm run ingest -- <source|all> --fixture`
+- [ ] 各來源 live adapter（依 Phase 0 研究結果決定順序與方式）：Meta /ads_archive、SerpApi google_trends、AliExpress affiliate（需金鑰，先實作請求與簽章並以 mock fetch 測試）
 - [ ] 正規化：原始資料 → 統一的 product candidate
 - [ ] 產品實體對應（圖片感知雜湊 + 文字相似度）與測試資料集；embedding 欄位需 pgvector migration（PGlite 0.5 未內建 vector，測試需另找方式或以 Neon 分支測）
 - [ ] 排程與 ingestion pipeline（Vercel Cron / 外部 worker），含執行紀錄與監控頁

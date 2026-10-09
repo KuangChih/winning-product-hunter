@@ -1,0 +1,386 @@
+{
+  "search_parameters": {
+    "engine": "google_trends",
+    "q": "corrector brace,face mask,rechargeable blender,cleaner cup,slides sandals",
+    "geo": "US",
+    "date": "today 3-m",
+    "data_type": "TIMESERIES"
+  },
+  "interest_over_time": {
+    "timeline_data": [
+      {
+        "date": "Fri Jul 17 2026",
+        "timestamp": "1784246400",
+        "values": [
+          {
+            "query": "corrector brace",
+            "value": "28",
+            "extracted_value": 28
+          },
+          {
+            "query": "face mask",
+            "value": "71",
+            "extracted_value": 71
+          },
+          {
+            "query": "rechargeable blender",
+            "value": "79",
+            "extracted_value": 79
+          },
+          {
+            "query": "cleaner cup",
+            "value": "11",
+            "extracted_value": 11
+          },
+          {
+            "query": "slides sandals",
+            "value": "12",
+            "extracted_value": 12
+          }
+        ]
+      },
+      {
+        "date": "Fri Jul 24 2026",
+        "timestamp": "1784851200",
+        "values": [
+          {
+            "query": "corrector brace",
+            "value": "34",
+            "extracted_value": 34
+          },
+          {
+            "query": "face mask",
+            "value": "68",
+            "extracted_value": 68
+          },
+          {
+            "query": "rechargeable blender",
+            "value": "76",
+            "extracted_value": 76
+          },
+          {
+            "query": "cleaner cup",
+            "value": "9",
+            "extracted_value": 9
+          },
+          {
+            "query": "slides sandals",
+            "value": "14",
+            "extracted_value": 14
+          }
+        ]
+      },
+      {
+        "date": "Fri Jul 31 2026",
+        "timestamp": "1785456000",
+        "values": [
+          {
+            "query": "corrector brace",
+            "value": "40",
+            "extracted_value": 40
+          },
+          {
+            "query": "face mask",
+            "value": "70",
+            "extracted_value": 70
+          },
+          {
+            "query": "rechargeable blender",
+            "value": "68",
+            "extracted_value": 68
+          },
+          {
+            "query": "cleaner cup",
+            "value": "11",
+            "extracted_value": 11
+          },
+          {
+            "query": "slides sandals",
+            "value": "11",
+            "extracted_value": 11
+          }
+        ]
+      },
+      {
+        "date": "Fri Aug 07 2026",
+        "timestamp": "1786060800",
+        "values": [
+          {
+            "query": "corrector brace",
+            "value": "41",
+            "extracted_value": 41
+          },
+          {
+            "query": "face mask",
+            "value": "72",
+            "extracted_value": 72
+          },
+          {
+            "query": "rechargeable blender",
+            "value": "65",
+            "extracted_value": 65
+          },
+          {
+            "query": "cleaner cup",
+            "value": "9",
+            "extracted_value": 9
+          },
+          {
+            "query": "slides sandals",
+            "value": "13",
+            "extracted_value": 13
+          }
+        ]
+      },
+      {
+        "date": "Fri Aug 14 2026",
+        "timestamp": "1786665600",
+        "values": [
+          {
+            "query": "corrector brace",
+            "value": "47",
+            "extracted_value": 47
+          },
+          {
+            "query": "face mask",
+            "value": "69",
+            "extracted_value": 69
+          },
+          {
+            "query": "rechargeable blender",
+            "value": "62",
+            "extracted_value": 62
+          },
+          {
+            "query": "cleaner cup",
+            "value": "13",
+            "extracted_value": 13
+          },
+          {
+            "query": "slides sandals",
+            "value": "10",
+            "extracted_value": 10
+          }
+        ]
+      },
+      {
+        "date": "Fri Aug 21 2026",
+        "timestamp": "1787270400",
+        "values": [
+          {
+            "query": "corrector brace",
+            "value": "48",
+            "extracted_value": 48
+          },
+          {
+            "query": "face mask",
+            "value": "71",
+            "extracted_value": 71
+          },
+          {
+            "query": "rechargeable blender",
+            "value": "54",
+            "extracted_value": 54
+          },
+          {
+            "query": "cleaner cup",
+            "value": "18",
+            "extracted_value": 18
+          },
+          {
+            "query": "slides sandals",
+            "value": "12",
+            "extracted_value": 12
+          }
+        ]
+      },
+      {
+        "date": "Fri Aug 28 2026",
+        "timestamp": "1787875200",
+        "values": [
+          {
+            "query": "corrector brace",
+            "value": "54",
+            "extracted_value": 54
+          },
+          {
+            "query": "face mask",
+            "value": "68",
+            "extracted_value": 68
+          },
+          {
+            "query": "rechargeable blender",
+            "value": "51",
+            "extracted_value": 51
+          },
+          {
+            "query": "cleaner cup",
+            "value": "18",
+            "extracted_value": 18
+          },
+          {
+            "query": "slides sandals",
+            "value": "14",
+            "extracted_value": 14
+          }
+        ]
+      },
+      {
+        "date": "Fri Sep 04 2026",
+        "timestamp": "1788480000",
+        "values": [
+          {
+            "query": "corrector brace",
+            "value": "60",
+            "extracted_value": 60
+          },
+          {
+            "query": "face mask",
+            "value": "70",
+            "extracted_value": 70
+          },
+          {
+            "query": "rechargeable blender",
+            "value": "43",
+            "extracted_value": 43
+          },
+          {
+            "query": "cleaner cup",
+            "value": "26",
+            "extracted_value": 26
+          },
+          {
+            "query": "slides sandals",
+            "value": "11",
+            "extracted_value": 11
+          }
+        ]
+      },
+      {
+        "date": "Fri Sep 11 2026",
+        "timestamp": "1789084800",
+        "values": [
+          {
+            "query": "corrector brace",
+            "value": "61",
+            "extracted_value": 61
+          },
+          {
+            "query": "face mask",
+            "value": "72",
+            "extracted_value": 72
+          },
+          {
+            "query": "rechargeable blender",
+            "value": "40",
+            "extracted_value": 40
+          },
+          {
+            "query": "cleaner cup",
+            "value": "32",
+            "extracted_value": 32
+          },
+          {
+            "query": "slides sandals",
+            "value": "13",
+            "extracted_value": 13
+          }
+        ]
+      },
+      {
+        "date": "Fri Sep 18 2026",
+        "timestamp": "1789689600",
+        "values": [
+          {
+            "query": "corrector brace",
+            "value": "67",
+            "extracted_value": 67
+          },
+          {
+            "query": "face mask",
+            "value": "69",
+            "extracted_value": 69
+          },
+          {
+            "query": "rechargeable blender",
+            "value": "37",
+            "extracted_value": 37
+          },
+          {
+            "query": "cleaner cup",
+            "value": "46",
+            "extracted_value": 46
+          },
+          {
+            "query": "slides sandals",
+            "value": "10",
+            "extracted_value": 10
+          }
+        ]
+      },
+      {
+        "date": "Fri Sep 25 2026",
+        "timestamp": "1790294400",
+        "values": [
+          {
+            "query": "corrector brace",
+            "value": "68",
+            "extracted_value": 68
+          },
+          {
+            "query": "face mask",
+            "value": "71",
+            "extracted_value": 71
+          },
+          {
+            "query": "rechargeable blender",
+            "value": "29",
+            "extracted_value": 29
+          },
+          {
+            "query": "cleaner cup",
+            "value": "68",
+            "extracted_value": 68
+          },
+          {
+            "query": "slides sandals",
+            "value": "12",
+            "extracted_value": 12
+          }
+        ]
+      },
+      {
+        "date": "Fri Oct 02 2026",
+        "timestamp": "1790899200",
+        "values": [
+          {
+            "query": "corrector brace",
+            "value": "74",
+            "extracted_value": 74
+          },
+          {
+            "query": "face mask",
+            "value": "68",
+            "extracted_value": 68
+          },
+          {
+            "query": "rechargeable blender",
+            "value": "26",
+            "extracted_value": 26
+          },
+          {
+            "query": "cleaner cup",
+            "value": "93",
+            "extracted_value": 93
+          },
+          {
+            "query": "slides sandals",
+            "value": "14",
+            "extracted_value": 14
+          }
+        ],
+        "partial_data": true
+      }
+    ]
+  }
+}

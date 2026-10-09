@@ -1,0 +1,74 @@
+{
+  "resp_result": {
+    "resp_code": 200,
+    "resp_msg": "Call succeeds",
+    "result": {
+      "current_page_no": 1,
+      "total_record_count": 5,
+      "products": {
+        "product": [
+          {
+            "product_id": 1005007000000000,
+            "product_title": "Adjustable Posture Corrector Brace",
+            "product_main_image_url": "https://ae01.alicdn.com/kf/fixture-posture.jpg",
+            "product_detail_url": "https://www.aliexpress.com/item/1005007000000000.html",
+            "target_sale_price": "8.42",
+            "target_sale_price_currency": "USD",
+            "target_original_price": "16.84",
+            "lastest_volume": 5400,
+            "evaluate_rate": "92.0%",
+            "first_level_category_name": "Fixture Category"
+          },
+          {
+            "product_id": 1005007000001111,
+            "product_title": "LED Light Therapy Face Mask",
+            "product_main_image_url": "https://ae01.alicdn.com/kf/fixture-ledmask.jpg",
+            "product_detail_url": "https://www.aliexpress.com/item/1005007000001111.html",
+            "target_sale_price": "21.90",
+            "target_sale_price_currency": "USD",
+            "target_original_price": "43.80",
+            "lastest_volume": 18000,
+            "evaluate_rate": "93.0%",
+            "first_level_category_name": "Fixture Category"
+          },
+          {
+            "product_id": 1005007000002222,
+            "product_title": "Portable USB Rechargeable Blender",
+            "product_main_image_url": "https://ae01.alicdn.com/kf/fixture-blender.jpg",
+            "product_detail_url": "https://www.aliexpress.com/item/1005007000002222.html",
+            "target_sale_price": "9.15",
+            "target_sale_price_currency": "USD",
+            "target_original_price": "18.30",
+            "lastest_volume": 2100,
+            "evaluate_rate": "94.0%",
+            "first_level_category_name": "Fixture Category"
+          },
+          {
+            "product_id": 1005007000003333,
+            "product_title": "Silicone Dog Paw Cleaner Cup",
+            "product_main_image_url": "https://ae01.alicdn.com/kf/fixture-pawcleaner.jpg",
+            "product_detail_url": "https://www.aliexpress.com/item/1005007000003333.html",
+            "target_sale_price": "3.80",
+            "target_sale_price_currency": "USD",
+            "target_original_price": "7.60",
+            "lastest_volume": 1300,
+            "evaluate_rate": "95.0%",
+            "first_level_category_name": "Fixture Category"
+          },
+          {
+            "product_id": 1005007000004444,
+            "product_title": "Cloud Pillow Slides Sandals",
+            "product_main_image_url": "https://ae01.alicdn.com/kf/fixture-cloudslides.jpg",
+            "product_detail_url": "https://www.aliexpress.com/item/1005007000004444.html",
+            "target_sale_price": "5.60",
+            "target_sale_price_currency": "USD",
+            "target_original_price": "11.20",
+            "lastest_volume": 900,
+            "evaluate_rate": "96.0%",
+            "first_level_category_name": "Fixture Category"
+          }
+        ]
+      }
+    }
+  }
+}

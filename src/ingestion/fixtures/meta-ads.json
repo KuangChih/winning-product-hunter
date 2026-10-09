@@ -1,0 +1,980 @@
+{
+  "data": [
+    {
+      "id": "1200000000000000",
+      "page_id": "100000000000",
+      "page_name": "Posture Store 1",
+      "ad_creation_time": "2026-07-26T00:00:00+0000",
+      "ad_delivery_start_time": "2026-07-26T00:00:00+0000",
+      "ad_snapshot_url": "https://www.facebook.com/ads/archive/render_ad/?id=1200000000000000",
+      "ad_creative_bodies": [
+        "Adjustable Posture Corrector Brace - limited stock, free shipping today only."
+      ],
+      "ad_creative_link_titles": [
+        "Adjustable Posture Corrector Brace"
+      ],
+      "publisher_platforms": [
+        "facebook",
+        "instagram"
+      ],
+      "languages": [
+        "en"
+      ],
+      "eu_total_reach": 64800
+    },
+    {
+      "id": "1200000000000001",
+      "page_id": "100000000001",
+      "page_name": "Posture Store 2",
+      "ad_creation_time": "2026-08-03T00:00:00+0000",
+      "ad_delivery_start_time": "2026-08-03T00:00:00+0000",
+      "ad_snapshot_url": "https://www.facebook.com/ads/archive/render_ad/?id=1200000000000001",
+      "ad_creative_bodies": [
+        "Adjustable Posture Corrector Brace - limited stock, free shipping today only."
+      ],
+      "ad_creative_link_titles": [
+        "Adjustable Posture Corrector Brace"
+      ],
+      "publisher_platforms": [
+        "facebook",
+        "instagram"
+      ],
+      "languages": [
+        "en"
+      ],
+      "eu_total_reach": 32400
+    },
+    {
+      "id": "1200000000000002",
+      "page_id": "100000000002",
+      "page_name": "Posture Store 3",
+      "ad_creation_time": "2026-08-12T00:00:00+0000",
+      "ad_delivery_start_time": "2026-08-12T00:00:00+0000",
+      "ad_snapshot_url": "https://www.facebook.com/ads/archive/render_ad/?id=1200000000000002",
+      "ad_creative_bodies": [
+        "Adjustable Posture Corrector Brace - limited stock, free shipping today only."
+      ],
+      "ad_creative_link_titles": [
+        "Adjustable Posture Corrector Brace"
+      ],
+      "publisher_platforms": [
+        "facebook",
+        "instagram"
+      ],
+      "languages": [
+        "en"
+      ],
+      "eu_total_reach": 21600
+    },
+    {
+      "id": "1200000000000003",
+      "page_id": "100000000003",
+      "page_name": "Posture Store 4",
+      "ad_creation_time": "2026-08-20T00:00:00+0000",
+      "ad_delivery_start_time": "2026-08-20T00:00:00+0000",
+      "ad_snapshot_url": "https://www.facebook.com/ads/archive/render_ad/?id=1200000000000003",
+      "ad_creative_bodies": [
+        "Adjustable Posture Corrector Brace - limited stock, free shipping today only."
+      ],
+      "ad_creative_link_titles": [
+        "Adjustable Posture Corrector Brace"
+      ],
+      "publisher_platforms": [
+        "facebook",
+        "instagram"
+      ],
+      "languages": [
+        "en"
+      ],
+      "eu_total_reach": 16200
+    },
+    {
+      "id": "1200000000000004",
+      "page_id": "100000000000",
+      "page_name": "Posture Store 1",
+      "ad_creation_time": "2026-08-28T00:00:00+0000",
+      "ad_delivery_start_time": "2026-08-28T00:00:00+0000",
+      "ad_snapshot_url": "https://www.facebook.com/ads/archive/render_ad/?id=1200000000000004",
+      "ad_creative_bodies": [
+        "Adjustable Posture Corrector Brace - limited stock, free shipping today only."
+      ],
+      "ad_creative_link_titles": [
+        "Adjustable Posture Corrector Brace"
+      ],
+      "publisher_platforms": [
+        "facebook",
+        "instagram"
+      ],
+      "languages": [
+        "en"
+      ],
+      "eu_total_reach": 12960
+    },
+    {
+      "id": "1200000000000005",
+      "page_id": "100000000001",
+      "page_name": "Posture Store 2",
+      "ad_creation_time": "2026-09-06T00:00:00+0000",
+      "ad_delivery_start_time": "2026-09-06T00:00:00+0000",
+      "ad_snapshot_url": "https://www.facebook.com/ads/archive/render_ad/?id=1200000000000005",
+      "ad_creative_bodies": [
+        "Adjustable Posture Corrector Brace - limited stock, free shipping today only."
+      ],
+      "ad_creative_link_titles": [
+        "Adjustable Posture Corrector Brace"
+      ],
+      "publisher_platforms": [
+        "facebook",
+        "instagram"
+      ],
+      "languages": [
+        "en"
+      ],
+      "eu_total_reach": 10800
+    },
+    {
+      "id": "1200000000000006",
+      "page_id": "100000000002",
+      "page_name": "Posture Store 3",
+      "ad_creation_time": "2026-09-14T00:00:00+0000",
+      "ad_delivery_start_time": "2026-09-14T00:00:00+0000",
+      "ad_snapshot_url": "https://www.facebook.com/ads/archive/render_ad/?id=1200000000000006",
+      "ad_creative_bodies": [
+        "Adjustable Posture Corrector Brace - limited stock, free shipping today only."
+      ],
+      "ad_creative_link_titles": [
+        "Adjustable Posture Corrector Brace"
+      ],
+      "publisher_platforms": [
+        "facebook",
+        "instagram"
+      ],
+      "languages": [
+        "en"
+      ],
+      "eu_total_reach": 9257
+    },
+    {
+      "id": "1200000000000007",
+      "page_id": "100000000003",
+      "page_name": "Posture Store 4",
+      "ad_creation_time": "2026-09-22T00:00:00+0000",
+      "ad_delivery_start_time": "2026-09-22T00:00:00+0000",
+      "ad_snapshot_url": "https://www.facebook.com/ads/archive/render_ad/?id=1200000000000007",
+      "ad_creative_bodies": [
+        "Adjustable Posture Corrector Brace - limited stock, free shipping today only."
+      ],
+      "ad_creative_link_titles": [
+        "Adjustable Posture Corrector Brace"
+      ],
+      "publisher_platforms": [
+        "facebook",
+        "instagram"
+      ],
+      "languages": [
+        "en"
+      ],
+      "eu_total_reach": 8100
+    },
+    {
+      "id": "1200000000000008",
+      "page_id": "100000000000",
+      "page_name": "Posture Store 1",
+      "ad_creation_time": "2026-10-01T00:00:00+0000",
+      "ad_delivery_start_time": "2026-10-01T00:00:00+0000",
+      "ad_snapshot_url": "https://www.facebook.com/ads/archive/render_ad/?id=1200000000000008",
+      "ad_creative_bodies": [
+        "Adjustable Posture Corrector Brace - limited stock, free shipping today only."
+      ],
+      "ad_creative_link_titles": [
+        "Adjustable Posture Corrector Brace"
+      ],
+      "publisher_platforms": [
+        "facebook",
+        "instagram"
+      ],
+      "languages": [
+        "en"
+      ],
+      "eu_total_reach": 7200
+    },
+    {
+      "id": "1200000000000009",
+      "page_id": "100000000100",
+      "page_name": "Ledmask Store 1",
+      "ad_creation_time": "2026-03-13T00:00:00+0000",
+      "ad_delivery_start_time": "2026-03-13T00:00:00+0000",
+      "ad_snapshot_url": "https://www.facebook.com/ads/archive/render_ad/?id=1200000000000009",
+      "ad_creative_bodies": [
+        "LED Light Therapy Face Mask - limited stock, free shipping today only."
+      ],
+      "ad_creative_link_titles": [
+        "LED Light Therapy Face Mask"
+      ],
+      "publisher_platforms": [
+        "facebook",
+        "instagram"
+      ],
+      "languages": [
+        "en"
+      ],
+      "eu_total_reach": 216000
+    },
+    {
+      "id": "1200000000000010",
+      "page_id": "100000000101",
+      "page_name": "Ledmask Store 2",
+      "ad_creation_time": "2026-03-23T00:00:00+0000",
+      "ad_delivery_start_time": "2026-03-23T00:00:00+0000",
+      "ad_snapshot_url": "https://www.facebook.com/ads/archive/render_ad/?id=1200000000000010",
+      "ad_creative_bodies": [
+        "LED Light Therapy Face Mask - limited stock, free shipping today only."
+      ],
+      "ad_creative_link_titles": [
+        "LED Light Therapy Face Mask"
+      ],
+      "publisher_platforms": [
+        "facebook",
+        "instagram"
+      ],
+      "languages": [
+        "en"
+      ],
+      "eu_total_reach": 108000
+    },
+    {
+      "id": "1200000000000011",
+      "page_id": "100000000102",
+      "page_name": "Ledmask Store 3",
+      "ad_creation_time": "2026-04-01T00:00:00+0000",
+      "ad_delivery_start_time": "2026-04-01T00:00:00+0000",
+      "ad_snapshot_url": "https://www.facebook.com/ads/archive/render_ad/?id=1200000000000011",
+      "ad_creative_bodies": [
+        "LED Light Therapy Face Mask - limited stock, free shipping today only."
+      ],
+      "ad_creative_link_titles": [
+        "LED Light Therapy Face Mask"
+      ],
+      "publisher_platforms": [
+        "facebook",
+        "instagram"
+      ],
+      "languages": [
+        "en"
+      ],
+      "eu_total_reach": 72000
+    },
+    {
+      "id": "1200000000000012",
+      "page_id": "100000000103",
+      "page_name": "Ledmask Store 4",
+      "ad_creation_time": "2026-04-11T00:00:00+0000",
+      "ad_delivery_start_time": "2026-04-11T00:00:00+0000",
+      "ad_snapshot_url": "https://www.facebook.com/ads/archive/render_ad/?id=1200000000000012",
+      "ad_creative_bodies": [
+        "LED Light Therapy Face Mask - limited stock, free shipping today only."
+      ],
+      "ad_creative_link_titles": [
+        "LED Light Therapy Face Mask"
+      ],
+      "publisher_platforms": [
+        "facebook",
+        "instagram"
+      ],
+      "languages": [
+        "en"
+      ],
+      "eu_total_reach": 54000
+    },
+    {
+      "id": "1200000000000013",
+      "page_id": "100000000104",
+      "page_name": "Ledmask Store 5",
+      "ad_creation_time": "2026-04-20T00:00:00+0000",
+      "ad_delivery_start_time": "2026-04-20T00:00:00+0000",
+      "ad_snapshot_url": "https://www.facebook.com/ads/archive/render_ad/?id=1200000000000013",
+      "ad_creative_bodies": [
+        "LED Light Therapy Face Mask - limited stock, free shipping today only."
+      ],
+      "ad_creative_link_titles": [
+        "LED Light Therapy Face Mask"
+      ],
+      "publisher_platforms": [
+        "facebook",
+        "instagram"
+      ],
+      "languages": [
+        "en"
+      ],
+      "eu_total_reach": 43200
+    },
+    {
+      "id": "1200000000000014",
+      "page_id": "100000000105",
+      "page_name": "Ledmask Store 6",
+      "ad_creation_time": "2026-04-30T00:00:00+0000",
+      "ad_delivery_start_time": "2026-04-30T00:00:00+0000",
+      "ad_snapshot_url": "https://www.facebook.com/ads/archive/render_ad/?id=1200000000000014",
+      "ad_creative_bodies": [
+        "LED Light Therapy Face Mask - limited stock, free shipping today only."
+      ],
+      "ad_creative_link_titles": [
+        "LED Light Therapy Face Mask"
+      ],
+      "publisher_platforms": [
+        "facebook",
+        "instagram"
+      ],
+      "languages": [
+        "en"
+      ],
+      "eu_total_reach": 36000
+    },
+    {
+      "id": "1200000000000015",
+      "page_id": "100000000106",
+      "page_name": "Ledmask Store 7",
+      "ad_creation_time": "2026-05-09T00:00:00+0000",
+      "ad_delivery_start_time": "2026-05-09T00:00:00+0000",
+      "ad_snapshot_url": "https://www.facebook.com/ads/archive/render_ad/?id=1200000000000015",
+      "ad_creative_bodies": [
+        "LED Light Therapy Face Mask - limited stock, free shipping today only."
+      ],
+      "ad_creative_link_titles": [
+        "LED Light Therapy Face Mask"
+      ],
+      "publisher_platforms": [
+        "facebook",
+        "instagram"
+      ],
+      "languages": [
+        "en"
+      ],
+      "eu_total_reach": 30857
+    },
+    {
+      "id": "1200000000000016",
+      "page_id": "100000000107",
+      "page_name": "Ledmask Store 8",
+      "ad_creation_time": "2026-05-19T00:00:00+0000",
+      "ad_delivery_start_time": "2026-05-19T00:00:00+0000",
+      "ad_snapshot_url": "https://www.facebook.com/ads/archive/render_ad/?id=1200000000000016",
+      "ad_creative_bodies": [
+        "LED Light Therapy Face Mask - limited stock, free shipping today only."
+      ],
+      "ad_creative_link_titles": [
+        "LED Light Therapy Face Mask"
+      ],
+      "publisher_platforms": [
+        "facebook",
+        "instagram"
+      ],
+      "languages": [
+        "en"
+      ],
+      "eu_total_reach": 27000
+    },
+    {
+      "id": "1200000000000017",
+      "page_id": "100000000108",
+      "page_name": "Ledmask Store 9",
+      "ad_creation_time": "2026-05-28T00:00:00+0000",
+      "ad_delivery_start_time": "2026-05-28T00:00:00+0000",
+      "ad_snapshot_url": "https://www.facebook.com/ads/archive/render_ad/?id=1200000000000017",
+      "ad_creative_bodies": [
+        "LED Light Therapy Face Mask - limited stock, free shipping today only."
+      ],
+      "ad_creative_link_titles": [
+        "LED Light Therapy Face Mask"
+      ],
+      "publisher_platforms": [
+        "facebook",
+        "instagram"
+      ],
+      "languages": [
+        "en"
+      ],
+      "eu_total_reach": 24000
+    },
+    {
+      "id": "1200000000000018",
+      "page_id": "100000000109",
+      "page_name": "Ledmask Store 10",
+      "ad_creation_time": "2026-06-07T00:00:00+0000",
+      "ad_delivery_start_time": "2026-06-07T00:00:00+0000",
+      "ad_snapshot_url": "https://www.facebook.com/ads/archive/render_ad/?id=1200000000000018",
+      "ad_creative_bodies": [
+        "LED Light Therapy Face Mask - limited stock, free shipping today only."
+      ],
+      "ad_creative_link_titles": [
+        "LED Light Therapy Face Mask"
+      ],
+      "publisher_platforms": [
+        "facebook",
+        "instagram"
+      ],
+      "languages": [
+        "en"
+      ],
+      "eu_total_reach": 21600
+    },
+    {
+      "id": "1200000000000019",
+      "page_id": "100000000110",
+      "page_name": "Ledmask Store 11",
+      "ad_creation_time": "2026-06-16T00:00:00+0000",
+      "ad_delivery_start_time": "2026-06-16T00:00:00+0000",
+      "ad_snapshot_url": "https://www.facebook.com/ads/archive/render_ad/?id=1200000000000019",
+      "ad_creative_bodies": [
+        "LED Light Therapy Face Mask - limited stock, free shipping today only."
+      ],
+      "ad_creative_link_titles": [
+        "LED Light Therapy Face Mask"
+      ],
+      "publisher_platforms": [
+        "facebook",
+        "instagram"
+      ],
+      "languages": [
+        "en"
+      ],
+      "eu_total_reach": 19636
+    },
+    {
+      "id": "1200000000000020",
+      "page_id": "100000000111",
+      "page_name": "Ledmask Store 12",
+      "ad_creation_time": "2026-06-26T00:00:00+0000",
+      "ad_delivery_start_time": "2026-06-26T00:00:00+0000",
+      "ad_snapshot_url": "https://www.facebook.com/ads/archive/render_ad/?id=1200000000000020",
+      "ad_creative_bodies": [
+        "LED Light Therapy Face Mask - limited stock, free shipping today only."
+      ],
+      "ad_creative_link_titles": [
+        "LED Light Therapy Face Mask"
+      ],
+      "publisher_platforms": [
+        "facebook",
+        "instagram"
+      ],
+      "languages": [
+        "en"
+      ],
+      "eu_total_reach": 18000
+    },
+    {
+      "id": "1200000000000021",
+      "page_id": "100000000112",
+      "page_name": "Ledmask Store 13",
+      "ad_creation_time": "2026-07-06T00:00:00+0000",
+      "ad_delivery_start_time": "2026-07-06T00:00:00+0000",
+      "ad_snapshot_url": "https://www.facebook.com/ads/archive/render_ad/?id=1200000000000021",
+      "ad_creative_bodies": [
+        "LED Light Therapy Face Mask - limited stock, free shipping today only."
+      ],
+      "ad_creative_link_titles": [
+        "LED Light Therapy Face Mask"
+      ],
+      "publisher_platforms": [
+        "facebook",
+        "instagram"
+      ],
+      "languages": [
+        "en"
+      ],
+      "eu_total_reach": 16615
+    },
+    {
+      "id": "1200000000000022",
+      "page_id": "100000000113",
+      "page_name": "Ledmask Store 14",
+      "ad_creation_time": "2026-07-15T00:00:00+0000",
+      "ad_delivery_start_time": "2026-07-15T00:00:00+0000",
+      "ad_snapshot_url": "https://www.facebook.com/ads/archive/render_ad/?id=1200000000000022",
+      "ad_creative_bodies": [
+        "LED Light Therapy Face Mask - limited stock, free shipping today only."
+      ],
+      "ad_creative_link_titles": [
+        "LED Light Therapy Face Mask"
+      ],
+      "publisher_platforms": [
+        "facebook",
+        "instagram"
+      ],
+      "languages": [
+        "en"
+      ],
+      "eu_total_reach": 15429
+    },
+    {
+      "id": "1200000000000023",
+      "page_id": "100000000100",
+      "page_name": "Ledmask Store 1",
+      "ad_creation_time": "2026-07-25T00:00:00+0000",
+      "ad_delivery_start_time": "2026-07-25T00:00:00+0000",
+      "ad_snapshot_url": "https://www.facebook.com/ads/archive/render_ad/?id=1200000000000023",
+      "ad_creative_bodies": [
+        "LED Light Therapy Face Mask - limited stock, free shipping today only."
+      ],
+      "ad_creative_link_titles": [
+        "LED Light Therapy Face Mask"
+      ],
+      "publisher_platforms": [
+        "facebook",
+        "instagram"
+      ],
+      "languages": [
+        "en"
+      ],
+      "eu_total_reach": 14400
+    },
+    {
+      "id": "1200000000000024",
+      "page_id": "100000000101",
+      "page_name": "Ledmask Store 2",
+      "ad_creation_time": "2026-08-03T00:00:00+0000",
+      "ad_delivery_start_time": "2026-08-03T00:00:00+0000",
+      "ad_snapshot_url": "https://www.facebook.com/ads/archive/render_ad/?id=1200000000000024",
+      "ad_creative_bodies": [
+        "LED Light Therapy Face Mask - limited stock, free shipping today only."
+      ],
+      "ad_creative_link_titles": [
+        "LED Light Therapy Face Mask"
+      ],
+      "publisher_platforms": [
+        "facebook",
+        "instagram"
+      ],
+      "languages": [
+        "en"
+      ],
+      "eu_total_reach": 13500
+    },
+    {
+      "id": "1200000000000025",
+      "page_id": "100000000102",
+      "page_name": "Ledmask Store 3",
+      "ad_creation_time": "2026-08-13T00:00:00+0000",
+      "ad_delivery_start_time": "2026-08-13T00:00:00+0000",
+      "ad_snapshot_url": "https://www.facebook.com/ads/archive/render_ad/?id=1200000000000025",
+      "ad_creative_bodies": [
+        "LED Light Therapy Face Mask - limited stock, free shipping today only."
+      ],
+      "ad_creative_link_titles": [
+        "LED Light Therapy Face Mask"
+      ],
+      "publisher_platforms": [
+        "facebook",
+        "instagram"
+      ],
+      "languages": [
+        "en"
+      ],
+      "eu_total_reach": 12706
+    },
+    {
+      "id": "1200000000000026",
+      "page_id": "100000000103",
+      "page_name": "Ledmask Store 4",
+      "ad_creation_time": "2026-08-22T00:00:00+0000",
+      "ad_delivery_start_time": "2026-08-22T00:00:00+0000",
+      "ad_snapshot_url": "https://www.facebook.com/ads/archive/render_ad/?id=1200000000000026",
+      "ad_creative_bodies": [
+        "LED Light Therapy Face Mask - limited stock, free shipping today only."
+      ],
+      "ad_creative_link_titles": [
+        "LED Light Therapy Face Mask"
+      ],
+      "publisher_platforms": [
+        "facebook",
+        "instagram"
+      ],
+      "languages": [
+        "en"
+      ],
+      "eu_total_reach": 12000
+    },
+    {
+      "id": "1200000000000027",
+      "page_id": "100000000104",
+      "page_name": "Ledmask Store 5",
+      "ad_creation_time": "2026-09-01T00:00:00+0000",
+      "ad_delivery_start_time": "2026-09-01T00:00:00+0000",
+      "ad_snapshot_url": "https://www.facebook.com/ads/archive/render_ad/?id=1200000000000027",
+      "ad_creative_bodies": [
+        "LED Light Therapy Face Mask - limited stock, free shipping today only."
+      ],
+      "ad_creative_link_titles": [
+        "LED Light Therapy Face Mask"
+      ],
+      "publisher_platforms": [
+        "facebook",
+        "instagram"
+      ],
+      "languages": [
+        "en"
+      ],
+      "eu_total_reach": 11368
+    },
+    {
+      "id": "1200000000000028",
+      "page_id": "100000000105",
+      "page_name": "Ledmask Store 6",
+      "ad_creation_time": "2026-09-10T00:00:00+0000",
+      "ad_delivery_start_time": "2026-09-10T00:00:00+0000",
+      "ad_snapshot_url": "https://www.facebook.com/ads/archive/render_ad/?id=1200000000000028",
+      "ad_creative_bodies": [
+        "LED Light Therapy Face Mask - limited stock, free shipping today only."
+      ],
+      "ad_creative_link_titles": [
+        "LED Light Therapy Face Mask"
+      ],
+      "publisher_platforms": [
+        "facebook",
+        "instagram"
+      ],
+      "languages": [
+        "en"
+      ],
+      "eu_total_reach": 10800
+    },
+    {
+      "id": "1200000000000029",
+      "page_id": "100000000106",
+      "page_name": "Ledmask Store 7",
+      "ad_creation_time": "2026-09-20T00:00:00+0000",
+      "ad_delivery_start_time": "2026-09-20T00:00:00+0000",
+      "ad_snapshot_url": "https://www.facebook.com/ads/archive/render_ad/?id=1200000000000029",
+      "ad_creative_bodies": [
+        "LED Light Therapy Face Mask - limited stock, free shipping today only."
+      ],
+      "ad_creative_link_titles": [
+        "LED Light Therapy Face Mask"
+      ],
+      "publisher_platforms": [
+        "facebook",
+        "instagram"
+      ],
+      "languages": [
+        "en"
+      ],
+      "eu_total_reach": 10286
+    },
+    {
+      "id": "1200000000000030",
+      "page_id": "100000000107",
+      "page_name": "Ledmask Store 8",
+      "ad_creation_time": "2026-09-29T00:00:00+0000",
+      "ad_delivery_start_time": "2026-09-29T00:00:00+0000",
+      "ad_snapshot_url": "https://www.facebook.com/ads/archive/render_ad/?id=1200000000000030",
+      "ad_creative_bodies": [
+        "LED Light Therapy Face Mask - limited stock, free shipping today only."
+      ],
+      "ad_creative_link_titles": [
+        "LED Light Therapy Face Mask"
+      ],
+      "publisher_platforms": [
+        "facebook",
+        "instagram"
+      ],
+      "languages": [
+        "en"
+      ],
+      "eu_total_reach": 9818
+    },
+    {
+      "id": "1200000000000031",
+      "page_id": "100000000200",
+      "page_name": "Blender Store 1",
+      "ad_creation_time": "2025-12-13T00:00:00+0000",
+      "ad_delivery_start_time": "2025-12-13T00:00:00+0000",
+      "ad_snapshot_url": "https://www.facebook.com/ads/archive/render_ad/?id=1200000000000031",
+      "ad_creative_bodies": [
+        "Portable USB Rechargeable Blender - limited stock, free shipping today only."
+      ],
+      "ad_creative_link_titles": [
+        "Portable USB Rechargeable Blender"
+      ],
+      "publisher_platforms": [
+        "facebook",
+        "instagram"
+      ],
+      "languages": [
+        "en"
+      ],
+      "eu_total_reach": 25200,
+      "ad_delivery_stop_time": "2026-07-01T00:00:00+0000"
+    },
+    {
+      "id": "1200000000000032",
+      "page_id": "100000000201",
+      "page_name": "Blender Store 2",
+      "ad_creation_time": "2026-02-01T00:00:00+0000",
+      "ad_delivery_start_time": "2026-02-01T00:00:00+0000",
+      "ad_snapshot_url": "https://www.facebook.com/ads/archive/render_ad/?id=1200000000000032",
+      "ad_creative_bodies": [
+        "Portable USB Rechargeable Blender - limited stock, free shipping today only."
+      ],
+      "ad_creative_link_titles": [
+        "Portable USB Rechargeable Blender"
+      ],
+      "publisher_platforms": [
+        "facebook",
+        "instagram"
+      ],
+      "languages": [
+        "en"
+      ],
+      "eu_total_reach": 12600
+    },
+    {
+      "id": "1200000000000033",
+      "page_id": "100000000202",
+      "page_name": "Blender Store 3",
+      "ad_creation_time": "2026-03-23T00:00:00+0000",
+      "ad_delivery_start_time": "2026-03-23T00:00:00+0000",
+      "ad_snapshot_url": "https://www.facebook.com/ads/archive/render_ad/?id=1200000000000033",
+      "ad_creative_bodies": [
+        "Portable USB Rechargeable Blender - limited stock, free shipping today only."
+      ],
+      "ad_creative_link_titles": [
+        "Portable USB Rechargeable Blender"
+      ],
+      "publisher_platforms": [
+        "facebook",
+        "instagram"
+      ],
+      "languages": [
+        "en"
+      ],
+      "eu_total_reach": 8400,
+      "ad_delivery_stop_time": "2026-08-03T00:00:00+0000"
+    },
+    {
+      "id": "1200000000000034",
+      "page_id": "100000000203",
+      "page_name": "Blender Store 4",
+      "ad_creation_time": "2026-05-12T00:00:00+0000",
+      "ad_delivery_start_time": "2026-05-12T00:00:00+0000",
+      "ad_snapshot_url": "https://www.facebook.com/ads/archive/render_ad/?id=1200000000000034",
+      "ad_creative_bodies": [
+        "Portable USB Rechargeable Blender - limited stock, free shipping today only."
+      ],
+      "ad_creative_link_titles": [
+        "Portable USB Rechargeable Blender"
+      ],
+      "publisher_platforms": [
+        "facebook",
+        "instagram"
+      ],
+      "languages": [
+        "en"
+      ],
+      "eu_total_reach": 6300
+    },
+    {
+      "id": "1200000000000035",
+      "page_id": "100000000204",
+      "page_name": "Blender Store 5",
+      "ad_creation_time": "2026-07-01T00:00:00+0000",
+      "ad_delivery_start_time": "2026-07-01T00:00:00+0000",
+      "ad_snapshot_url": "https://www.facebook.com/ads/archive/render_ad/?id=1200000000000035",
+      "ad_creative_bodies": [
+        "Portable USB Rechargeable Blender - limited stock, free shipping today only."
+      ],
+      "ad_creative_link_titles": [
+        "Portable USB Rechargeable Blender"
+      ],
+      "publisher_platforms": [
+        "facebook",
+        "instagram"
+      ],
+      "languages": [
+        "en"
+      ],
+      "eu_total_reach": 5040,
+      "ad_delivery_stop_time": "2026-09-06T00:00:00+0000"
+    },
+    {
+      "id": "1200000000000036",
+      "page_id": "100000000200",
+      "page_name": "Blender Store 1",
+      "ad_creation_time": "2026-08-20T00:00:00+0000",
+      "ad_delivery_start_time": "2026-08-20T00:00:00+0000",
+      "ad_snapshot_url": "https://www.facebook.com/ads/archive/render_ad/?id=1200000000000036",
+      "ad_creative_bodies": [
+        "Portable USB Rechargeable Blender - limited stock, free shipping today only."
+      ],
+      "ad_creative_link_titles": [
+        "Portable USB Rechargeable Blender"
+      ],
+      "publisher_platforms": [
+        "facebook",
+        "instagram"
+      ],
+      "languages": [
+        "en"
+      ],
+      "eu_total_reach": 4200
+    },
+    {
+      "id": "1200000000000037",
+      "page_id": "100000000300",
+      "page_name": "Pawcleaner Store 1",
+      "ad_creation_time": "2026-09-21T00:00:00+0000",
+      "ad_delivery_start_time": "2026-09-21T00:00:00+0000",
+      "ad_snapshot_url": "https://www.facebook.com/ads/archive/render_ad/?id=1200000000000037",
+      "ad_creative_bodies": [
+        "Silicone Dog Paw Cleaner Cup - limited stock, free shipping today only."
+      ],
+      "ad_creative_link_titles": [
+        "Silicone Dog Paw Cleaner Cup"
+      ],
+      "publisher_platforms": [
+        "facebook",
+        "instagram"
+      ],
+      "languages": [
+        "en"
+      ],
+      "eu_total_reach": 15600
+    },
+    {
+      "id": "1200000000000038",
+      "page_id": "100000000301",
+      "page_name": "Pawcleaner Store 2",
+      "ad_creation_time": "2026-09-25T00:00:00+0000",
+      "ad_delivery_start_time": "2026-09-25T00:00:00+0000",
+      "ad_snapshot_url": "https://www.facebook.com/ads/archive/render_ad/?id=1200000000000038",
+      "ad_creative_bodies": [
+        "Silicone Dog Paw Cleaner Cup - limited stock, free shipping today only."
+      ],
+      "ad_creative_link_titles": [
+        "Silicone Dog Paw Cleaner Cup"
+      ],
+      "publisher_platforms": [
+        "facebook",
+        "instagram"
+      ],
+      "languages": [
+        "en"
+      ],
+      "eu_total_reach": 7800
+    },
+    {
+      "id": "1200000000000039",
+      "page_id": "100000000300",
+      "page_name": "Pawcleaner Store 1",
+      "ad_creation_time": "2026-09-28T00:00:00+0000",
+      "ad_delivery_start_time": "2026-09-28T00:00:00+0000",
+      "ad_snapshot_url": "https://www.facebook.com/ads/archive/render_ad/?id=1200000000000039",
+      "ad_creative_bodies": [
+        "Silicone Dog Paw Cleaner Cup - limited stock, free shipping today only."
+      ],
+      "ad_creative_link_titles": [
+        "Silicone Dog Paw Cleaner Cup"
+      ],
+      "publisher_platforms": [
+        "facebook",
+        "instagram"
+      ],
+      "languages": [
+        "en"
+      ],
+      "eu_total_reach": 5200
+    },
+    {
+      "id": "1200000000000040",
+      "page_id": "100000000301",
+      "page_name": "Pawcleaner Store 2",
+      "ad_creation_time": "2026-10-02T00:00:00+0000",
+      "ad_delivery_start_time": "2026-10-02T00:00:00+0000",
+      "ad_snapshot_url": "https://www.facebook.com/ads/archive/render_ad/?id=1200000000000040",
+      "ad_creative_bodies": [
+        "Silicone Dog Paw Cleaner Cup - limited stock, free shipping today only."
+      ],
+      "ad_creative_link_titles": [
+        "Silicone Dog Paw Cleaner Cup"
+      ],
+      "publisher_platforms": [
+        "facebook",
+        "instagram"
+      ],
+      "languages": [
+        "en"
+      ],
+      "eu_total_reach": 3900
+    },
+    {
+      "id": "1200000000000041",
+      "page_id": "100000000300",
+      "page_name": "Pawcleaner Store 1",
+      "ad_creation_time": "2026-10-05T00:00:00+0000",
+      "ad_delivery_start_time": "2026-10-05T00:00:00+0000",
+      "ad_snapshot_url": "https://www.facebook.com/ads/archive/render_ad/?id=1200000000000041",
+      "ad_creative_bodies": [
+        "Silicone Dog Paw Cleaner Cup - limited stock, free shipping today only."
+      ],
+      "ad_creative_link_titles": [
+        "Silicone Dog Paw Cleaner Cup"
+      ],
+      "publisher_platforms": [
+        "facebook",
+        "instagram"
+      ],
+      "languages": [
+        "en"
+      ],
+      "eu_total_reach": 3120
+    },
+    {
+      "id": "1200000000000042",
+      "page_id": "100000000400",
+      "page_name": "Cloudslides Store 1",
+      "ad_creation_time": "2026-08-30T00:00:00+0000",
+      "ad_delivery_start_time": "2026-08-30T00:00:00+0000",
+      "ad_snapshot_url": "https://www.facebook.com/ads/archive/render_ad/?id=1200000000000042",
+      "ad_creative_bodies": [
+        "Cloud Pillow Slides Sandals - limited stock, free shipping today only."
+      ],
+      "ad_creative_link_titles": [
+        "Cloud Pillow Slides Sandals"
+      ],
+      "publisher_platforms": [
+        "facebook",
+        "instagram"
+      ],
+      "languages": [
+        "en"
+      ],
+      "eu_total_reach": 10800
+    },
+    {
+      "id": "1200000000000043",
+      "page_id": "100000000401",
+      "page_name": "Cloudslides Store 2",
+      "ad_creation_time": "2026-09-19T00:00:00+0000",
+      "ad_delivery_start_time": "2026-09-19T00:00:00+0000",
+      "ad_snapshot_url": "https://www.facebook.com/ads/archive/render_ad/?id=1200000000000043",
+      "ad_creative_bodies": [
+        "Cloud Pillow Slides Sandals - limited stock, free shipping today only."
+      ],
+      "ad_creative_link_titles": [
+        "Cloud Pillow Slides Sandals"
+      ],
+      "publisher_platforms": [
+        "facebook",
+        "instagram"
+      ],
+      "languages": [
+        "en"
+      ],
+      "eu_total_reach": 5400
+    }
+  ],
+  "paging": {
+    "cursors": {
+      "after": "FIXTURE_END"
+    }
+  }
+}
