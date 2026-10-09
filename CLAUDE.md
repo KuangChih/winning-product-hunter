@@ -58,7 +58,7 @@
 4. **需要時先研究**：涉及外部 API、平台政策、演算法選擇時，先用 WebSearch/WebFetch 查最新官方文件，結論寫成 `docs/research/<主題>.md`，重大選擇寫進 `DECISIONS.md`（ADR 格式：背景／選項／決定／理由）。
 5. **實作**：遵守既有程式風格；新功能附測試；外部來源先做 fixture 模式。
 6. **驗證（品質閘門，全部通過才算完成）**：`npm run format:check`、`npm run lint`、`npm run typecheck`、`npm test`、`npm run build`；動到頁面時加跑 `npm run e2e`。UI 變更要實際啟動 dev server 用瀏覽器檢查。
-7. **提交**：`git add` + `git commit`（訊息說明做了什麼與為什麼）。**不要 push、不要部署**——由使用者決定。
+7. **提交**：`git add` + `git commit`（訊息說明做了什麼與為什麼）。commit message 一律使用台灣慣用的繁體中文，重要關鍵字與專有名詞可保留英文。**不要 push、不要部署**——由使用者決定。
 8. **更新狀態**：勾選 ROADMAP、在 PROGRESS.md 追加一筆（日期、完成內容、驗證結果、下一步）。發現新工作就加進 ROADMAP 適當位置。
 9. **需要人類的事不要卡住**：API key、帳號、付費、法律判斷等寫進 `docs/loop/HUMAN_TODO.md`，把該項目標成 `[blocked: human]`，改做下一個項目。
 10. **排下一輪**：還有工作 → `ScheduleWakeup` 約 60–120 秒；全部項目完成或只剩 blocked 項目 → 在 PROGRESS.md 寫總結並停止 loop。

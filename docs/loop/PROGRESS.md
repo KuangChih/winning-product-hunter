@@ -98,3 +98,10 @@
 - 驗證：format ✅ lint ✅ typecheck ✅ test ✅（46）build ✅ e2e ✅（2）；瀏覽器實際檢查排名頁顯示正確。
 - commit：見 git log
 - 下一步：產品詳情頁 v0
+
+## 2026-10-10 — 使用者回報：Vercel 上 `relation "product_scores" does not exist`
+- 原因：Neon 資料庫從未執行 migration；頁面沒有處理資料表不存在的情況，直接 crash。
+- 修正：新增 `vercel-build`（每次部署先 `tsx src/jobs/migrate.ts --if-configured` 再 `next build`）；`migrateDb()` 支援 Neon（neon-http migrator）與 PGlite；`npm run db:migrate` 改用自己的 job（也支援 `pglite:` URL）；`/products` 遇到資料表不存在會顯示「Database is not set up yet」說明。
+- 修正：CLI jobs 與 drizzle.config 改用 `@next/env` 讀取 `.env*`（含 `.env.local`），與 Next.js 一致；移除 dotenv。
+- 新增：`npm run seed`（ingest 所有 fixture → match → score）、`docs/DEPLOY.md`。
+- 驗證：format ✅ lint ✅ typecheck ✅ test ✅（48）build ✅；本機 `vercel-build` 成功套用 migration；`db:migrate`、`seed` 都能從 `.env.local` 讀到設定；未設定時 migration 會略過；瀏覽器檢查 `/products` 正常。

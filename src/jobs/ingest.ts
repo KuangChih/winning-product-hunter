@@ -6,7 +6,7 @@
  * --fixture uses sample data instead of live APIs (the only mode until adapters land).
  * --dry-run prints parsed items instead of writing to the database.
  */
-import "dotenv/config";
+import "@/lib/load-env";
 import { getDb } from "@/db/client";
 import { fixtureAdapters } from "@/ingestion/fixtures";
 import { runIngestion } from "@/ingestion/run";

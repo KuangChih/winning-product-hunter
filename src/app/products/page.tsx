@@ -3,7 +3,7 @@ import { connection } from "next/server";
 import { Suspense } from "react";
 import { ProductTable } from "@/components/product-table";
 import { getRankedProducts } from "@/data/products";
-import { getDb, isDatabaseConfigured } from "@/db/client";
+import { getDb, isDatabaseConfigured, isMissingTableError } from "@/db/client";
 
 export const metadata: Metadata = {
   title: "Winning products · Winning Product Hunter",
@@ -31,13 +31,25 @@ async function RankedProducts() {
     );
   }
 
-  const products = await getRankedProducts(await getDb());
+  let products;
+  try {
+    products = await getRankedProducts(await getDb());
+  } catch (err) {
+    if (!isMissingTableError(err)) throw err;
+    return (
+      <Notice title="Database is not set up yet">
+        <p>
+          The database has no tables. Run <code>npm run db:migrate</code>, or redeploy: Vercel
+          builds apply migrations automatically.
+        </p>
+      </Notice>
+    );
+  }
   if (products.length === 0) {
     return (
       <Notice title="No scored products yet">
         <p>
-          Run <code>npm run ingest -- all --fixture</code>, <code>npm run match</code> and{" "}
-          <code>npm run score</code> to load sample data.
+          Run <code>npm run seed</code> to load sample data.
         </p>
       </Notice>
     );

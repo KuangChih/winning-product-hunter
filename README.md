@@ -28,7 +28,7 @@ For a quick local demo without Neon, use the file-backed PGlite database and loa
 
 ```bash
 echo "DATABASE_URL=pglite:./.data/dev" > .env.local
-npm run ingest -- all --fixture && npm run match && npm run score
+npm run seed
 ```
 
 Tests use an in-memory Postgres (PGlite), so no database is needed to run them. For the app itself,
@@ -56,4 +56,4 @@ Run `npx playwright install chromium` once before the first `npm run e2e`.
 
 ## Deployment
 
-Deployed on Vercel. See `docs/DEPLOY.md` (added in Phase 6).
+Deployed on Vercel. See [`docs/DEPLOY.md`](docs/DEPLOY.md).

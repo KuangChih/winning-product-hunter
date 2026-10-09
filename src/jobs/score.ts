@@ -3,7 +3,7 @@
  *
  *   npm run score
  */
-import "dotenv/config";
+import "@/lib/load-env";
 import { getDb } from "@/db/client";
 import { runScoring } from "@/scoring/run";
 import { runJob } from "./run-job";

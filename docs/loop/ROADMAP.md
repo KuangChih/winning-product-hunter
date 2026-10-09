@@ -22,7 +22,7 @@
 - [x] 評分 v0：依 `docs/research/scoring.md` 實作可解釋子分數（longevity、scaling、demandTrend、marketplace、margin），寫入 product_scores；CLI `npm run score`
 - [x] 產品探索頁 v0：讀 DB 列出最新分數排名，標示「樣本資料」；無 DATABASE_URL 時顯示設定說明
 - [ ] 產品詳情頁 v0：分數拆解 + 證據清單（廣告連結、趨勢序列、AliExpress 價格）
-- [ ] `npm run seed`：一次跑 ingest(fixture) → match → score，方便本機與 preview 環境展示
+- [x] `npm run seed`：一次跑 ingest(fixture) → match → score，方便本機與 preview 環境展示
 
 ## Phase 2 — 資料蒐集層
 - [x] 統一的 `SourceAdapter` 介面 + fixture 模式 + 重試/限流/錯誤紀錄（`src/ingestion`）
@@ -52,5 +52,5 @@
 - [ ] 效能（快取、ISR、DB index）、錯誤監控、log
 - [ ] 安全檢查（`/security-review`）、rate limiting
 - [ ] 隱私權政策 / 服務條款頁草稿（標示需法律審閱）
-- [ ] Vercel 部署設定與部署文件 `docs/DEPLOY.md`（實際部署由使用者執行）
+- [x] Vercel 部署設定與部署文件 `docs/DEPLOY.md`（`vercel-build` 自動 migration；實際部署由使用者執行）
 - [ ] 完整 E2E 測試通過

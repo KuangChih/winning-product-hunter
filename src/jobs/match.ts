@@ -3,7 +3,7 @@
  *
  *   npm run match
  */
-import "dotenv/config";
+import "@/lib/load-env";
 import { getDb } from "@/db/client";
 import { runMatching } from "@/matching/run";
 import { runJob } from "./run-job";

@@ -50,6 +50,30 @@ export async function getDb(): Promise<AnyDatabase> {
   return (await cached).db;
 }
 
+/**
+ * Applies pending migrations from `drizzle/`. PGlite databases are migrated on connect;
+ * Neon databases are migrated here (run on every Vercel build, see docs/DEPLOY.md).
+ */
+export async function migrateDb(): Promise<void> {
+  const url = process.env.DATABASE_URL;
+  if (!url) throw new Error("DATABASE_URL is not set. See .env.example.");
+  if (url.startsWith(PGLITE_PREFIX)) {
+    await getDb();
+    return;
+  }
+  const { migrate } = await import("drizzle-orm/neon-http/migrator");
+  const db = drizzle(neon(url), { schema });
+  await migrate(db, { migrationsFolder: path.resolve(process.cwd(), "drizzle") });
+}
+
+/** Postgres "undefined_table": the schema has not been migrated yet. */
+export function isMissingTableError(err: unknown): boolean {
+  for (let e = err; e && typeof e === "object"; e = (e as { cause?: unknown }).cause) {
+    if ((e as { code?: unknown }).code === "42P01") return true;
+  }
+  return false;
+}
+
 /** Releases the connection so CLI jobs can exit (PGlite keeps the process alive). */
 export async function closeDb(): Promise<void> {
   if (!cached) return;
