@@ -65,4 +65,11 @@ describe("sub-score signals", () => {
 
     expect(rankingHref(parsed)).toBe("/products?min_longevity=60&min_momentum=data&sort=momentum");
   });
+
+  it("adds the page only past page 1 and never keeps it in the filters", () => {
+    expect(rankingHref({ sort: "score" }, 1)).toBe("/products");
+    expect(rankingHref({ q: "fan" }, 3)).toBe("/products?q=fan&page=3");
+    // The page is not a filter: links built from the filters (sorts, chips) start at page 1.
+    expect(parseRankingParams({ q: "fan", page: "3" })).not.toHaveProperty("page");
+  });
 });

@@ -4,6 +4,7 @@ import { products, productScores, sourceItems } from "@/db/schema";
 import { createTestDb } from "@/db/testing/pglite";
 import {
   addToWatchlist,
+  getWatchedIds,
   getWatchlist,
   isWatched,
   removeFromWatchlist,
@@ -66,6 +67,14 @@ describe("watchlist", () => {
     await removeFromWatchlist(t.db, a);
     expect(await isWatched(t.db, a)).toBe(false);
     expect((await getWatchlist(t.db)).map((w) => w.slug)).toEqual(["neck-fan"]);
+  });
+
+  it("tells which of several products are watched in one call", async () => {
+    expect(await getWatchedIds(t.db, [])).toEqual(new Set());
+    expect(await getWatchedIds(t.db, [a, b])).toEqual(new Set());
+    await addToWatchlist(t.db, b, day(1));
+    expect(await getWatchedIds(t.db, [a, b])).toEqual(new Set([b]));
+    expect(await getWatchedIds(t.db, [a])).toEqual(new Set());
   });
 
   it("leaves out products with sample (fixture) evidence", async () => {

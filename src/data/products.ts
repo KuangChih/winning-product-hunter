@@ -1,4 +1,4 @@
-import { and, desc, eq, inArray, sql } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, isNull, notExists, sql } from "drizzle-orm";
 import type { AnyDatabase } from "@/db/client";
 import { productScores, products, sourceItems } from "@/db/schema";
 import { sortByMarketPriority } from "@/lib/markets";
@@ -12,6 +12,8 @@ export interface RankedProduct {
   title: string;
   category: string | null;
   imageUrl: string | null;
+  /** When we first found the product. */
+  firstSeenAt: Date;
   score: number;
   confidence: number;
   computedAt: Date;
@@ -64,6 +66,7 @@ export interface RankingFilters {
 }
 
 export interface RankingOptions extends RankingFilters {
+  /** Keep only the first N after filtering and sorting; all by default (pages slice them). */
   limit?: number;
   /**
    * Include products with any sample (fixture) evidence: for tests that seed fixtures only. The
@@ -118,40 +121,58 @@ export function applyRankingFilters(
   return filtered.sort(by[sort as keyof typeof by] ?? by.score);
 }
 
+/**
+ * The latest scoring batch. `runScoring` scores every product with evidence in one INSERT with
+ * one `computed_at`, so the newest batch holds each live product's latest score; reading only
+ * that batch uses `product_scores_rank_idx` instead of scanning every past score. Products that
+ * are missing from it lost all their evidence (e.g. merged into another product) and are stale.
+ */
+const latestBatch = sql`${productScores.computedAt} = (select max(${productScores.computedAt}) from ${productScores})`;
+
 /** Products ranked by their most recent Winning Score, highest first. */
 export async function getRankedProducts(
   db: AnyDatabase,
-  { limit = 50, includeSample = false, ...filters }: RankingOptions = {},
+  { limit, includeSample = false, ...filters }: RankingOptions = {},
 ): Promise<RankedProduct[]> {
-  const latest = await db
-    .selectDistinctOn([productScores.productId], {
-      productId: productScores.productId,
-      score: productScores.score,
-      confidence: productScores.confidence,
-      computedAt: productScores.computedAt,
-      breakdown: productScores.breakdown,
-    })
-    .from(productScores)
-    .orderBy(productScores.productId, desc(productScores.computedAt));
-  if (latest.length === 0) return [];
-
-  // Products with any fixture evidence are sample data; filter before taking the top N.
-  const sampleIds = includeSample
-    ? new Set<string>()
-    : new Set(
-        (
-          await db
-            .selectDistinct({ productId: sourceItems.productId })
-            .from(sourceItems)
-            .where(eq(sourceItems.provider, "fixture"))
-        ).map((r) => r.productId),
+  // Sample (fixture) products are left out in SQL, before any filter, sort or limit.
+  const real = includeSample
+    ? undefined
+    : notExists(
+        db
+          .select({ one: sql`1` })
+          .from(sourceItems)
+          .where(
+            and(
+              eq(sourceItems.productId, productScores.productId),
+              eq(sourceItems.provider, "fixture"),
+            ),
+          ),
       );
-  const top = latest.filter((s) => !sampleIds.has(s.productId)).sort((a, b) => b.score - a.score);
-  if (top.length === 0) return [];
-  const ids = top.map((s) => s.productId);
+  const rankedIds = db
+    .select({ id: productScores.productId })
+    .from(productScores)
+    .where(and(latestBatch, real));
 
-  const [productRows, evidence, offers, fx] = await Promise.all([
-    db.select().from(products).where(inArray(products.id, ids)),
+  // Independent queries run together (PGlite serializes them; Neon runs them in parallel).
+  const [top, evidence, offers, fx] = await Promise.all([
+    db
+      .select({
+        productId: productScores.productId,
+        score: productScores.score,
+        confidence: productScores.confidence,
+        computedAt: productScores.computedAt,
+        breakdown: productScores.breakdown,
+        slug: products.slug,
+        title: products.title,
+        category: products.category,
+        imageUrl: products.imageUrl,
+        firstSeenAt: products.firstSeenAt,
+      })
+      .from(productScores)
+      .innerJoin(products, eq(products.id, productScores.productId))
+      .where(and(latestBatch, real, isNull(products.mergedInto)))
+      // Ties by product id, as before (a stable order across requests and pages).
+      .orderBy(desc(productScores.score), asc(productScores.productId)),
     db
       .select({
         productId: sourceItems.productId,
@@ -163,7 +184,7 @@ export async function getRankedProducts(
       })
       .from(sourceItems)
       .leftJoin(sql`lateral unnest(${sourceItems.countries}) as c`, sql`true`)
-      .where(inArray(sourceItems.productId, ids))
+      .where(inArray(sourceItems.productId, rankedIds))
       .groupBy(sourceItems.productId),
     db
       .select({
@@ -174,13 +195,14 @@ export async function getRankedProducts(
       .from(sourceItems)
       .where(
         and(
-          inArray(sourceItems.productId, ids),
+          inArray(sourceItems.productId, rankedIds),
           eq(sourceItems.kind, "store_product"),
           eq(sourceItems.provider, OWN_LISTING_PROVIDER),
         ),
       ),
     getLatestFxRates(db),
   ]);
+  if (top.length === 0) return [];
   const offersById = new Map<string, Array<{ priceCents: number; currency: string | null }>>();
   for (const o of offers) {
     if (o.productId === null || o.priceCents === null) continue;
@@ -188,31 +210,28 @@ export async function getRankedProducts(
     list.push({ priceCents: o.priceCents, currency: o.currency });
     offersById.set(o.productId, list);
   }
-  const productById = new Map(productRows.map((p) => [p.id, p]));
   const evidenceById = new Map(evidence.map((e) => [e.productId, e]));
 
-  const all = top.flatMap((s) => {
-    const p = productById.get(s.productId);
-    if (!p) return [];
+  const all = top.map((s): RankedProduct => {
     const e = evidenceById.get(s.productId);
-    return [
-      {
-        id: p.id,
-        slug: p.slug,
-        title: p.title,
-        category: p.category,
-        imageUrl: p.imageUrl,
-        score: s.score,
-        confidence: s.confidence,
-        computedAt: s.computedAt,
-        breakdown: s.breakdown as ScoreBreakdown,
-        sources: [...(e?.sources ?? [])].sort(),
-        markets: sortByMarketPriority(e?.countries ?? []),
-        isSample: Number(e?.fixture ?? 0) > 0,
-        retailUsdCents:
-          marketRetailPrice(offersById.get(p.id) ?? [], "US", fx)?.medianCents ?? null,
-      },
-    ];
+    return {
+      id: s.productId,
+      slug: s.slug,
+      title: s.title,
+      category: s.category,
+      imageUrl: s.imageUrl,
+      firstSeenAt: s.firstSeenAt,
+      score: s.score,
+      confidence: s.confidence,
+      computedAt: s.computedAt,
+      breakdown: s.breakdown as ScoreBreakdown,
+      sources: [...(e?.sources ?? [])].sort(),
+      markets: sortByMarketPriority(e?.countries ?? []),
+      isSample: Number(e?.fixture ?? 0) > 0,
+      retailUsdCents:
+        marketRetailPrice(offersById.get(s.productId) ?? [], "US", fx)?.medianCents ?? null,
+    };
   });
-  return applyRankingFilters(all, filters).slice(0, limit);
+  const ranked = applyRankingFilters(all, filters);
+  return limit === undefined ? ranked : ranked.slice(0, limit);
 }

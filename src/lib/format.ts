@@ -15,3 +15,17 @@ export function formatUtc(value: Date | string | null | undefined): string {
   if (Number.isNaN(d.getTime())) return "—";
   return `${d.toISOString().replace("T", " ").slice(0, 16)} UTC`;
 }
+
+const DAY_MS = 86_400_000;
+
+/**
+ * How long ago, in whole days or coarser ("today", "3 days ago", "2 months ago"; zh-TW "今天",
+ * "3 天前"). Server-rendered only, so the clock difference with the browser does not matter.
+ */
+export function formatAgo(value: Date, now: Date, locale: string): string {
+  const days = Math.max(0, Math.floor((now.getTime() - value.getTime()) / DAY_MS));
+  const rtf = new Intl.RelativeTimeFormat(locale, { numeric: "auto" });
+  if (days < 31) return rtf.format(-days, "day");
+  if (days < 365) return rtf.format(-Math.floor(days / 30), "month");
+  return rtf.format(-Math.floor(days / 365), "year");
+}

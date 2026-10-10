@@ -28,6 +28,16 @@ export async function isWatched(db: AnyDatabase, productId: string): Promise<boo
   return rows.length > 0;
 }
 
+/** Which of these products are watched, in one query (for lists with a watch toggle per item). */
+export async function getWatchedIds(db: AnyDatabase, productIds: string[]): Promise<Set<string>> {
+  if (productIds.length === 0) return new Set();
+  const rows = await db
+    .select({ id: watchlist.productId })
+    .from(watchlist)
+    .where(inArray(watchlist.productId, productIds));
+  return new Set(rows.map((r) => r.id));
+}
+
 /** Adds a product, remembering its current score; adding twice keeps the first entry. */
 export async function addToWatchlist(db: AnyDatabase, productId: string, now = new Date()) {
   const [latest] = await db

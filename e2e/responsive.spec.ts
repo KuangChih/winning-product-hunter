@@ -25,3 +25,19 @@ for (const path of ["/", "/products", "/ads", "/watchlist", "/discover"]) {
     expect(footer.y + footer.height).toBeLessThanOrEqual(navBox.y + 1);
   });
 }
+
+test("the ranking shows cards instead of the table on a phone", async ({ page }) => {
+  await page.goto("/products");
+  const cards = page.getByRole("article");
+  await expect(
+    cards.first().or(page.getByText(/No database configured|No products yet|not set up/)),
+  ).toBeVisible();
+  test.skip(!(await cards.first().isVisible()), "No products in this environment");
+  await expect(page.getByRole("table")).toBeHidden();
+  const card = cards.first();
+  await expect(card.getByRole("button", { name: /^Watch / })).toBeVisible();
+  // The seven sub-scores: a value or a dash each.
+  const values = await card.getByRole("definition").allTextContents();
+  expect(values).toHaveLength(7);
+  for (const v of values) expect(v).toMatch(/^(\d{1,3}|—)$/);
+});

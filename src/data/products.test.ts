@@ -1,4 +1,5 @@
 // @vitest-environment node
+import { desc, eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { productScores, products, sourceItems } from "@/db/schema";
 import { createTestDb } from "@/db/testing/pglite";
@@ -133,5 +134,94 @@ describe("getRankedProducts", () => {
     expect((await getRankedProducts(t.db, { minPrice: 25 })).map((p) => p.title)).toEqual([
       "Priced",
     ]);
+  });
+
+  it("ranks exactly like the latest score per product over the whole history", async () => {
+    for (const make of Object.values(fixtureAdapters)) {
+      await runIngestion(t.db, make(), { queries: [], limit: 500 }, () => NOW);
+    }
+    await runMatching(t.db);
+    await runScoring(t.db, new Date("2026-10-01T00:00:00Z"));
+    // New evidence between batches changes some scores, so the two batches differ.
+    const [late] = await t.db
+      .insert(products)
+      .values({ slug: "late", title: "Late Product", firstSeenAt: NOW })
+      .returning();
+    await t.db.insert(sourceItems).values({
+      source: "meta_ads",
+      provider: "fixture",
+      externalId: "late-ad",
+      kind: "ad",
+      productId: late.id,
+      countries: ["US"],
+      startedAt: new Date("2026-10-05T00:00:00Z"),
+      firstSeenAt: NOW,
+      lastSeenAt: NOW,
+    });
+    await runScoring(t.db, new Date("2026-10-05T00:00:00Z"));
+    await runScoring(t.db, NOW);
+
+    // The previous implementation: DISTINCT ON over every past score, highest first.
+    const reference = (
+      await t.db
+        .selectDistinctOn([productScores.productId], {
+          id: productScores.productId,
+          score: productScores.score,
+        })
+        .from(productScores)
+        .orderBy(productScores.productId, desc(productScores.computedAt))
+    ).sort((a, b) => b.score - a.score || a.id.localeCompare(b.id));
+
+    const ranked = await getRankedProducts(t.db, { includeSample: true });
+    expect(ranked.map((p) => [p.id, p.score])).toEqual(reference.map((r) => [r.id, r.score]));
+    expect(ranked.length).toBeGreaterThan(3);
+    expect(ranked.find((p) => p.id === late.id)?.firstSeenAt).toEqual(NOW);
+  });
+
+  it("leaves out stale scores of products merged away after the last batch", async () => {
+    const [kept, merged] = await t.db
+      .insert(products)
+      .values([
+        { slug: "kept", title: "Kept", firstSeenAt: NOW },
+        { slug: "merged", title: "Merged", firstSeenAt: NOW },
+      ])
+      .returning();
+    const score = (productId: string, value: number, computedAt: Date) => ({
+      productId,
+      scoringVersion: "v1.1",
+      score: value,
+      confidence: 0.5,
+      breakdown: { saturation: { ageDays: 1, penalty: 0, activeAdvertisers: 0, value: 0 } },
+      computedAt,
+    });
+    const before = new Date("2026-10-01T00:00:00Z");
+    await t.db
+      .insert(productScores)
+      .values([score(kept.id, 40, before), score(merged.id, 90, before), score(kept.id, 50, NOW)]);
+    await t.db.update(products).set({ mergedInto: kept.id }).where(eq(products.id, merged.id));
+
+    expect((await getRankedProducts(t.db)).map((p) => [p.title, p.score])).toEqual([["Kept", 50]]);
+  });
+
+  it("applies the limit after filters and sort", async () => {
+    const rows = await t.db
+      .insert(products)
+      .values(["a", "b", "c"].map((slug) => ({ slug, title: `Product ${slug}`, firstSeenAt: NOW })))
+      .returning();
+    await t.db.insert(productScores).values(
+      rows.map((r, i) => ({
+        productId: r.id,
+        scoringVersion: "v1.1",
+        score: 10 + i * 10,
+        confidence: 0.5,
+        breakdown: { saturation: { ageDays: 1, penalty: 0, activeAdvertisers: 0, value: 0 } },
+        computedAt: NOW,
+      })),
+    );
+    expect((await getRankedProducts(t.db)).map((p) => p.slug)).toEqual(["c", "b", "a"]);
+    expect((await getRankedProducts(t.db, { limit: 2 })).map((p) => p.slug)).toEqual(["c", "b"]);
+    expect(
+      (await getRankedProducts(t.db, { q: "product a", limit: 2 })).map((p) => p.slug),
+    ).toEqual(["a"]);
   });
 });

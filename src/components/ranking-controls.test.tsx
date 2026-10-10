@@ -18,7 +18,7 @@ describe("RankingControls", () => {
           source: "shopify",
           sort: "newest",
         }}
-        resultCount={3}
+        result={{ total: 3, from: 1, to: 3 }}
         locale="en"
       />,
     );
@@ -56,7 +56,9 @@ describe("RankingControls", () => {
   });
 
   it("renders labels, sorts and country names in Traditional Chinese", () => {
-    render(<RankingControls filters={{}} resultCount={2} locale="zh-TW" />);
+    render(
+      <RankingControls filters={{}} result={{ total: 75, from: 31, to: 60 }} locale="zh-TW" />,
+    );
     expect(screen.getByRole("search", { name: "篩選產品" })).toBeInTheDocument();
     expect(screen.getByRole("combobox", { name: "市場", ...hidden })).toHaveTextContent("英國");
     expect(screen.getByRole("option", { name: "競爭最少" })).toBeInTheDocument();
@@ -66,7 +68,8 @@ describe("RankingControls", () => {
     expect(screen.getByRole("combobox", { name: "證據來源", ...hidden })).toHaveTextContent(
       "Shopify 店家",
     );
-    expect(screen.getByText("2 個產品")).toBeInTheDocument();
+    // The real total across all pages, and which of them this page shows.
+    expect(screen.getByText("75 個產品，顯示第 31–60 個")).toBeInTheDocument();
     expect(screen.getByText("篩選")).toBeInTheDocument();
     expect(screen.queryByRole("list", { name: "已套用的篩選" })).toBeNull();
   });

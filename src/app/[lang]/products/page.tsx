@@ -2,17 +2,20 @@ import type { Metadata } from "next";
 import { connection } from "next/server";
 import { Suspense } from "react";
 import { Notice } from "@/components/notice";
-import { ProductTable } from "@/components/product-table";
+import { Pagination } from "@/components/pagination";
+import { ProductList } from "@/components/product-table";
 import { RankingControls } from "@/components/ranking-controls";
 import { ListSkeleton } from "@/components/skeleton";
 import { StartDiscoveryCard } from "@/components/start-discovery-card";
 import { getPipelineStatus } from "@/data/pipeline-status";
 import { getRankedProducts } from "@/data/products";
-import { parseRankingParams } from "@/data/ranking-params";
+import { parseRankingParams, rankingHref } from "@/data/ranking-params";
+import { getWatchedIds } from "@/data/watchlist";
 import { getDb, isDatabaseConfigured, isMissingTableError } from "@/db/client";
 import { getDictionary } from "@/i18n/dictionaries";
 import type { Locale } from "@/i18n/locales";
 import { getLocale } from "@/i18n/server";
+import { paginate, parsePage, PRODUCT_PAGE_SIZE } from "@/lib/pagination";
 
 export async function generateMetadata(): Promise<Metadata> {
   const t = getDictionary(await getLocale());
@@ -27,7 +30,8 @@ async function RankedProducts({
   locale: Locale;
 }) {
   const { ranking: t, common, discover } = getDictionary(locale);
-  const filters = parseRankingParams(await searchParams);
+  const params = await searchParams;
+  const filters = parseRankingParams(params);
   await connection();
   if (!isDatabaseConfigured()) {
     return (
@@ -59,15 +63,32 @@ async function RankedProducts({
     filters.minPrice !== undefined ||
     filters.maxPrice !== undefined,
   );
+  const page = paginate(products, parsePage(params.page), PRODUCT_PAGE_SIZE);
   let content;
-  if (products.length > 0) {
+  if (page.items.length > 0) {
+    const watchedIds = await getWatchedIds(
+      db,
+      page.items.map((p) => p.id),
+    );
     content = (
-      <>
-        <ProductTable products={products} locale={locale} filters={filters} />
-        <p className="text-muted-foreground mt-2 text-xs">
+      <div className="space-y-4">
+        <ProductList
+          products={page.items}
+          locale={locale}
+          filters={filters}
+          watchedIds={watchedIds}
+          now={new Date()}
+        />
+        <Pagination
+          page={page.page}
+          pageCount={page.pageCount}
+          hrefFor={(n) => rankingHref(filters, n)}
+          labels={t}
+        />
+        <p className="text-muted-foreground text-xs">
           {t.signalsNote} {t.priceNote}
         </p>
-      </>
+      </div>
     );
   } else if (filtered) {
     content = (
@@ -90,7 +111,7 @@ async function RankedProducts({
       <RankingControls
         filters={filters}
         // "0 products" next to the empty-state card would only repeat it.
-        resultCount={products.length > 0 || filtered ? products.length : undefined}
+        result={products.length > 0 || filtered ? page : undefined}
         locale={locale}
       />
       {content}

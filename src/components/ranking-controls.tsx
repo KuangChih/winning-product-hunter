@@ -62,11 +62,12 @@ export function rankingFilterChips(filters: RankingFilters, locale: Locale): Fil
  */
 export function RankingControls({
   filters,
-  resultCount,
+  result,
   locale,
 }: {
   filters: RankingFilters;
-  resultCount?: number;
+  /** All matching products and the positions shown on this page (from / to are 1-based). */
+  result?: { total: number; from: number; to: number };
   locale: Locale;
 }) {
   const { ranking: t, common } = getDictionary(locale);
@@ -217,8 +218,12 @@ export function RankingControls({
         clearHref={rankingHref({ sort: filters.sort })}
         labels={common}
       />
-      {resultCount !== undefined && (
-        <p className="text-muted-foreground text-sm">{fill(t.resultCount, { n: resultCount })}</p>
+      {result !== undefined && (
+        <p className="text-muted-foreground text-sm">
+          {fill(t.resultCount, { n: result.total.toLocaleString("en-US") })}
+          {result.total > result.to - result.from + 1 &&
+            fill(t.showing, { from: result.from, to: result.to })}
+        </p>
       )}
     </div>
   );

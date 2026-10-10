@@ -3,6 +3,13 @@ import { defineConfig, devices } from "@playwright/test";
 export default defineConfig({
   testDir: "./e2e",
   fullyParallel: true,
+  // Every worker's browser talks to one `next start` process, and the local PGlite database
+  // runs inside it on the same thread as rendering. With the default (half the CPU cores, 10
+  // here) that thread saturates: streamed pages and prefetches finish seconds late, the browser's
+  // six connections fill up, and a click can sit on the loading skeleton past the 5 s expect
+  // timeout. 10 workers were no faster than 4 (the server is the limit), so use 4. Production
+  // differs: Neon queries are network I/O and each Vercel function has its own CPU.
+  workers: 4,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 2 : 0,
   use: {

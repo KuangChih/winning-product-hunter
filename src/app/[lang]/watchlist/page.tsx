@@ -6,6 +6,7 @@ import { Notice } from "@/components/notice";
 import { ScoreBadge } from "@/components/score-badge";
 import { ListSkeleton } from "@/components/skeleton";
 import { WatchButton } from "@/components/watch-button";
+import { ScoreChange, WatchAlerts } from "@/components/watch-alerts";
 import {
   ALERT_THRESHOLD,
   getWatchlist,
@@ -18,47 +19,10 @@ import { type Dictionary, getDictionary } from "@/i18n/dictionaries";
 import { fill } from "@/i18n/format";
 import type { Locale } from "@/i18n/locales";
 import { getLocale } from "@/i18n/server";
-import { cn } from "@/lib/utils";
 
 export async function generateMetadata(): Promise<Metadata> {
   const t = getDictionary(await getLocale());
   return { title: `${t.watchlist.title} · ${t.site.name}` };
-}
-
-function Change({ value }: { value: number | null }) {
-  if (value === null) return <span className="text-muted-foreground">—</span>;
-  const rounded = Math.round(value);
-  return (
-    <span
-      className={cn(
-        "tabular-nums",
-        rounded > 0 && "text-emerald-600 dark:text-emerald-400",
-        rounded < 0 && "text-red-600 dark:text-red-400",
-      )}
-    >
-      {rounded > 0 ? `+${rounded}` : rounded === 0 ? "0" : `−${Math.abs(rounded)}`}
-    </span>
-  );
-}
-
-/** "moved {change} to {score}…" with the colored change element in place of `{change}`. */
-function AlertText({
-  template,
-  change,
-  score,
-}: {
-  template: string;
-  change: React.ReactNode;
-  score: string;
-}) {
-  const [before, after = ""] = fill(template, { score }).split("{change}");
-  return (
-    <>
-      {before}
-      {change}
-      {after}
-    </>
-  );
 }
 
 function WatchTable({ items, dict }: { items: WatchedProduct[]; dict: Dictionary }) {
@@ -97,10 +61,10 @@ function WatchTable({ items, dict }: { items: WatchedProduct[]; dict: Dictionary
                 )}
               </td>
               <td className="px-3 py-2 text-right">
-                <Change value={scoreChange(w.score, w.previousScore)} />
+                <ScoreChange value={scoreChange(w.score, w.previousScore)} />
               </td>
               <td className="px-3 py-2 text-right">
-                <Change value={scoreChange(w.score, w.scoreAtAdd)} />
+                <ScoreChange value={scoreChange(w.score, w.scoreAtAdd)} />
               </td>
               <td className="text-muted-foreground px-3 py-2">
                 {w.addedAt.toISOString().slice(0, 10)}
@@ -157,30 +121,7 @@ async function Watchlist({ locale }: { locale: Locale }) {
   const alerts = scoreAlerts(items);
   return (
     <div className="space-y-6">
-      {alerts.length > 0 && (
-        <section
-          aria-labelledby="alerts-heading"
-          className="rounded-lg border border-amber-500/40 bg-amber-500/5 p-4"
-        >
-          <h2 id="alerts-heading" className="font-semibold">
-            {t.alertsHeading}
-          </h2>
-          <ul className="mt-2 space-y-1 text-sm">
-            {alerts.map((w) => (
-              <li key={w.productId}>
-                <Link href={`/products/${w.slug}`} className="underline underline-offset-4">
-                  {w.title}
-                </Link>{" "}
-                <AlertText
-                  template={t.alertMoved}
-                  change={<Change value={scoreChange(w.score, w.previousScore)} />}
-                  score={w.score!.toFixed(0)}
-                />
-              </li>
-            ))}
-          </ul>
-        </section>
-      )}
+      <WatchAlerts alerts={alerts} labels={t} />
       <WatchTable items={items} dict={dict} />
     </div>
   );

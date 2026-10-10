@@ -31,8 +31,11 @@ test("the home page is translated", async ({ page, context, baseURL }) => {
   await context.addCookies([{ name: "locale", value: "zh-TW", url: baseURL! }]);
   await page.goto("/");
   await expect(page.getByRole("link", { name: "查看熱賣產品" })).toBeVisible();
-  await expect(page.getByRole("heading", { name: "目前排名前三的產品" })).toBeVisible();
-  await expect(page.getByRole("heading", { name: "運作方式" })).toBeVisible();
+  await expect(
+    page
+      .getByRole("heading", { name: "目前分數最高的產品" })
+      .or(page.getByRole("heading", { name: /還沒有產品|尚未設定資料庫/ })),
+  ).toBeVisible();
 });
 
 test("the ranking page is translated", async ({ page, context, baseURL }) => {
@@ -44,7 +47,8 @@ test("the ranking page is translated", async ({ page, context, baseURL }) => {
   const table = page.getByRole("table");
   await expect(table.or(page.getByText(/尚未設定資料庫|還沒有產品/))).toBeVisible();
   if (await table.isVisible()) {
-    await expect(table.getByRole("columnheader", { name: "可信度" })).toBeVisible();
+    await expect(table.getByRole("columnheader", { name: "市場" })).toBeVisible();
+    await expect(table.getByText(/^可信度[高中低]$/).first()).toBeVisible();
   }
 });
 

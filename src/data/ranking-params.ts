@@ -56,8 +56,11 @@ export function parseRankingParams(
   };
 }
 
-/** URL for the ranking page with these filters; defaults are left out to keep links short. */
-export function rankingHref(filters: RankingFilters): string {
+/**
+ * URL for the ranking page with these filters; defaults are left out to keep links short. The
+ * page is separate from the filters on purpose: a new filter or sort starts again at page 1.
+ */
+export function rankingHref(filters: RankingFilters, page = 1): string {
   const params = new URLSearchParams();
   if (filters.q) params.set("q", filters.q);
   if (filters.market) params.set("market", filters.market);
@@ -70,6 +73,7 @@ export function rankingHref(filters: RankingFilters): string {
     if (rule !== undefined) params.set(signalParam(name), String(rule));
   }
   if (filters.sort && filters.sort !== "score") params.set("sort", filters.sort);
+  if (page > 1) params.set("page", String(page));
   const qs = params.toString();
   return qs ? `/products?${qs}` : "/products";
 }
