@@ -9,9 +9,9 @@
 
 ## 實作（`src/ingestion/sources/meta-ad-library-web.ts`）
 
-- 每個「產品名稱 × 國家」只抓第一頁（曝光最高的廣告），請求間隔 5 秒，每次執行最多 50 頁。
+- 三種查詢都只抓第一頁（曝光最高的廣告）：產品探索的品類關鍵字 × 國家（`npm run discover`）、追蹤廣告主的粉專 × 國家（見下方）、手動的產品名稱 × 國家（`npm run collect -- meta_ad_library`）。請求間隔 5 秒，每次執行最多 50 頁。
 - 遇到 CAPTCHA 旗標、登入頁或頁面沒有結果資料就丟出 `AdLibraryBlockedError`，整次執行停止並記錄在 `ingestion_runs`，不嘗試繞過。
-- 每支廣告存成 `ad`（provider `ad_library_web`，國家為搜尋國家），landing page 存在 `raw.landing_url`，之後可用來找 Shopify 店家；另存一筆關鍵字層級的 `active_ads`（該國刊登中的廣告數）。
+- 每支廣告存成 `ad`（provider `ad_library_web`，國家為搜尋國家），landing page 存在 `raw.landing_url`（用來把廣告掛到產品、查詢廣告主的 Shopify 商品頁）；另存一筆關鍵字層級的 `active_ads`（該國刊登中的廣告數）。
 
 ## 實測數據
 

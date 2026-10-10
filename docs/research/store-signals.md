@@ -2,10 +2,12 @@
 
 目的：釐清 Dropship.io、TrendTrack、Koala Inspector、PPSPY、ShopHunter、Commerce Inspector、StoreLeads 這類工具用的「店家訊號」從哪裡來、哪些是我們能**合法且穩定**取得的第一手（first-party）資料，並決定 v1 要做什麼。
 
-可信度標記（沿用 `data-sources.md`）：🟢 官方文件／本次實測、🟡 第三方或廠商／聯盟部落格（次要來源，實作前需再確認）。
+可信度標記：🟢 官方文件／本次實測、🟡 第三方或廠商／聯盟部落格（次要來源，實作前需再確認）。
 「實測」指 2026-10-10 以少量請求（< 20 次，間隔正常）對一家大型 Shopify 店（allbirds.com）做的抽查，只代表單一店家當天的行為。
 
-> 本文件不是法律意見。標示「高風險」的項目在上線前應請律師確認。
+> **現況（2026-10-10）**：已採用方法 A（Shopify Global Catalog），而且 `lookup_catalog` 可以直接用廣告的商品頁網址查詢廣告主自己的商品，所以原本規劃的逐店讀取（方法 B、C）不再需要。Global Catalog 不需要帳號或金鑰。售價只用廣告主自己的商品頁，標題搜尋結果只當「同類商品」用於飽和度（ADR-012）。
+>
+> 本文件不是法律意見。標示「高風險」的項目在對外開放前應請律師確認。
 
 ---
 
@@ -13,17 +15,17 @@
 
 | # | 方法 | 訊號 | 覆蓋（我們的國家） | 取得條件 | 成本 | ToS／法律風險 | 可靠度 | 建議 |
 |---|---|---|---|---|---|---|---|---|
-| A | Shopify **Global Catalog**（UCP / Catalog MCP） | 跨商家商品搜尋、零售價、商家網域、庫存狀態（available / running low）、評分；可用 `ships_to` 依國家篩選 | 全部 Shopify 商家；`ships_to` 可涵蓋全部 11 國 🟢 | 在 Developer Dashboard 註冊 agent profile（Spring '26 起免審核）🟡 | 免費 🟡 | **低～中**：官方開放管道，但用途條款（UCP／Catalog）尚未找到明文，需確認是否允許「分析／轉售洞察」 | 高（結構化、官方） | **v1 第一優先**：零售價與「多少店在賣」 |
-| B | 單店公開 JSON：`/products.json`、`/products/<handle>.js`、`/meta.json`、`sitemap_products_*.xml` | 上架時間（`created_at`/`published_at`）、價格、`compare_at_price`、變體、`available`；`meta.json` 有店家國家、幣別、`ships_to_countries` | 全部 Shopify 店（需逐店抓） | 無需帳號；必須低速、帶身分的 User-Agent | 免費 | **中**：robots.txt 預設**未**禁止這些路徑，但 Shopify 2026-05-30 起對未簽章 bot 嚴格限速；若營運者本身持有 Shopify 帳號，Shopify ToS §1(9) 禁止用 robot/scraper 存取「Services」 | 中高（欄位穩定，但會被 429/430 擋） | **v1 採用，但只限少量**：只抓從廣告／Catalog 找到的店，不做全網爬 |
-| C | 店家自己的 UCP 端點（`/.well-known/ucp`、`/api/ucp/mcp` 的 `search_catalog`） | 單店結構化商品／價格 | 有實作 UCP 的 Shopify 店（實測 allbirds 有）🟢 | 無需帳號（discovery）；需遵守 agent 規則 | 免費 | 低～中：Shopify 主動為 agent 開放的管道 | 中（新協定，版本變動快） | v1.5：作為方法 B 的「官方替代」 |
+| A | Shopify **Global Catalog**（UCP / Catalog MCP） | 跨商家商品搜尋、零售價、商家網域、庫存狀態（available / running low）、評分；可用 `ships_to` 依國家篩選 | 全部 Shopify 商家；`ships_to` 可涵蓋全部 11 國 🟢 | 實測只需在請求帶 agent profile 網址，不需帳號或金鑰 🟢 | 免費 🟢 | **低～中**：官方開放管道，但用途條款（UCP／Catalog）尚未找到明文，需確認是否允許「分析／轉售洞察」 | 高（結構化、官方） | **已採用**：廣告主售價與同類商品數 |
+| B | 單店公開 JSON：`/products.json`、`/products/<handle>.js`、`/meta.json`、`sitemap_products_*.xml` | 上架時間（`created_at`/`published_at`）、價格、`compare_at_price`、變體、`available`；`meta.json` 有店家國家、幣別、`ships_to_countries` | 全部 Shopify 店（需逐店抓） | 無需帳號；必須低速、帶身分的 User-Agent | 免費 | **中**：robots.txt 預設**未**禁止這些路徑，但 Shopify 2026-05-30 起對未簽章 bot 嚴格限速；若營運者本身持有 Shopify 帳號，Shopify ToS §1(9) 禁止用 robot/scraper 存取「Services」 | 中高（欄位穩定，但會被 429/430 擋） | 不需要（由 A 的 `lookup_catalog` 取代）；店家所在國家（`/meta.json`）之後有需要再評估 |
+| C | 店家自己的 UCP 端點（`/.well-known/ucp`、`/api/ucp/mcp` 的 `search_catalog`） | 單店結構化商品／價格 | 有實作 UCP 的 Shopify 店（實測 allbirds 有）🟢 | 無需帳號（discovery）；需遵守 agent 規則 | 免費 | 低～中：Shopify 主動為 agent 開放的管道 | 中（新協定，版本變動快） | 不需要（A 已涵蓋） |
 | D | 庫存數量差分（inventory_quantity tracking） | 推估銷量 | 只有 2017-12-05 前建立的店，或主題外洩欄位的店 | 需高頻輪詢 | 免費但耗資源 | **中～高**：Shopify 刻意移除此欄位以防 bot；高頻輪詢違反限速精神 | **低**：dropshipping 店多設「無限庫存」 | **不做** |
 | E | `updated_at` 變動計數（PPSPY 類） | 推估「有在賣」 | 全部 | 輪詢 | 免費 | 中 | **低**：`updated_at` 會因非銷售原因變動 🟡 | 不做；最多當「店家活躍度」 |
 | F | 訂單編號差分（自己下單兩次） | 期間訂單數 | 個別店 | 真實購買 | 每店每次一筆訂單 | **高**：需真實付款、退款；結帳頁現在常只顯示隨機 Confirmation # 🟡 | 低～中 | **不做** |
 | G | `collections/all?sort_by=best-selling` 排名變化 | 店內暢銷排序 | 全部 | 無 | 免費 | **中～高**：Shopify 預設 robots.txt 明確 `Disallow: /collections/*sort_by*` 🟢 | 中（只有相對排名） | **不做**（違反 robots.txt） |
 | H | `/cart.js` 加購探測庫存 | 庫存上限 | 全部 | 需操作購物車 | 免費 | **高**：`/cart` 被 robots.txt 禁止；屬於操弄店家系統 | 中 | **不做** |
 | I | 流量 × 轉換率 × 客單價（Similarweb 類） | 營收量級 | 大店才準 | 第三方 API | 高 | 低（買資料） | 低（小店幾乎無資料）🟡 | 不做 |
-| J | Meta Ad Library（EU/UK 商業廣告）→ 落地頁網域 | 「誰在打廣告賣這個」、店家網域 | 只有投放到 EU/UK 的廣告（德、法、瑞典、比利時、西班牙、英國；挪威屬 EEA 需確認）🟢 | 身分驗證 | 免費 | 低（官方 API；但轉售用途條款待確認，見 `data-sources.md`） | 中：`ad_creative_link_captions` 通常是顯示網域，不保證是完整 URL 🟢 | **v1 採用**：店家發現的主管道 |
-| K | TikTok Commercial Content API → 落地頁 | 同上 | EU/EEA（+UK、CH，第三方說法不一）🟡 | 申請審核 | 免費 | 低 | 中 | 已在申請流程（見 `data-sources.md`） |
+| J | Meta Ad Library（EU/UK 商業廣告）→ 落地頁網域 | 「誰在打廣告賣這個」、店家網域 | 只有投放到 EU/UK 的廣告（德、法、瑞典、比利時、西班牙、英國；挪威屬 EEA 需確認）🟢 | 身分驗證 | 免費 | 低（官方 API；轉售用途條款待確認） | 中：`ad_creative_link_captions` 通常是顯示網域，不保證是完整 URL 🟢 | **v1 採用**：店家發現的主管道 |
+| K | TikTok Commercial Content API → 落地頁 | 同上 | EU/EEA（+UK、CH，第三方說法不一）🟡 | 申請審核 | 免費 | 低 | 中 | 等使用者申請（見 HUMAN_TODO） |
 | L | StoreLeads 資料集 | 店家清單、`country_code`、`estimated_sales`、商品數、價位、最近上架商品 | 全球、含 11 國；1,370 萬店 🟡 | 付費帳號；API 需 Pro 以上 🟢 | Pro **$250/月**；商品搜尋與歷史資料只有 Enterprise **$950/月** 🟢 | 低（買授權資料；需看授權是否允許在我們產品中再呈現） | 中（`estimated_sales` 為模型推估） | **暫不買**；條件達成再買 Pro 一個月 |
 | M | BuiltWith / Wappalyzer | 技術堆疊、店家清單 | 全球 | 付費 | BuiltWith Basic $295/月起 🟡；Wappalyzer Pro 約 $250/月 🟡 | 低 | 中（無商品層級資料） | **不買**（對選品幫助小） |
 | N | Common Crawl CDX、憑證透明度（CT）日誌 | 找出 Shopify 店網域、商品 URL | 全球，但偏大站 | 無 | 免費（運算成本） | 低（Common Crawl 本身遵守 robots.txt）🟡 | 低～中：自訂網域不會顯示 Shopify，需再驗證 | v2 再考慮 |
@@ -65,7 +67,7 @@
 
 ### 1.5 ToS 與 robots.txt
 
-- **Shopify Terms of Service §1(9)**：同意「不使用 robot、spider、scraper 或其他自動化方式存取 Services 或監控其中資訊」；§1(8) 禁止繞過技術限制 🟢。這份條款約束的是 **Shopify 帳號持有人**。若老闆本人或公司有 Shopify 店（dropshipper 通常有），就受此條款拘束——這是我們最實際的 ToS 風險。
+- **Shopify Terms of Service §1(9)**：同意「不使用 robot、spider、scraper 或其他自動化方式存取 Services 或監控其中資訊」；§1(8) 禁止繞過技術限制 🟢。這份條款約束的是 **Shopify 帳號持有人**。若使用者本人或公司有 Shopify 店（dropshipper 通常有），就受此條款拘束——這是我們最實際的 ToS 風險。
 - **個別店家的 robots.txt**（Shopify 預設，實測 🟢）：禁止 `/cart`、`/carts`、`/checkout`、`/checkouts/`、`/collections/*sort_by*`；**沒有**禁止 `/products.json`、`/products/*.js`、`/meta.json`、sitemap。店家可透過 `robots.txt.liquid` 自訂，因此每店都要讀一次 robots.txt。
 - 店家自己的 `agents.md`（新出現）會引導 agent 改用 UCP／Shop app 而非 screen-scraping 🟢——這是 Shopify 生態明確偏好的方向。
 - 美國 hiQ v. LinkedIn 一案讓「抓取公開資料」本身在 CFAA 下風險較低，但違約（ToS）與 EU 資料庫權（Database Directive，影響德、法、瑞典、比、西）仍是風險；只抓商品資料、不抓個資可壓低 GDPR 風險。🟡（一般法律常識，需律師確認）
@@ -87,7 +89,7 @@
 **結論**：沒有一種店家層級的「銷量」訊號同時可靠又低風險。Shopify 這幾年的方向（移除庫存、隨機確認碼、bot 限速、Web Bot Auth）都在**削弱**這類推估。我們的評分應該**不依賴店家銷量**，改用可驗證的代理訊號：
 1. **跨店重複度**：同一商品在多少家店上架（Global Catalog 或廣告落地頁計數）——「多店同時賣」本身就是 winning 的強訊號，也是飽和度訊號。
 2. **上架新鮮度**：`published_at` / `created_at` 距今天數（新店新品 + 正在打廣告 = 正在測品）。
-3. **廣告持續度**：見 `data-sources.md`（Meta `ad_delivery_start_time`）。
+3. **廣告持續度**：Meta 廣告的開始投放日（見 [`meta-ad-library-web.md`](meta-ad-library-web.md)）。
 4. **折扣行為**：`compare_at_price` 與 `price` 的差距（典型 dropshipping 定價手法，也可當商品定位訊號）。
 
 ---
@@ -142,39 +144,30 @@
 
 ---
 
-## 6. v1 建議做法
+## 6. 結論與實作狀態
 
-### 先做（依順序）
+### 已做
 
-1. **Shopify Global Catalog adapter**（免費）
-   - 用我們候選商品的標題／圖片查 `search_catalog`，帶 `ships_to` = 各優先國家。
-   - 產出：每國 `offerCount`（跨店重複度）、`retailMedian`、`retailMin/Max`、商家網域清單。
-   - 先寫 fixture 模式；拿到 agent profile 後切換。
-2. **店家 enrich adapter（低頻、單店）**
-   - 輸入：Catalog 或 Meta 廣告拿到的網域。
-   - 依序：讀 `robots.txt` → `/meta.json`（國家、幣別、ships_to、商品數）→ 該商品的 `/products/<handle>.js`（價格、`published_at`）。
-   - 每店每日最多 1 輪；全域速率上限（例如每秒 ≤ 1 個請求）；遇 403/429/430 記錄並跳過 24 小時。
-3. **Meta Ad Library → 網域**：從 `ad_creative_link_captions` 抽網域，接上第 2 步。這解決 EU/UK 市場的「誰在打廣告賣這個」。
-4. 評分層：把「跨店重複度」「上架新鮮度」「零售價中位數」接進 `scoring.md` 的子分數（margin 可以開始計算，信心度上限可提高）。
+1. **Shopify Global Catalog**（`src/ingestion/sources/shopify-catalog.ts`）
+   - `search_catalog`：用產品標題、帶 `ships_to` 查各優先國家 → 同類商品數與販售店家數（飽和度訊號）。
+   - `lookup_catalog`：用 Meta 廣告的商品頁網址查詢 → 廣告主自己的售價、評分與評論數（`npm run collect -- advertiser_stores`，已加入每日 pipeline）。
+2. 評分：售價只用廣告主商品頁（ADR-012）；店家評分與評論數是店家自報的數字，不計入分數。
 
 ### 不要做
 
 - 不做庫存差分、`updated_at` 計數、訂單編號差分、`sort_by=best-selling` 抓取、`/cart.js` 探測。
-- 不用代理池／住宅 IP／偽裝瀏覽器繞過 Shopify 或 Cloudflare 的阻擋。
-- 不全網爬 Shopify 店（成本高、會被限速、ToS 風險最大）。
-- 不在產品中宣稱「某店月營收 $X」——無法驗證，且容易誤導使用者。
+- 不用代理池、住宅 IP、偽裝瀏覽器繞過 Shopify 或 Cloudflare 的阻擋。
+- 不全網爬 Shopify 店。
+- 不宣稱「某店月營收 $X」——無法驗證，容易誤導。
 
-### 需要老闆申請／購買的項目
+### 之後視情況
 
-| 項目 | 費用 | 何時做 | 具體效益 |
-|---|---|---|---|
-| Shopify Partner／Developer Dashboard 帳號 + 註冊 UCP agent profile | 免費 | **現在** | 啟用 Global Catalog：全部 11 國的零售價與跨店重複度，直接補上 margin 子分數 |
-| （先閱讀）Shopify UCP／Catalog 使用條款、API Terms | 免費 | 現在 | 確認「分析後呈現給付費用戶」是否被允許；若不允許，Catalog 改為只做內部比對 |
-| Meta 身分驗證（Ad Library API） | 免費 | 已列在 HUMAN_TODO | EU/UK 廣告 → 店家網域 |
-| Web Bot Auth 已驗證 bot 申請（向 Shopify 填表） | 免費 | 單店 enrich 每日超過數千請求時 | 避免 429，合法提高額度 |
-| **StoreLeads Pro**（$250/月，年繳 85 折） | 付費 | **暫不買**。觸發條件：v1 上線後，Catalog + 廣告找到的店不足以覆蓋美、加、澳、紐（這 4 國沒有官方廣告資料） | 依國家＋類別批量列出新開的 Shopify 店與 `most_recently_published_product`，補足非 EU 市場的「新店新品」訊號；建議只買 1 個月做一次性回填，評估命中率後再決定 |
-| StoreLeads Enterprise（$950/月） | 付費 | 不建議 | 商品搜尋與歷史資料，但 Catalog 已免費提供商品搜尋 |
-| BuiltWith / Wappalyzer / Similarweb | 付費 | 不建議 | 只有技術堆疊或流量，對選品沒有額外價值 |
+| 項目                                       | 費用                       | 觸發條件                                                         | 具體效益                                                     |
+| ------------------------------------------ | -------------------------- | ---------------------------------------------------------------- | ------------------------------------------------------------ |
+| 閱讀 Shopify UCP／Catalog 使用條款         | 免費                       | 對外開放前                                                       | 確認「分析後呈現給付費使用者」是否被允許                     |
+| Web Bot Auth 已驗證 bot 申請               | 免費                       | 若之後需要逐店讀取且每日超過數千請求                             | 合法提高額度，避免 429                                       |
+| **StoreLeads Pro**（$250/月，年繳 85 折）  | 付費                       | 廣告與 Catalog 找到的店不足以覆蓋美、加、澳、紐                  | 依國家 + 類別列出新開店與最新上架商品；建議只買 1 個月評估 |
+| StoreLeads Enterprise / BuiltWith / Wappalyzer / Similarweb | 付費 | 不建議 | Catalog 已免費提供商品搜尋；其餘只有技術堆疊或流量 |
 
 ---
 

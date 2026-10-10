@@ -8,7 +8,7 @@
 - 【次級】＝廠商部落格、第三方整理、新聞報導；實作前要再對照官方。
 - 【未證實】＝搜尋不到官方說法，或來源互相矛盾，需要登入後台或實測確認。
 
-本文件補充（不取代）[`data-sources.md`](./data-sources.md)。
+> **現況（2026-10-10）**：本研究是 ADR-005 的依據。之後使用者決定蒐集 Meta / TikTok 公開廣告網站（ADR-006），所以下文「不自建爬蟲」的建議已被取代：Meta Ad Library 公開網站已自建蒐集器（見 [`meta-ad-library-web.md`](meta-ad-library-web.md)），TikTok Creative Center 實測後暫緩（見 [`tiktok-creative-center.md`](tiktok-creative-center.md)）；Shopify 改用官方 Global Catalog（見 [`store-signals.md`](store-signals.md)）。其餘官方 API 都在等使用者申請（見 `docs/loop/HUMAN_TODO.md`）。
 
 ---
 
@@ -23,10 +23,10 @@
 | Google Trends API（alpha） | 高 | 全球 | 申請 alpha，名額有限 | 未公布 | 低 | 立即申請 |
 | TikTok Commercial Content API | 高 | **UK** + EU/EEA（含 NO） | TikTok for Developers 申請 | 免費 | 低 | **第一批**（UK/EU） |
 | Google Ads Transparency BigQuery dataset | 高 | 僅 **EEA + 土耳其**（**不含 UK**） | GCP 帳號 | BigQuery 查詢費 | 低 | 第二批（只有 metadata） |
-| Shopify 店家 storefront JSON | 高（店家自己公開） | 不分國（以美國店為主） | 無 | 爬取成本 | 低～中 | 第二批，自建 |
+| Shopify Global Catalog（官方 MCP） | 高（Shopify 官方） | 全部（`ships_to`） | 不需金鑰 | 免費 | 低～中 | **已串接**（取代逐店讀取 storefront JSON） |
 | eBay Marketplace Insights API | 高（成交紀錄） | 依 eBay 站點 | **Limited Release**，需 eBay 業務審核 | 免費 | 低 | 申請看看 |
-| Meta Ad Library **網站**（美國商業廣告） | 高，但只能爬 | US/CA/AU/NZ | 無官方存取 | Apify 約 $3.4–5.8/千則 | **高** | 不自建；若用需律師確認 |
-| TikTok Creative Center（Top Ads/Products） | 高，但只能爬 | 多國（清單待確認） | 無官方 API；Top Products 需登入 | Apify 計次 | **中～高** | 不自建；可透過第三方並標示風險 |
+| Meta Ad Library **網站**（美國商業廣告） | 高，但只能蒐集公開頁 | US/CA/AU/NZ | 無官方存取 | 自建免費；Apify 約 $3.4–5.8/千則 | **高** | **已自建**（ADR-006，限個人研究） |
+| TikTok Creative Center（Top Ads/Products） | 高，但只能蒐集公開頁 | 多國（清單待確認） | 無官方 API；API 需頁面簽章；Top Products 需登入 | Apify 計次 | **中～高** | 實測後暫緩，待使用者決定 |
 | TikTok Shop Partner/Affiliate API | 高 | US、UK、部分 EU | Partner Center 開發者 + 賣家/創作者授權 | 免費 | 中 | 不適合當市場排名來源 |
 | Amazon SP-API / Creators API | 高 | 多國 | 賣家帳號 / Associates 銷售門檻 | 免費 | **高**（條款明文禁止我們的用途） | 不走官方；Keepa 視為轉售商 |
 | Reddit Data API | 高 | 不分國 | 2025-11 起須申請核准 | 商用需另談 | 中～高 | 暫緩 |
@@ -74,7 +74,7 @@
   - Automated Data Collection Terms（2024-10-07 生效）：未取得 Meta「明示書面許可」不得自動化蒐集；接受條款本身不構成許可；蒐集的資料只能用於「為你的搜尋引擎提供結果」等用途，且**禁止轉讓、出售、授權**蒐集到的資料及衍生資料。
 - **判例背景【次級】**：*Meta v. Bright Data*（N.D. Cal., 2024-01）認定「未登入時爬取公開資料」不構成違反 Meta 條款。不過 Meta 之後把條款改成「無論是否登入」都適用（見上），這個判例的保護範圍可能已經縮小。
 - **風險**：**高**。自己爬，同時違反 ToS 與 Automated Data Collection Terms；用 Apify 只是把執行風險轉給第三方，我們「轉售衍生資料」的部分仍在條款射程內。
-- **建議**：**不自建爬蟲**。如果商業上一定要有美國 Meta 廣告，只能透過第三方（Apify 等），並且：(a) 請律師評估；(b) UI 明確標示「第三方資料」；(c) adapter 可隨時關閉。替代方案是用 UK 官方資料當英語市場的代理指標。
+- **原建議**：不自建爬蟲。**使用者已決定蒐集**（ADR-006）：低頻率、不繞過任何防護、被擋就停止，限個人研究使用；對外開放或收費前必須重新評估。
 
 ### 1.3 其他官方管道（美國商業廣告）
 - **Meta Content Library / API【官方】**：申請者必須隸屬於以科學或公益研究為主要目的的**非營利**學術或研究機構。營利公司**不符資格**，而且官方頁面描述的內容是公開貼文、Marketplace 等，沒有提到商業廣告。
@@ -93,7 +93,7 @@
 - **官方 API**：**無**。Creative Center 不在 TikTok API for Business 或 Commercial Content API 的範圍內（官方文件查無對應端點）。
 - **條款【官方，TikTok US ToS，2026-07-15 更新】**：§3.4 禁止「以任何自動化系統或軟體（包括 bots）擷取、爬取、匯出或以其他方式提取任何資料」，除非經 TikTok USDS Joint Venture 書面核准。Creative Center 本身另有 TikTok Business 條款（登入頁，無法公開讀取）。
 - **風險**：**中～高**。Top Ads 不需登入，風險較低；Top Products 需登入，屬於「登入後自動化」，違約風險明顯較高。
-- **建議**：**不自建**。如要使用，透過 Apify 類第三方，只取 Top Ads/Trends 這些公開頁，並標示為第三方資料。
+- **現況**：依 ADR-006 評估自建，但 Top Ads 的 API 需要頁面簽章（不偽造），且回應沒有商品網址，暫緩；改由使用者決定是否用官方 Commercial Content API 或付費 Apify。
 
 ### 2.2 TikTok Commercial Content API
 - **涵蓋【官方】**：產品頁寫「這個階段**只**包含 EU 國家的資料」，但「Supported Countries」頁列出 EU + EEA（**含 NO**）+ **GB、CH**（不含 TR）。→ **UK 有涵蓋**，美國、CA、AU、NZ 沒有。
@@ -107,7 +107,7 @@
 - **門檻**：在 Partner Center 註冊為 Affiliate app developer；資料需要賣家或創作者 OAuth 授權（只看得到被授權帳號的資料）【次級：Celigo、Truto 端點清單】。
 - **結論**：可以拿到「哪些商品正在招募聯盟（佣金率）」，算是弱訊號；**拿不到全站 top-selling 排名**。市面上 Kalodata、FastMoss 等的銷量數字並非來自官方 API【次級推論】。
 - **風險**：中（用途需符合 Partner 條款，且必須有真實賣家／創作者授權）。
-- **建議**：暫不整合；等我們有創作者用戶時再評估。
+- **建議**：暫不整合；等我們有創作者使用者時再評估。
 
 ### 2.4 TikTok Shop 營運國家（截至 2026-10）
 - **確認營運**：US、UK【多個次級來源一致】；**FR、DE、IE、IT、ES**【官方 newsroom 2026-05-28 稱已營運】；**NL、BE、AT、PL** 自 2026-06-15 上線【官方 newsroom】。另有東南亞、JP、MX、BR 等【次級】。
@@ -127,7 +127,7 @@
 - **【官方】** 目前是 alpha，接受 alpha tester 申請，名額有限。提供**近 5 年滾動資料**，可按日／週／月／年彙總，可比較國家與子區域。數值是**一致縮放**（不是 0–100 正規化），所以可以跨請求拼接，也能比較超過 8 個詞。
 - 優先審核「有具體用例、能很快開始、願意回饋」的開發者。
 - **成本**：未公布。**風險**：低。
-- **建議**：**立刻申請**；拿到之前繼續用 SerpApi 的 `google_trends`。
+- **建議**：**立刻申請**；拿到之前沒有 Google Trends 資料（SerpApi 屬中間商，依 ADR-005 不用）。
 
 ### 3.3 Google Ads Transparency Center → BigQuery public dataset
 - **【官方 README】** 有兩個資料集：`creative_stats` 與 `removed_creative_stats`，提供 JSON 下載，也可在 BigQuery 公開資料集 `bigquery-public-data.google_ads_transparency_center` 查詢。
@@ -146,7 +146,7 @@
   → **需要一個 Merchant Center 帳號**，最好附上真實商店網域與商品 feed，才可能達到資格。
 - **API 版本【官方】**：Content API for Shopping 已在 2026-08-18 sunset，2026-09-01 起間歇性回 410，2027 年初完全關閉 → **只能用 Merchant API v1**。
 - **成本**：免費。
-- **風險**：**低～中**。資料來源合規，但把 Market Insights 資料給我們的 SaaS 用戶看，是否符合 Merchant Center 條款，需要律師確認（官方只寫「必須符合條款」）。
+- **風險**：**低～中**。資料來源合規，但把 Market Insights 資料給我們的 SaaS 使用者看，是否符合 Merchant Center 條款，需要律師確認（官方只寫「必須符合條款」）。
 - **建議**：**第一優先**。在我們的 11 個國家裡，這是**唯一由平台官方直接給出「熱門商品排名 + 趨勢」的來源**。
 
 ### 3.5 Keyword Planner（Google Ads API）
@@ -186,7 +186,7 @@
 - **Acceptable Use Policy【官方】**：
   - 用途限於協助授權賣家經營他們在 Amazon 的業務。
   - §4.3：不得使用或提供「販售從 Amazon 網站取得資料」的外部資料服務。
-  - §4.4：不得跨授權用戶彙總資料。
+  - §4.4：不得跨授權使用者彙總資料。
   - §4.5：不得發布或分享關於 Amazon 業務的洞察。
 - **費用【次級】**：Amazon 原訂 2026 年起向第三方開發者收 $1,400/年與 GET 呼叫費，**2026-05 宣布「目前不推行」**。
 - **風險**：**高**（「熱門商品發掘 SaaS」直接落在 §4.3、§4.5 的禁止範圍）。
@@ -217,11 +217,8 @@
 - **Terapeak**：只在 Seller Hub UI 裡，**沒有 API**。
 - **建議**：申請 Marketplace Insights（核准機會不高，但成本低）；不要爬 Terapeak。
 
-### 5.3 Shopify 店家 storefront（自建爬取）
-- `/{store}/products.json`（未正式文件化）與 `/products/{handle}.js`（Shopify 官方 Ajax API 的一部分）會公開店家自己的商品、價格、變體、`created_at`、`published_at`。
-- 這是**商家自己公開**的第一手資料，可以算「同款商品在多少家店上架」與「新上架速度」。
-- **風險**：低～中。要遵守 robots.txt、限速，不繞過防護；各店 ToS 可能有不同規定。
-- **建議**：第二批，自建（不需要透過 Apify）。
+### 5.3 Shopify 店家
+- 原本規劃逐店讀取 `/products.json`、`/products/{handle}.js`。後來發現官方 **Shopify Global Catalog** 可依國家搜尋跨店商品、也能直接用商品網址查詢，已改用（見 [`store-signals.md`](store-signals.md)）。
 
 ### 5.4 Reddit
 - 【次級】2025-11 起 Responsible Builder Policy 關閉 self-service，存取 API 前**必須申請並取得明確核准**；Data API 條款限制商業用途。
@@ -230,9 +227,6 @@
 ### 5.5 Etsy
 - Open API v3 有 `num_favorers`、`quantity` 等欄位，但沒有商品層級銷量【次級】。Etsy 與 dropshipping 的品類重疊有限。
 - **建議**：不優先。
-
-### 5.6 AliExpress Affiliate API（供給端，延續 data-sources.md）
-- 官方 affiliate API 可以依銷量排序（`LAST_VOLUME_DESC`）。這是供給端的第一手資料，維持第一批。
 
 ---
 
@@ -246,36 +240,26 @@
 | 4 | **Meta Ad Library API** | UK 是唯一能合法拿到商業廣告投放日與觸及人數的優先市場 | UK + EU |
 | 5 | **TikTok Commercial Content API** | 同上，TikTok 版（含首／末次曝光日、觸及人數） | UK + EU/EEA |
 | 6 | **Google Trends API（alpha）** | 一致縮放的長期趨勢；先申請，期間用 SerpApi | 全部 |
-| 7 | **Shopify storefront 自建爬取** | 店家第一手商品／上架資料，補美國廣告缺口 | 不分國 |
+| 7 | **Shopify Global Catalog**（已串接） | 官方跨店商品搜尋，提供廣告主售價與同類商品數 | 全部 |
 
 暫不列入但可以另外申請：eBay Marketplace Insights、Google Ads Transparency BigQuery（只有 EEA）。
-維持第三方並標示風險：Meta Ad Library 網站（美國）、TikTok Creative Center、Keepa（Amazon）。
+已自建：Meta Ad Library 網站（美國等市場，ADR-006）。暫緩：TikTok Creative Center、Keepa（Amazon，中間商）。
 
 ---
 
-## 7. 擁有者需要申請的帳號／金鑰清單
+## 7. 帳號申請
 
-1. **Google Cloud 專案**（啟用 Merchant API、Google Ads API、BigQuery），以及一組 OAuth 2.0 client。
-2. **Google Merchant Center 帳號**：同意條款、驗證並認領網站、上傳商品 feed（為了達到 Market insights 最低資格），並把 GCP 專案連結或註冊到該 Merchant Center 帳號（依 Merchant API quickstart）。
-3. **Google Ads manager account + developer token**，並申請 **Basic access**（Keyword Planning 需要）。
-4. **Google Trends API alpha 申請表**（developers.google.com/search/apis/trends）。
-5. **Meta**：個人 Facebook 帳號完成身分與所在地確認（facebook.com/ID）、Meta for Developers app、同意 Platform Terms，然後取得 Ad Library API access token。
-6. **Pinterest**：Pinterest 商業帳號、developers.pinterest.com app（申請 Standard access），並確認 Trends API 是否需要額外 partner 核准。
-7. **TikTok for Developers 帳號**（用公司網域 email）+ **Commercial Content API 申請**。
-8. （選用）**eBay Developers Program** 帳號 + Marketplace Insights 存取申請。
-9. （選用、第三方）沿用 **Apify**（Creative Center、Meta 美國廣告）與 **Keepa API 訂閱**；兩者都需要先有法律意見。
-
-不建議申請：Amazon SP-API 開發者、Amazon Creators API（條款禁止我們的用途）、Meta Content Library（營利公司不符資格）。
+要申請的帳號與金鑰、優先順序與能換到的成果，統一維護在 `docs/loop/HUMAN_TODO.md`。
+不建議申請：Amazon SP-API、Amazon Creators API（條款禁止我們的用途）、Meta Content Library（營利公司不符資格）。
 
 ---
 
-## 8. 待確認事項（建議放進 HUMAN_TODO）
+## 8. 尚未確認的事項（接上對應來源時實測）
 - [ ] Meta Ad Library API 是否涵蓋 **Norway**（用 `ad_reached_countries=NO` 實測）。
 - [ ] Merchant Center **Market insights 的最低資格**，以及 Best sellers 資料能否在 SaaS 中展示給第三方（請律師看 Merchant Center 條款）。
 - [ ] TikTok Creative Center Top Ads/Top Products 的 **Region 清單**（登入後確認 CA/AU/NZ）。
 - [ ] Pinterest Trends API 的實際核准門檻與 Developer Guidelines 的資料使用限制。
 - [ ] Meta Platform Terms 對 Ad Library API 資料「商業再散布」的限制（律師）。
-- [ ] Keepa 是否支援 amazon.com.au（低方案實測）。
 
 ---
 

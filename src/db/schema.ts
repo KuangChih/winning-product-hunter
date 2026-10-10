@@ -16,7 +16,7 @@ import {
   uuid,
 } from "drizzle-orm/pg-core";
 
-/** Where a signal comes from (see docs/research/data-sources.md). */
+/** Where a signal comes from (see docs/research/first-party-sources.md). */
 export const sourceEnum = pgEnum("source", [
   "meta_ads",
   "tiktok_ads",

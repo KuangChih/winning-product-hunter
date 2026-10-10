@@ -1,12 +1,12 @@
 # 供應商平台研究（2026-10-10）
 
 目的：決定 Winning Product Hunter 要接哪些**供應商／履約平台**，用來計算每個商品的「供貨成本 + 運費 + 到貨時間」（毛利子分數），並評估能否順便當**需求訊號**。
-前提：老闆明確要求**不使用 AliExpress**（因此 DSers 這類以 AliExpress 為核心的工具也排除）。
+前提：使用者明確要求**不使用 AliExpress**（因此 DSers 這類以 AliExpress 為核心的工具也排除）。
 目標市場：第一波 US、CA、UK、AU、NZ；第二波 DE、FR、SE、BE、ES、NO。
 
 可信度標記：🟢 官方文件／官方說明中心、🟡 第三方文件、廠商部落格、聯盟行銷評測（實作前需再對照官方確認）、⚪ 未找到資料／推論。
 
-> 註：本文件取代 `data-sources.md` 中「CJ 無熱門端點、第二批」的舊判斷（見下方 CJ 段落，官方文件其實有 `productFlag=Trending` 與 90 天銷量欄位）。`data-sources.md` 本身未修改。
+> **現況（2026-10-10）**：使用者已確認 CJ Dropshipping 可以使用；CJ API adapter 在等 `CJ_API_KEY`（目前用依官方回應格式產生的樣本資料）。Zendrop、BigBuy 等 CJ 接好後再評估。
 
 ---
 
@@ -54,7 +54,7 @@
   - 訂單、追蹤號碼、營收／利潤／退款分析（依日期與目的國篩選）、觸發履約（需確認步驟）、加入 import list。
 - **方案** 🟢/🟡：官方說「可免費開始，部分功能可能需付費方案」。第三方：Free（約 50 單/月）、Pro $49/月、Plus $79/月，另有說法 Pro $59、Select $199 🟡。
 - **MCP 的限制（對 SaaS 很關鍵）**：
-  1. MCP server「只回傳屬於你帳號的資料」——它是**以單一商家帳號身分**存取。我們若用老闆自己的帳號查目錄，等於在 SaaS 後端以一個商家身分代查；目錄、價格是否可以展示給第三方使用者，ToS 並未明文允許 ⚪（Terms of Use 頁面本次無法讀取，需人工閱讀）。
+  1. MCP server「只回傳屬於你帳號的資料」——它是**以單一商家帳號身分**存取。我們若用使用者自己的帳號查目錄，等於在 SaaS 後端以一個商家身分代查；目錄、價格是否可以展示給第三方使用者，ToS 並未明文允許 ⚪（Terms of Use 頁面本次無法讀取，需人工閱讀）。
   2. 沒有公開的 rate limit 以外的配額說明，也沒有 SDK、OpenAPI spec。
   3. 若要讓**每個 SaaS 使用者用自己的 Zendrop 帳號** OAuth 授權（較合規的做法），需要向 Zendrop 申請 OAuth client，文件未說明申請流程 ⚪。
 - **出貨範圍** 🟢：中國倉可寄全球；**美國供應商商品只能寄美國**。官方各國平均到貨（工作天，2026-05-21 更新）：US 8.5（US 倉 3–5、中國→美 10–15）、CA 11.1（限重 3kg）、UK 9.2、AU 11.3、DE 9.5、FR 10.2；未列國家約 10–15 天。另有加 1–3 天處理期。
@@ -69,7 +69,7 @@
 
 ## 二、CJ Dropshipping（官方 API v2 + MCP）
 
-> 注意：CJ 本身是中國的採購代理商，商品多數仍從中國出貨；但它**不是 AliExpress**，有自營 US/EU 倉與 sourcing 服務，業界普遍視為 AliExpress 的替代品。是否符合老闆「不要 AliExpress 式供應」的要求，需要老闆確認 ⚪。
+> 注意：CJ 本身是中國的採購代理商，商品多數仍從中國出貨；但它**不是 AliExpress**，有自營 US/EU 倉與 sourcing 服務，業界普遍視為 AliExpress 的替代品。使用者已於 2026-10-10 確認可以使用。
 
 ### API 概況 🟢
 - 文件：`developers.cjdropshipping.com`（英／中），Base：`https://developers.cjdropshipping.com/api2.0/v1/`。
@@ -109,7 +109,7 @@
 - 主打 US/EU 供應商（約 80%），2–7 天到貨，品類偏服飾、美妝、居家。
 - API：第三方教學稱 Empire 方案（約 $57/月）以上有 API，但沒有官方公開文件，`developers.spocket.co` 已無法解析 ⚪。
 - 口碑：產品不錯，但**自動升級、取消後扣款、拒絕退款**的抱怨很多（Hack'celeration 3.0/5、Software Advice 2.6/5）。
-- → 若老闆想要 EU/US 本地供應商可再洽 Spocket 業務，目前不列為第一批。
+- → 若之後需要 EU/US 本地供應商可再洽 Spocket 業務，目前不列為第一批。
 
 ### Syncee / Doba / Wholesale2B / Inventory Source / BrandsGateway 🟡
 - 皆以「Shopify/WooCommerce app 或 CSV/XML feed」為主，沒有可自助申請的公開 API 文件。
@@ -128,8 +128,8 @@
 ### 不適合的類型
 - **Printful / Printify**：API 很完整（Printful v2 約 120 次/分、有 `shipping-rates`；Printify 有 catalog/shipping OpenAPI），但是 POD，與「現在爆紅的現貨商品」不同。
 - **Shopify Collective**：只在 Shopify 商家之間運作（2025 年底據稱取消 $50K 營收門檻 🟡），沒有第三方可用的目錄 API。
-- **TikTok Shop**：Partner API 是賣家店務 API，不是供應商目錄；TikTok Shop 的熱門資料屬「需求訊號」，應在 `data-sources.md` 的脈絡處理。
-- **DSers**：AliExpress 核心，依老闆要求排除。
+- **TikTok Shop**：Partner API 是賣家店務 API，不是供應商目錄；TikTok Shop 的熱門資料屬「需求訊號」，見 [`first-party-sources.md`](first-party-sources.md) 的 TikTok 段落。
+- **DSers**：AliExpress 核心，依使用者要求排除。
 
 ---
 
@@ -159,7 +159,7 @@
   3. （選用）寄信 `developer@cjdropshipping.com` 確認 SaaS 展示資料的授權與更高額度。
 
 ### 第 2 名：Zendrop MCP —— **先手動驗證，再決定整合**
-- 理由：老闆指定、US 倉對美國市場有優勢，且 MCP 有 `get_catalog_trending_products` 與依國家運費工具；但缺少伺服器對伺服器的 token 產生說明與 ToS 確認。
+- 理由：使用者指定、US 倉對美國市場有優勢，且 MCP 有 `get_catalog_trending_products` 與依國家運費工具；但缺少伺服器對伺服器的 token 產生說明與 ToS 確認。
 - 用途：美國市場的第二報價來源（US 倉 3–5 天）+ Zendrop 熱門清單作為需求訊號。
 - 要申請：
   1. Zendrop 帳號（免費開始；建議 Pro 方案以確保完整功能，約 $49–59/月 🟡）。
@@ -173,8 +173,8 @@
 ### 不建議第一批整合
 AutoDS、Spocket、Syncee、DSers、Doba、Wholesale2B、BrandsGateway、Inventory Source、HyperSKU、EPROLO、Modalyst、Sell The Trend、Shopify Collective、Printful/Printify、Dropshipzone——原因：無公開 API、只有 feed、需人工開通、品類不符，或以 AliExpress 為核心。
 
-### 待人工確認（建議加入 HUMAN_TODO）
-- [ ] 老闆確認 CJ（中國代理商 + 自營海外倉）是否符合「不要 AliExpress」的要求。
+### 待確認事項
+- [x] 使用者確認 CJ（中國代理商 + 自營海外倉）可以使用（2026-10-10）。
 - [ ] 閱讀 CJ Terms of Service 與 Zendrop Terms of Use 中關於 API 資料轉用/展示的條款。
 - [ ] 向 Zendrop 詢問伺服器用 token / OAuth client 申請方式。
 - [ ] 確認 BigBuy API 所需方案與費用。
