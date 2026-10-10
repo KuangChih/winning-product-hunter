@@ -118,7 +118,7 @@ describe("EvidenceList", () => {
       />,
     );
 
-    expect(screen.getByText("Stores selling it (4)")).toBeInTheDocument();
+    expect(screen.getByText("Similar products in the Shopify catalog (4)")).toBeInTheDocument();
     // US is listed before GB (market priority); without FX rates the GB median ignores USD.
     const headings = screen.getAllByText(/United States|United Kingdom/).map((e) => e.textContent);
     expect(headings).toEqual(["United States", "United Kingdom"]);
@@ -215,7 +215,9 @@ describe("EvidenceList", () => {
       screen.getByText("Meta Ad Library · US · 影片 · 2026-09-21 開始 · 18 天 · 投放中"),
     ).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "查看廣告" })).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "販售的店家（1）" })).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { name: "Shopify 商品目錄中的同類商品（1）" }),
+    ).toBeInTheDocument();
     expect(screen.getByText("英國")).toBeInTheDocument();
     expect(screen.getByText("售價中位數 19.99 GBP")).toBeInTheDocument();
     expect(screen.getByText("價格 4.50 USD · 90 天售出 1,300 件")).toBeInTheDocument();

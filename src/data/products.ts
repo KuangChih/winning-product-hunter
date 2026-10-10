@@ -2,7 +2,7 @@ import { and, desc, eq, inArray, sql } from "drizzle-orm";
 import type { AnyDatabase } from "@/db/client";
 import { productScores, products, sourceItems } from "@/db/schema";
 import { sortByMarketPriority } from "@/lib/markets";
-import { marketRetailPrice } from "@/lib/retail-price";
+import { marketRetailPrice, OWN_LISTING_PROVIDER } from "@/lib/retail-price";
 import { getLatestFxRates } from "./fx";
 import { type ScoreBreakdown, SUB_SCORE_ORDER, type SubScoreName } from "@/scoring/score";
 
@@ -21,7 +21,7 @@ export interface RankedProduct {
   markets: string[];
   /** True when any evidence comes from fixtures (sample data), so the score is not real. */
   isSample: boolean;
-  /** Median US retail price across stores selling it, in USD cents (ECB-converted). */
+  /** The advertiser's own store price in USD cents (ECB-converted); similar products excluded. */
   retailUsdCents: number | null;
 }
 
@@ -169,7 +169,13 @@ export async function getRankedProducts(
         currency: sourceItems.currency,
       })
       .from(sourceItems)
-      .where(and(inArray(sourceItems.productId, ids), eq(sourceItems.kind, "store_product"))),
+      .where(
+        and(
+          inArray(sourceItems.productId, ids),
+          eq(sourceItems.kind, "store_product"),
+          eq(sourceItems.provider, OWN_LISTING_PROVIDER),
+        ),
+      ),
     getLatestFxRates(db),
   ]);
   const offersById = new Map<string, Array<{ priceCents: number; currency: string | null }>>();

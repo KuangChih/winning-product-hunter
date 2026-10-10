@@ -36,6 +36,7 @@ export async function runScoring(db: AnyDatabase, now: Date = new Date()) {
         .filter((i) => i.productId === p.id)
         .map((i) => ({
           source: i.source,
+          provider: i.provider,
           kind: i.kind,
           advertiserId: i.advertiserId,
           format: i.format,

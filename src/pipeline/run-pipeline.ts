@@ -1,5 +1,6 @@
 import { saveFxRates } from "@/data/fx";
 import type { AnyDatabase } from "@/db/client";
+import { advertiserTargets, pickAdvertisers } from "@/discovery/advertisers";
 import { runDiscovery } from "@/discovery/discover";
 import { forProducts } from "@/ingestion/collect-for-products";
 import type { RetryOptions } from "@/ingestion/http";
@@ -15,6 +16,10 @@ export interface PipelineDeps {
   fetchFxRates: () => Promise<FxRates>;
   discoveryAdapter: SourceAdapter;
   discoveryKeywords: string[];
+  /** Ad Library adapter in advertiser mode: follows stores' other ads (Phase 4C). */
+  advertiserAdsAdapter?: SourceAdapter;
+  /** How many advertisers to follow per run. */
+  followAdvertisers?: number;
   /** Search-style adapter run once per product (e.g. Shopify Global Catalog). */
   collectAdapter: SourceAdapter;
   collectProducts: number;
@@ -32,7 +37,7 @@ export interface StepResult {
 }
 
 /**
- * The daily real-data pipeline (ADR-007): FX → discover → collect → advertiser stores → dedupe
+ * The daily real-data pipeline (ADR-007): FX → discover → follow advertisers → collect → advertiser stores → dedupe
  * (photo hashes) → match → score. Each step
  * runs even if an earlier one failed (a blocked source should not stop the others); failures
  * are reported in the result and in ingestion_runs.
@@ -61,6 +66,17 @@ export async function runPipeline(db: AnyDatabase, deps: PipelineDeps): Promise<
     if (r.ingestion.status === "failed") throw new Error(r.ingestion.error);
     return `${r.adsFetched} ads → ${r.groups} products (${r.productsCreated} new)`;
   });
+
+  if (deps.advertiserAdsAdapter && (deps.followAdvertisers ?? 0) > 0) {
+    const adapter = deps.advertiserAdsAdapter;
+    await step("follow advertisers", async () => {
+      const followed = await pickAdvertisers(db, deps.followAdvertisers!, { day: deps.now });
+      if (followed.length === 0) return "no advertisers with store product pages yet";
+      const r = await runDiscovery(db, adapter, advertiserTargets(followed), deps.now);
+      if (r.ingestion.status === "failed") throw new Error(r.ingestion.error);
+      return `${followed.length} advertisers: ${r.adsFetched} ads → ${r.groups} products (${r.productsCreated} new)`;
+    });
+  }
 
   await step("collect", async () => {
     const targets = await pickProducts(db, deps.collectProducts, {

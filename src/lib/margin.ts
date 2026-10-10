@@ -1,9 +1,10 @@
 import { convertCents, type FxRates } from "./fx";
-import { marketRetailPrice } from "./retail-price";
+import { marketRetailPrice, OWN_LISTING_PROVIDER } from "./retail-price";
 
 export interface MarginInput {
   kind: string;
   source: string;
+  provider?: string;
   priceCents: number | null;
   currency: string | null;
 }
@@ -11,9 +12,9 @@ export interface MarginInput {
 export type MissingMarginInput = "retail" | "supplier";
 
 export interface MarginEstimate {
-  /** Median US retail price across stores selling it, in USD cents. */
+  /** The advertiser's own store price (median if several stores), in USD cents. */
   retailUsdCents: number | null;
-  /** Store offers behind the retail median. */
+  /** Advertiser store listings behind that price. */
   retailOffers: number;
   /** Cheapest supplier listing, in USD cents. */
   supplierUsdCents: number | null;
@@ -33,7 +34,11 @@ export interface MarginEstimate {
  */
 export function estimateMargin(items: MarginInput[], rates: FxRates | null): MarginEstimate {
   const offers = items
-    .filter((i) => i.kind === "store_product" && i.priceCents !== null)
+    // Similar products from a catalog search are not this product's price.
+    .filter(
+      (i) =>
+        i.kind === "store_product" && i.provider === OWN_LISTING_PROVIDER && i.priceCents !== null,
+    )
     .map((i) => ({ priceCents: i.priceCents!, currency: i.currency }));
   const retail = marketRetailPrice(offers, "US", rates);
 

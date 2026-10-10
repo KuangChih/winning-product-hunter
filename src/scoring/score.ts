@@ -107,7 +107,7 @@ function marginSubScore(f: ProductFeatures, weight: number): SubScore {
       raw: null,
       basis:
         f.retailUsdCents === null
-          ? "Needs retail prices from stores (Shopify Global Catalog)."
+          ? "Needs the advertiser's own store price (Shopify Global Catalog lookup)."
           : "Needs a supplier cost (CJ Dropshipping).",
       explain: { key: f.retailUsdCents === null ? "marginNeedsRetail" : "marginNeedsSupplier" },
     };
@@ -117,7 +117,7 @@ function marginSubScore(f: ProductFeatures, weight: number): SubScore {
     value: clamp(margin / SCORING_CONFIG.fullMargin),
     weight,
     raw: Math.round(margin * 1000) / 1000,
-    basis: `Gross margin before shipping: median store price ${(f.retailUsdCents / 100).toFixed(2)} USD vs supplier ${(f.supplierPriceCents / 100).toFixed(2)} USD.`,
+    basis: `Gross margin before shipping: advertiser's price ${(f.retailUsdCents / 100).toFixed(2)} USD vs supplier ${(f.supplierPriceCents / 100).toFixed(2)} USD.`,
     explain: {
       key: "margin",
       params: {

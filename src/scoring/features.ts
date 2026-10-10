@@ -1,13 +1,15 @@
 import type { Source } from "@/ingestion/types";
 import type { FxRates } from "@/lib/fx";
 import { MARKETS, marketWeight } from "@/lib/markets";
-import { marketRetailPrice } from "@/lib/retail-price";
+import { marketRetailPrice, OWN_LISTING_PROVIDER } from "@/lib/retail-price";
 import { median, robustZ, theilSenSlope } from "./stats";
 
 const DAY = 86_400_000;
 
 export interface ItemInput {
   source: Source;
+  /** Who supplied it, e.g. "shopify_catalog_lookup" for the advertiser's own listing. */
+  provider?: string;
   kind: string;
   advertiserId: string | null;
   format: string | null;
@@ -46,7 +48,7 @@ export interface ProductFeatures {
   marketReach: number | null;
   /** Distinct stores selling it (Shopify Global Catalog sellers). */
   sellingStores: number | null;
-  /** Median retail price across stores, in USD cents (converted with ECB rates). */
+  /** The product's own retail price: the advertiser's store listing, in USD cents (ECB). */
   retailUsdCents: number | null;
   /** Theil-Sen slope of search interest per week, relative to the series median. */
   trendSlope: number | null;
@@ -154,10 +156,13 @@ export function extractFeatures(
   const sellingStores = storeProducts.length
     ? new Set(storeProducts.map((s) => s.advertiserId).filter(Boolean)).size
     : null;
+  // Only the advertiser's own listing is this product; search results are similar products.
   const retail = marketRetailPrice(
-    storeProducts.flatMap((s) =>
-      s.priceCents === null ? [] : [{ priceCents: s.priceCents, currency: s.currency }],
-    ),
+    storeProducts
+      .filter((s) => s.provider === OWN_LISTING_PROVIDER)
+      .flatMap((s) =>
+        s.priceCents === null ? [] : [{ priceCents: s.priceCents, currency: s.currency }],
+      ),
     "US",
     fx,
   );

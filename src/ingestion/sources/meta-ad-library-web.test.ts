@@ -8,6 +8,8 @@ import { forProducts } from "../collect-for-products";
 import { runIngestion } from "../run";
 import {
   AdLibraryBlockedError,
+  advertiserTarget,
+  buildPageUrl,
   buildSearchUrl,
   createAdLibraryWebAdapter,
   parseAdLibraryHtml,
@@ -127,5 +129,46 @@ describe("Ad Library web adapter", () => {
     expect(result.error).toMatch(/blocked/);
     const [run] = await t.db.select().from(ingestionRuns);
     expect(run.status).toBe("failed");
+  });
+
+  it("follows advertisers: one page view per advertiser and country, no keyword summary", async () => {
+    const fetchImpl = vi.fn<typeof fetch>(async () => new Response(html));
+    const adapter = createAdLibraryWebAdapter({
+      mode: "advertiser",
+      countries: ["US", "CA"],
+      retry: { fetchImpl },
+    });
+    const items = [];
+    for await (const item of adapter.fetch({
+      queries: [
+        advertiserTarget("445474685326237", "GB"),
+        "not-a-target",
+        advertiserTarget("1", "US"),
+      ],
+      limit: 1000,
+    })) {
+      items.push(item);
+    }
+
+    // Invalid targets are skipped; each target is fetched once, in its own country only.
+    expect(fetchImpl).toHaveBeenCalledTimes(2);
+    const first = new URL(String(fetchImpl.mock.calls[0][0]));
+    expect(first.searchParams.get("view_all_page_id")).toBe("445474685326237");
+    expect(first.searchParams.get("search_type")).toBe("page");
+    expect(first.searchParams.get("country")).toBe("GB");
+    expect(items.length).toBeGreaterThan(0);
+    expect(items.every((i) => i.kind === "ad")).toBe(true);
+  });
+});
+
+describe("buildPageUrl", () => {
+  it("opens one advertiser's active ads in one country", () => {
+    const url = new URL(buildPageUrl("123", "AU"));
+    expect(Object.fromEntries(url.searchParams)).toMatchObject({
+      active_status: "active",
+      country: "AU",
+      view_all_page_id: "123",
+      search_type: "page",
+    });
   });
 });

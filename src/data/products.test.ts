@@ -87,7 +87,7 @@ describe("getRankedProducts", () => {
     expect(await getRankedProducts(t.db, { includeSample: true })).toHaveLength(6);
   });
 
-  it("adds each product's US median retail price from the stores selling it", async () => {
+  it("prices each product from the advertiser's own store, never from similar products", async () => {
     const [priced, unpriced] = await t.db
       .insert(products)
       .values([
@@ -95,9 +95,9 @@ describe("getRankedProducts", () => {
         { slug: "unpriced", title: "Unpriced", firstSeenAt: NOW },
       ])
       .returning();
-    const offer = (id: string, priceCents: number) => ({
+    const offer = (id: string, priceCents: number, provider = "shopify_catalog_lookup") => ({
       source: "shopify" as const,
-      provider: "shopify_catalog",
+      provider,
       externalId: id,
       kind: "store_product" as const,
       productId: priced.id,
@@ -107,7 +107,14 @@ describe("getRankedProducts", () => {
       firstSeenAt: NOW,
       lastSeenAt: NOW,
     });
-    await t.db.insert(sourceItems).values([offer("a", 2000), offer("b", 3000), offer("c", 2600)]);
+    await t.db
+      .insert(sourceItems)
+      .values([
+        offer("a", 2000),
+        offer("b", 3000),
+        offer("c", 2600),
+        offer("similar", 99900, "shopify_catalog"),
+      ]);
     const score = (productId: string, value: number) => ({
       productId,
       scoringVersion: "v1.1",

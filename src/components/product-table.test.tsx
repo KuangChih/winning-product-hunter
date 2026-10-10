@@ -54,7 +54,7 @@ describe("ProductTable", () => {
   it("translates headers, confidence, badge and country names", () => {
     render(<ProductTable products={[product({})]} locale="zh-TW" />);
     expect(screen.getByRole("columnheader", { name: "可信度" })).toBeInTheDocument();
-    expect(screen.getByRole("columnheader", { name: "售價（美國）" })).toBeInTheDocument();
+    expect(screen.getByRole("columnheader", { name: "廣告主售價（美國）" })).toBeInTheDocument();
     const row = within(screen.getAllByRole("row")[1]);
     expect(row.getByText("中")).toBeInTheDocument();
     expect(row.getByText("樣本資料")).toBeInTheDocument();

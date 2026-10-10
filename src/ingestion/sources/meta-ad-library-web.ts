@@ -64,6 +64,32 @@ export function buildSearchUrl(query: string, country: string): string {
   return `${AD_LIBRARY_URL}?${params}`;
 }
 
+/**
+ * All active ads of one advertiser (Facebook page) in one country: the Ad Library "see all ads
+ * from this page" view. It embeds the same results JSON as the keyword search.
+ */
+export function buildPageUrl(pageId: string, country: string): string {
+  const params = new URLSearchParams({
+    active_status: "active",
+    ad_type: "all",
+    country,
+    view_all_page_id: pageId,
+    search_type: "page",
+    media_type: "all",
+  });
+  return `${AD_LIBRARY_URL}?${params}`;
+}
+
+/** An advertiser to follow: `"<pageId>@<country>"`, e.g. `"445474685326237@US"`. */
+export function advertiserTarget(pageId: string, country: string): string {
+  return `${pageId}@${country}`;
+}
+
+function parseAdvertiserTarget(target: string): { pageId: string; country: string } | null {
+  const m = /^(\d+)@([A-Z]{2})$/.exec(target);
+  return m ? { pageId: m[1], country: m[2] } : null;
+}
+
 function findKey(value: unknown, key: string): { owner: Record<string, unknown> } | undefined {
   if (!value || typeof value !== "object") return undefined;
   const obj = value as Record<string, unknown>;
@@ -111,6 +137,7 @@ export function toFetchedItems(
   search: AdLibrarySearch,
   query: string,
   country: string,
+  { summary = true }: { summary?: boolean } = {},
 ): FetchedItem[] {
   const items: FetchedItem[] = search.ads.map((ad) => {
     const s = ad.snapshot ?? {};
@@ -149,6 +176,8 @@ export function toFetchedItems(
       },
     };
   });
+  // The active-ad count of a keyword search is a demand signal; an advertiser's count is not.
+  if (!summary) return items;
   items.push({
     externalId: `ad-library-results|${query.toLowerCase()}|${country}`,
     kind: "trend",
@@ -161,6 +190,11 @@ export function toFetchedItems(
 }
 
 export interface AdLibraryWebOptions {
+  /**
+   * "keyword": queries are search terms, run in every country (default).
+   * "advertiser": queries are `advertiserTarget()` strings; each is one page view.
+   */
+  mode?: "keyword" | "advertiser";
   countries: string[];
   /** Hard cap on page requests per run (ADR-006). */
   maxRequests?: number;
@@ -177,13 +211,16 @@ export function createAdLibraryWebAdapter(opts: AdLibraryWebOptions): SourceAdap
     async *fetch(ctx: FetchContext) {
       let requests = 0;
       let emitted = 0;
+      const advertiserMode = opts.mode === "advertiser";
       for (const query of ctx.queries) {
-        for (const country of opts.countries) {
+        const target = advertiserMode ? parseAdvertiserTarget(query) : null;
+        if (advertiserMode && !target) continue;
+        for (const country of target ? [target.country] : opts.countries) {
           if (ctx.signal?.aborted || emitted >= ctx.limit || requests >= maxRequests) return;
           await opts.wait?.();
           requests++;
           const res = await fetchWithRetry(
-            buildSearchUrl(query, country),
+            target ? buildPageUrl(target.pageId, country) : buildSearchUrl(query, country),
             {
               headers: { "User-Agent": USER_AGENT, "Accept-Language": "en-US,en;q=0.9" },
               signal: ctx.signal,
@@ -193,7 +230,8 @@ export function createAdLibraryWebAdapter(opts: AdLibraryWebOptions): SourceAdap
           );
           // A block ends the whole run (stop and back off); it is recorded in ingestion_runs.
           const search = parseAdLibraryHtml(await res.text());
-          for (const item of toFetchedItems(search, query, country)) {
+          const items = toFetchedItems(search, query, country, { summary: !target });
+          for (const item of items) {
             if (emitted >= ctx.limit) return;
             emitted++;
             yield item;

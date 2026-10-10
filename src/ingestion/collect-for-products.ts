@@ -1,9 +1,11 @@
-import type { FetchContext, SourceAdapter } from "./types";
+import type { FetchContext, FetchedItem, SourceAdapter } from "./types";
 
 export interface ProductQuery {
   productId: string;
   /** One search query, or several (e.g. landing page URLs) for lookup-style adapters. */
   query: string | string[];
+  /** The product's landing-page identity (`handle:…`), when it was discovered from ads. */
+  landingKey?: string | null;
 }
 
 /**
@@ -11,7 +13,12 @@ export interface ProductQuery {
  * tags every result with that product. Search results describe the queried product, but their
  * titles vary too much for title matching, so they are attached directly instead.
  */
-export function forProducts(adapter: SourceAdapter, products: ProductQuery[]): SourceAdapter {
+export function forProducts(
+  adapter: SourceAdapter,
+  products: ProductQuery[],
+  /** Drops results that are not about this product (e.g. other stores' ads for a keyword). */
+  keep: (item: FetchedItem, product: ProductQuery) => boolean = () => true,
+): SourceAdapter {
   return {
     source: adapter.source,
     provider: adapter.provider,
@@ -22,6 +29,7 @@ export function forProducts(adapter: SourceAdapter, products: ProductQuery[]): S
         const queries = Array.isArray(p.query) ? p.query : [p.query];
         const sub = { ...ctx, queries, limit: ctx.limit - emitted };
         for await (const item of adapter.fetch(sub)) {
+          if (!keep(item, p)) continue;
           emitted++;
           yield { ...item, productId: p.productId };
         }

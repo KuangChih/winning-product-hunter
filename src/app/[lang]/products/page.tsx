@@ -79,7 +79,9 @@ async function RankedProducts({
           filters={filters}
           includeSample={includeSample}
         />
-        <p className="text-muted-foreground mt-2 text-xs">{t.signalsNote}</p>
+        <p className="text-muted-foreground mt-2 text-xs">
+          {t.signalsNote} {t.priceNote}
+        </p>
       </>
     );
   } else if (filtered) {

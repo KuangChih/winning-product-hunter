@@ -117,9 +117,15 @@ describe("extractFeatures", () => {
     expect(short.adHistoryDays).toBe(3);
   });
 
-  it("derives selling stores and a USD retail median from store products", () => {
-    const store = (seller: string, cents: number, currency: string): ItemInput => ({
+  it("prices the product from the advertiser's own listings, counting similar stores apart", () => {
+    const store = (
+      seller: string,
+      cents: number,
+      currency: string,
+      provider = "shopify_catalog_lookup",
+    ): ItemInput => ({
       source: "shopify",
+      provider,
       kind: "store_product",
       advertiserId: seller,
       format: null,
@@ -132,12 +138,18 @@ describe("extractFeatures", () => {
     });
     const fx = { date: "2026-10-09", perEur: { EUR: 1, USD: 1.2, GBP: 0.8 } };
     const f = extractFeatures(
-      [store("a.com", 2000, "USD"), store("b.com", 2000, "GBP"), store("a.com", 4000, "USD")],
+      [
+        store("a.com", 2000, "USD"),
+        store("b.com", 2000, "GBP"),
+        store("a.com", 4000, "USD"),
+        // Similar products from a catalog search: competition, never this product's price.
+        store("c.com", 99900, "USD", "shopify_catalog"),
+      ],
       NOW,
       NOW,
       fx,
     );
-    expect(f.sellingStores).toBe(2);
+    expect(f.sellingStores).toBe(3);
     // 2000 GBP → 3000 USD; median of [2000, 3000, 4000].
     expect(f.retailUsdCents).toBe(3000);
     expect(f.longevity).toBeNull();

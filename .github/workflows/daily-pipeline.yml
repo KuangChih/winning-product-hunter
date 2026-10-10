@@ -14,6 +14,9 @@ on:
       keywords:
         description: "Discovery keywords to sweep (max 10 = 50 Ad Library pages)"
         default: "10"
+      advertisers:
+        description: "Advertisers to follow (one Ad Library page each)"
+        default: "10"
       collect:
         description: "Products to collect Shopify Catalog evidence for"
         default: "20"
@@ -49,4 +52,5 @@ jobs:
         run: >-
           npm run pipeline --
           --keywords=${{ github.event.inputs.keywords || '10' }}
+          --advertisers=${{ github.event.inputs.advertisers || '10' }}
           --collect=${{ github.event.inputs.collect || '20' }}

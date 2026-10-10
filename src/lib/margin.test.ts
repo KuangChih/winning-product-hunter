@@ -5,6 +5,7 @@ const RATES = { date: "2026-10-09", perEur: { EUR: 1, USD: 1.1, GBP: 0.85 } };
 const store = (priceCents: number, currency: string | null = "USD") => ({
   kind: "store_product",
   source: "shopify",
+  provider: "shopify_catalog_lookup",
   priceCents,
   currency,
 });
@@ -28,6 +29,13 @@ describe("estimateMargin", () => {
     expect(m.grossProfitUsdCents).toBe(1900);
     expect(m.grossMargin).toBeCloseTo(0.76);
     expect(m.missing).toEqual([]);
+  });
+
+  it("ignores similar products found by a catalog search", () => {
+    const similar = { ...store(99900), provider: "shopify_catalog" };
+    const m = estimateMargin([similar, listing(500)], RATES);
+    expect(m.retailUsdCents).toBeNull();
+    expect(m.missing).toEqual(["retail"]);
   });
 
   it("converts store prices in other currencies with ECB rates", () => {

@@ -1,4 +1,4 @@
-import { inArray, isNull } from "drizzle-orm";
+import { and, inArray, isNull, ne, or } from "drizzle-orm";
 import type { AnyDatabase } from "@/db/client";
 import { products, sourceItems } from "@/db/schema";
 import { planMatches } from "./plan";
@@ -24,7 +24,14 @@ export async function runMatching(db: AnyDatabase): Promise<MatchResult> {
       firstSeenAt: sourceItems.firstSeenAt,
     })
     .from(sourceItems)
-    .where(isNull(sourceItems.productId));
+    .where(
+      and(
+        isNull(sourceItems.productId),
+        // Ad Library ads belong to the product whose page they link to (set at discovery);
+        // matching them by ad copy would merge different stores' products sharing a phrase.
+        or(ne(sourceItems.provider, "ad_library_web"), ne(sourceItems.kind, "ad")),
+      ),
+    );
 
   const plan = planMatches(existing, items);
 

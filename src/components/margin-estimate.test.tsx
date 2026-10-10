@@ -26,7 +26,7 @@ describe("MarginEstimate", () => {
     expect(screen.getByText("$6.00")).toBeInTheDocument();
     expect(screen.getByText("76%")).toBeInTheDocument();
     expect(screen.getByText("$19.00 per unit")).toBeInTheDocument();
-    expect(screen.getByText("Median of 3 store offers")).toBeInTheDocument();
+    expect(screen.getByText("Median of 3 advertiser stores")).toBeInTheDocument();
     expect(screen.getByText(/Before shipping/)).toBeInTheDocument();
   });
 
@@ -45,7 +45,7 @@ describe("MarginEstimate", () => {
         }}
       />,
     );
-    expect(screen.getByText("Median of 1 store offer")).toBeInTheDocument();
+    expect(screen.getByText("From the advertiser's own store")).toBeInTheDocument();
     expect(
       screen.getByText(/needs a supplier cost \(CJ Dropshipping listing\)/),
     ).toBeInTheDocument();
@@ -69,7 +69,7 @@ describe("MarginEstimate", () => {
     expect(screen.getByText("毛利率")).toBeInTheDocument();
     expect(
       screen.getByText(
-        "資料還不夠算毛利：需要店家的零售價（Shopify Global Catalog）與供應商報價（CJ Dropshipping）。",
+        "資料還不夠算毛利：需要廣告主自己商店的售價（Shopify Global Catalog 查詢）與供應商報價（CJ Dropshipping）。",
       ),
     ).toBeInTheDocument();
   });

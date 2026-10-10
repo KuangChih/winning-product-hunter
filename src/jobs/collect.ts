@@ -22,7 +22,7 @@ import {
   createShopifyCatalogAdapter,
   createStoreLookupAdapter,
 } from "@/ingestion/sources/shopify-catalog";
-import type { SourceAdapter } from "@/ingestion/types";
+import type { FetchedItem, SourceAdapter } from "@/ingestion/types";
 import type { AnyDatabase } from "@/db/client";
 import { landingKey } from "@/discovery/landing";
 import { MARKETS } from "@/lib/markets";
@@ -136,7 +136,19 @@ export async function pickProducts(
         (scoreOf.get(b.id) ?? -1) - (scoreOf.get(a.id) ?? -1),
     )
     .slice(0, limit)
-    .map((p) => ({ productId: p.id, query: p.title }));
+    .map((p) => ({ productId: p.id, query: p.title, landingKey: p.landingKey }));
+}
+
+/**
+ * A keyword search returns every advertiser using similar words, i.e. many different products.
+ * Only ads that link to this product's own page are evidence for it; keyword-level counts are
+ * kept (they describe the search, and are labeled that way).
+ */
+export function sameProductAdsOnly(item: FetchedItem, product: ProductQuery): boolean {
+  if (item.kind !== "ad") return true;
+  if (!product.landingKey) return false;
+  const url = (item.raw as { landing_url?: string } | undefined)?.landing_url;
+  return landingKey(url)?.key === product.landingKey;
 }
 
 /** Provider name each collect source writes, used to skip freshly collected products. */
@@ -203,7 +215,11 @@ async function main() {
     return;
   }
 
-  const adapter = forProducts(createCollector(args.source, args.countries), targets);
+  const adapter = forProducts(
+    createCollector(args.source, args.countries),
+    targets,
+    args.source === "meta_ad_library" ? sameProductAdsOnly : undefined,
+  );
   const ctx = { queries: [], limit: 10_000 };
 
   if (args.dryRun) {

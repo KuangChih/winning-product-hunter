@@ -22,7 +22,9 @@ describe("ScoreBreakdown", () => {
     expect(screen.getByText("No data")).toBeInTheDocument();
     expect(screen.getByText("Stored English explanation.")).toBeInTheDocument();
     expect(
-      screen.getByText("−18% (1 active advertisers, 18 stores selling it, 54 days old)"),
+      screen.getByText(
+        "−18% (1 active advertisers, 18 stores selling similar products, 54 days old)",
+      ),
     ).toBeInTheDocument();
     expect(screen.getByText("×1.10 (2 sources)")).toBeInTheDocument();
   });
@@ -35,7 +37,7 @@ describe("ScoreBreakdown", () => {
     expect(screen.queryByText("Stored English explanation.")).toBeNull();
     expect(screen.getByText(/投放最久的 3 則廣告/)).toBeInTheDocument();
     expect(
-      screen.getByText("−18%（1 個投放中的廣告主、18 家店在賣，已出現 54 天）"),
+      screen.getByText("−18%（1 個投放中的廣告主、18 家店賣同類商品，已出現 54 天）"),
     ).toBeInTheDocument();
     expect(screen.getByText("未套用")).toBeInTheDocument();
   });

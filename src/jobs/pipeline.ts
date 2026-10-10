@@ -2,7 +2,7 @@
  * Daily real-data pipeline: ECB rates → discover products (Meta Ad Library) → collect Shopify
  * Global Catalog evidence → match → score. Only real sources; sample data is `npm run seed`.
  *
- *   npm run pipeline -- [--keywords=10] [--collect=20]
+ *   npm run pipeline -- [--keywords=10] [--advertisers=10] [--collect=20]
  */
 import "@/lib/load-env";
 import { getDb } from "@/db/client";
@@ -38,6 +38,13 @@ async function main() {
       wait: createRateLimiter(5000),
     }),
     discoveryKeywords: keywords,
+    advertiserAdsAdapter: createAdLibraryWebAdapter({
+      mode: "advertiser",
+      countries,
+      maxRequests: 20,
+      wait: createRateLimiter(5000),
+    }),
+    followAdvertisers: numberFlag(argv, "advertisers", 10),
     collectAdapter: createShopifyCatalogAdapter({
       countries,
       profile: process.env.SHOPIFY_UCP_AGENT_PROFILE || undefined,

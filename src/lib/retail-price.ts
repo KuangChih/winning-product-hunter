@@ -1,4 +1,12 @@
 import { convertCents, type FxRates } from "./fx";
+
+/**
+ * Store listings come from two places (data-quality fix B):
+ * - the advertiser's own product page, looked up from the ad's landing URL: this product;
+ * - a catalog search by the product's title: *similar* products from other stores, useful as
+ *   a market reference and for competition, but not this product's price.
+ */
+export const OWN_LISTING_PROVIDER = "shopify_catalog_lookup";
 import { marketCurrency } from "./markets";
 
 export interface Offer {

@@ -4,7 +4,7 @@ import { countryName, fill } from "@/i18n/format";
 import { DEFAULT_LOCALE, type Locale } from "@/i18n/locales";
 import type { FxRates } from "@/lib/fx";
 import { MARKETS, sortByMarketPriority } from "@/lib/markets";
-import { marketRetailPrice } from "@/lib/retail-price";
+import { marketRetailPrice, OWN_LISTING_PROVIDER } from "@/lib/retail-price";
 import { sourceLabel } from "@/lib/sources";
 import { Sparkline } from "./sparkline";
 
@@ -187,6 +187,8 @@ export function EvidenceList({
     .filter((e) => e.kind === "trend" && e.metrics.catalog_results !== undefined)
     .sort((a, b) => countryOrder(a) - countryOrder(b));
   const storeProducts = evidence.filter((e) => e.kind === "store_product");
+  const ownListings = storeProducts.filter((e) => e.provider === OWN_LISTING_PROVIDER);
+  const similar = storeProducts.filter((e) => e.provider !== OWN_LISTING_PROVIDER);
   const listings = evidence.filter((e) => e.kind === "listing");
 
   return (
@@ -242,15 +244,16 @@ export function EvidenceList({
           </ul>
         </Section>
       )}
-      {storeProducts.length > 0 && (
-        <Section title={fill(t.storesHeading, { n: storeProducts.length })}>
-          <StoreProducts
-            items={storeProducts}
-            supply={supply}
-            fxRates={fxRates}
-            t={t}
-            locale={locale}
-          />
+      {ownListings.length > 0 && (
+        <Section title={fill(t.ownStoresHeading, { n: ownListings.length })}>
+          <p className="text-muted-foreground text-xs">{t.ownStoresNote}</p>
+          <StoreProducts items={ownListings} supply={[]} fxRates={fxRates} t={t} locale={locale} />
+        </Section>
+      )}
+      {similar.length > 0 && (
+        <Section title={fill(t.storesHeading, { n: similar.length })}>
+          <p className="text-muted-foreground text-xs">{t.similarNote}</p>
+          <StoreProducts items={similar} supply={supply} fxRates={fxRates} t={t} locale={locale} />
         </Section>
       )}
       {listings.length > 0 && (
