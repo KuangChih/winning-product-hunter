@@ -115,7 +115,7 @@ async function ProductDetailView({ params }: { params: Promise<{ slug: string }>
 
 export default function ProductPage({ params }: PageProps<"/products/[slug]">) {
   return (
-    <main className="mx-auto w-full max-w-5xl flex-1 space-y-10 px-4 py-10">
+    <main id="main" className="mx-auto w-full max-w-5xl flex-1 space-y-10 px-4 py-10">
       <Link
         href="/products"
         className="text-muted-foreground text-sm underline-offset-4 hover:underline"

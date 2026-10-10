@@ -40,7 +40,7 @@ const SOURCES = [
 /** Landing page content; `preview` is the live top-products block (streamed separately). */
 export function Landing({ preview }: { preview: ReactNode }) {
   return (
-    <main className="mx-auto w-full max-w-5xl flex-1 px-4">
+    <main id="main" className="mx-auto w-full max-w-5xl flex-1 px-4">
       <section className="py-20 sm:py-28">
         <p className="text-muted-foreground text-sm font-medium tracking-wide uppercase">
           Product research for dropshippers

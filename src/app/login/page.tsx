@@ -15,6 +15,12 @@ async function LoginForm({
   const params = await searchParams;
   const next = typeof params.next === "string" ? params.next : "/";
   const failed = params.error === "1";
+  const locked = params.error === "locked";
+  const error = failed
+    ? "That password is not correct."
+    : locked
+      ? "Too many failed attempts. Please wait 15 minutes and try again."
+      : null;
   return (
     <form action={login} className="mt-6 space-y-4">
       <input type="hidden" name="next" value={next} />
@@ -27,13 +33,13 @@ async function LoginForm({
           autoFocus
           autoComplete="current-password"
           aria-invalid={failed || undefined}
-          aria-describedby={failed ? "login-error" : undefined}
+          aria-describedby={error ? "login-error" : undefined}
           className="border-input bg-background h-10 rounded-md border px-3"
         />
       </label>
-      {failed && (
+      {error && (
         <p id="login-error" role="alert" className="text-sm text-red-600 dark:text-red-400">
-          That password is not correct.
+          {error}
         </p>
       )}
       <button
@@ -48,7 +54,10 @@ async function LoginForm({
 
 export default function LoginPage({ searchParams }: PageProps<"/login">) {
   return (
-    <main className="mx-auto flex w-full max-w-sm flex-1 flex-col justify-center px-4 py-20">
+    <main
+      id="main"
+      className="mx-auto flex w-full max-w-sm flex-1 flex-col justify-center px-4 py-20"
+    >
       <h1 className="text-2xl font-semibold tracking-tight">Winning Product Hunter</h1>
       <p className="text-muted-foreground mt-2 text-sm">
         This site is private. Enter the password to continue.

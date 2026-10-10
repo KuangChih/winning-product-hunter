@@ -103,4 +103,5 @@
 - 在 Windows 用 Python 改檔時，文字模式寫入會把換行變成 CRLF：用 `io.open(..., newline="
 ")`，或改完跑 `npx prettier --write`；用 `newline=""` 讀 CRLF 檔時，比對字串要含 `
 `。能用 Edit 工具就用 Edit。
+- Proxy matcher 的單元測試：文件寫 `unstable_doesProxyMatch`，但目前版本實際匯出的是 `unstable_doesMiddlewareMatch`（`next/experimental/testing/server`）。
 - 程式碼含反斜線（regex 如 `\s`、`\d`、`\\`）時，**不要**用 bash heredoc + node 字串取代去寫檔，反斜線會被吃掉；改用 Write / Edit 工具，寫完用 grep 確認。

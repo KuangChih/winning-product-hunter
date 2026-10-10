@@ -164,7 +164,7 @@ async function Watchlist() {
 
 export default function WatchlistPage() {
   return (
-    <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-10">
+    <main id="main" className="mx-auto w-full max-w-6xl flex-1 px-4 py-10">
       <h1 className="text-3xl font-semibold tracking-tight">Watchlist</h1>
       <p className="text-muted-foreground mt-2 max-w-2xl">
         Products you follow. Moves of {ALERT_THRESHOLD}+ points since the previous daily update are

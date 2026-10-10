@@ -108,7 +108,7 @@ async function HealthTable() {
 
 export default function SourcesPage() {
   return (
-    <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-10">
+    <main id="main" className="mx-auto w-full max-w-6xl flex-1 px-4 py-10">
       <h1 className="text-3xl font-semibold tracking-tight">Data sources</h1>
       <p className="text-muted-foreground mt-2 max-w-2xl">
         Health of each data collection run over the last 7 days. A blocked or failing source shows

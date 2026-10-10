@@ -19,8 +19,11 @@ export function isActive(pathname: string, href: string) {
 /** Links without an active state: the prerendered fallback before the pathname is known. */
 export function NavLinks({ pathname }: { pathname: string | null }) {
   return (
-    <nav aria-label="Main" className="-mx-1.5 max-w-full overflow-x-auto sm:mx-0">
-      <ul className="flex items-center gap-0.5 text-sm whitespace-nowrap sm:gap-1">
+    <nav
+      aria-label="Main"
+      className="-mx-2.5 max-w-full overflow-x-auto overflow-y-hidden sm:-mx-1"
+    >
+      <ul className="flex items-center gap-0.5 p-1 text-sm whitespace-nowrap sm:gap-1">
         {NAV_LINKS.map((link) => {
           const active = pathname !== null && isActive(pathname, link.href);
           return (
@@ -29,7 +32,7 @@ export function NavLinks({ pathname }: { pathname: string | null }) {
                 href={link.href}
                 aria-current={active ? "page" : undefined}
                 className={cn(
-                  "rounded-md px-1.5 py-1.5 sm:px-3",
+                  "block rounded-md px-1.5 py-1.5 sm:px-3",
                   active
                     ? "bg-secondary font-medium"
                     : "text-muted-foreground hover:text-foreground",

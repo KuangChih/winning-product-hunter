@@ -96,3 +96,14 @@
 - 理由：個人使用不需要多使用者；存在資料庫才能讓每日排程之後寄送分數變動通知，localStorage 做不到。
 - 後果：Phase 5 加入帳號時，`watchlist` 要加 `user_id` 並改成複合主鍵，既有資料歸給第一個帳號。
 
+## ADR-010：回顧輪 40——部署前先做安全強化（2026-10-10，狀態：採用）
+- 背景：Phase 4A 與 Phase 4 大部分介面已完成（詳情頁毛利、廣告瀏覽、Watchlist、手機版、深色模式）。資料來源與回測仍卡在使用者（push + `DATABASE_URL` secret、`CJ_API_KEY`、TikTok 決策）。
+- 檢視：
+  - **安全**：站台只靠一組共用密碼（ADR-008），登入沒有次數限制，部署後可被無限次猜密碼；沒有安全標頭，網頁可被嵌入 iframe，也可能被搜尋引擎收錄。Server Actions（例如 Watchlist）以頁面路徑 POST，已在 proxy 保護範圍內。
+  - **相依套件**：production `npm audit` 有 7 個 high，全部來自 `shadcn` CLI（braces 的巢狀 glob DoS），網站執行時不會用到 → 移到 devDependencies。
+  - **技術債**：`vite-tsconfig-paths` 已可用 Vite 內建功能取代（本輪完成）；排名頁在記憶體篩選，目前規模可接受，設定 2,000 筆門檻。
+  - **評分**：v1.1 的 momentum 與回測都需要每日歷史，在每日排程啟用前無法改進；不調整評分。
+- 決定：新增 Phase 4B「部署前安全強化」，排在無障礙與 i18n 之前：登入防暴力破解（用既有 Postgres 記錄，不加外部服務）、安全標頭與 noindex。
+- 理由：部署由使用者決定、隨時可能發生，安全缺口的代價遠高於介面改善；兩項都不需要金鑰或付費。
+- 後果：ROADMAP 新增 Phase 4B；DEPLOY.md 將加入密碼強度建議。
+

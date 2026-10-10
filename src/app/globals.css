@@ -132,4 +132,9 @@
   html {
     @apply font-sans;
   }
+  /* A clearly visible keyboard focus ring in both themes (WCAG 2.4.7). */
+  :focus-visible {
+    outline: 2px solid var(--foreground);
+    outline-offset: 2px;
+  }
 }

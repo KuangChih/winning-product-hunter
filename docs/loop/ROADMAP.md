@@ -71,6 +71,12 @@
 - [x] 全站導覽列（首頁 / 排名 / 資料來源，標示目前區塊）與頁尾，取代各頁自己的返回連結
 - [x] 產品詳情頁補強：毛利估算區塊（售價、供貨價、運費前毛利，資料不足時說明缺什麼）、頁面標題（metadata）、已合併產品導向存活產品
 
+## Phase 4B — 部署前安全強化（回顧輪 40 新增，ADR-010）
+使用者隨時可能部署；網站只靠一組共用密碼保護，部署前先補齊。
+- [x] 登入防暴力破解：資料庫記錄登入失敗（IP 雜湊 + 時間），同一 IP 15 分鐘內失敗 10 次就暫時拒絕；DEPLOY.md 建議密碼至少 16 個隨機字元
+- [x] 安全標頭：`X-Frame-Options: DENY`、`X-Content-Type-Options: nosniff`、`Referrer-Policy`、`X-Robots-Tag: noindex`（私人網站不被搜尋引擎收錄）＋ `robots.txt` 全部 disallow（另加 `Content-Security-Policy: frame-ancestors`、`Permissions-Policy`、HSTS、移除 `X-Powered-By`；完整 CSP 需 nonce 會讓所有頁面變動態，暫不做）
+- [x] 技術債清理：移除 `vite-tsconfig-paths`（改用 Vite 內建 `resolve.tsconfigPaths`）；`shadcn` CLI 移到 devDependencies（只在 build 時 import CSS），production `npm audit` 從 7 個 high 降為 0
+
 ## Phase 4 — 產品介面
 - [x] Landing page：價值主張、即時前三名真實產品（資料庫失敗時不影響頁面）、差異化重點、運作方式、資料來源
 - [x] 產品探索頁：標題搜尋、市場、最低分數、排序（最高分 / 最新 / 最不擁擠），GET 表單可分享網址
@@ -83,7 +89,7 @@
 - [ ] RWD、深色模式、無障礙、i18n（繁中 / 英文）——拆成：
   - [x] 手機版版面（375px）：導覽列不擠壓、寬表格改在容器內橫向捲動而不是把欄位擠成很高的列、廣告卡片在手機上改直排；e2e 檢查各頁在手機寬度不會橫向捲動
   - [x] 深色模式：預設跟隨系統設定，導覽列切換按鈕（系統 → 淺色 → 深色），選擇存在 localStorage；`<head>` 內嵌小 script 在畫面繪製前套用，避免閃白
-  - [ ] 無障礙檢查（鍵盤操作、焦點樣式、對比、表格標題、landmark）
+  - [x] 無障礙檢查：axe-core 自動掃描（WCAG 2.1 A/AA，6 頁 + 產品頁 × 淺色 / 深色）0 違規；加強鍵盤焦點框（2px、前景色）、「Skip to content」連結、修正導覽列在桌面出現多餘捲軸
   - [ ] i18n（繁中 / 英文）
 
 ## Phase 5 — 帳號與商業化
@@ -92,7 +98,7 @@
 - [ ] 管理後台：來源健康度、ingestion 狀態、手動重跑
 
 ## Phase 6 — 上線準備
-- [ ] 效能（快取、ISR、DB index）、錯誤監控、log
+- [ ] 效能（快取、ISR、DB index）、錯誤監控、log——排名頁目前載入全部產品後在記憶體篩選，真實產品超過約 2,000 筆（每日排程跑約 2 個月後）前改成資料庫端篩選與分頁
 - [ ] 安全檢查（`/security-review`）、rate limiting
 - [ ] 隱私權政策 / 服務條款頁草稿（標示需法律審閱）
 - [x] Vercel 部署設定與部署文件 `docs/DEPLOY.md`（`vercel-build` 自動 migration；實際部署由使用者執行）

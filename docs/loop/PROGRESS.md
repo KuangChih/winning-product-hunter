@@ -263,3 +263,24 @@
 - 完成：`src/lib/theme.ts`（偏好解析、循環切換、`<head>` 初始化 script）與 `ThemeToggle`（`useSyncExternalStore` 讀 localStorage，伺服器端一律渲染「system」避免 hydration 不一致；系統設定改變時即時跟著變）；`color-scheme` 讓原生表單與捲軸也變深色。沒有新增套件。
 - 驗證：format ✅ lint ✅ typecheck ✅ test ✅（149）build ✅ e2e ✅（13，新增：跟隨系統深色、選擇淺色後重新整理仍維持）；瀏覽器實測深色模式下排名、詳情、資料來源頁，console 無 hydration 錯誤。
 - 下一步：回顧輪 40
+
+## 2026-10-10 — 回顧輪 40（ADR-010）
+- 檢視：Phase 4A 與 Phase 4 介面大致完成；價值瓶頸仍是使用者端（每日排程未啟用、CJ 金鑰、TikTok 決策）。發現部署前的安全缺口：登入沒有次數限制、沒有安全標頭與 noindex。評分在有每日歷史前不調整。
+- 完成：新增 Phase 4B「部署前安全強化」排在無障礙與 i18n 之前；排名頁資料庫端分頁設 2,000 筆門檻；移除 `vite-tsconfig-paths`（改用 Vite 內建）；`shadcn` 移到 devDependencies，production `npm audit` 從 7 high → 0。
+- 驗證：format ✅ lint ✅ typecheck ✅ test ✅（149）build ✅
+- 下一步：登入防暴力破解
+
+## 2026-10-10 — 登入防暴力破解（Phase 4B）
+- 完成：`login_failures` 資料表（migration 0008，只存加鹽的 IP 雜湊，超過 1 天自動刪除）與 `src/data/login-throttle.ts`：同一來源 15 分鐘內失敗 10 次、或全站 15 分鐘內累計失敗 100 次（防止換 IP 無限猜）就暫時拒絕，被擋時不比對密碼也不再記錄；登入成功清除該來源紀錄。來源取 Vercel 設定的 `x-forwarded-for` 第一個位址。沒有資料庫（本機開發）或資料表尚未建立時不限制，避免把自己鎖在外面。登入頁顯示「Too many failed attempts」。DEPLOY.md 加入密碼強度建議。
+- 驗證：format ✅ lint ✅ typecheck ✅ test ✅（155）build ✅ e2e ✅（13）；瀏覽器實測（dev-protected）：連錯 10 次後第 11 次顯示鎖定訊息；資料庫只有 64 字元雜湊、沒有 IP；測試資料已清除，示範資料庫已套用 migration。
+- 下一步：安全標頭與 noindex
+
+## 2026-10-10 — 安全標頭與 noindex（Phase 4B 完成）
+- 完成：`src/lib/security-headers.ts` 經 `next.config.ts` 的 `headers()` 套用到所有路徑：`X-Frame-Options: DENY`、`frame-ancestors 'none'`、`nosniff`、`Referrer-Policy: no-referrer`（不讓 Meta 或其他店家知道訪客從這裡來）、`Permissions-Policy`、HSTS、`X-Robots-Tag: noindex, nofollow`；移除 `X-Powered-By`；全站 robots meta noindex；`src/app/robots.txt` 全部 disallow，並從 proxy matcher 排除，讓爬蟲不登入也讀得到。
+- 驗證：format ✅ lint ✅ typecheck ✅ test ✅（157，含 proxy matcher 與標頭設定）build ✅ e2e ✅（16，含實際回應標頭、robots.txt、meta）；密碼保護伺服器實測：robots.txt 200、未登入導向 /login 的 307 回應也帶安全標頭。
+- 下一步：無障礙檢查
+
+## 2026-10-10 — 無障礙檢查
+- 完成：加入 `@axe-core/playwright`（dev，免費），e2e 掃描首頁、排名、廣告、收藏、資料來源、登入、產品詳情 × 淺色 / 深色，WCAG 2.1 A/AA 規則 0 違規。axe 抓不到的部分手動用鍵盤實測後修正：焦點框原本是 1px 半透明灰色幾乎看不到 → 改成 2px 前景色；新增「Skip to content」連結（所有頁面 `<main id="main">`）；導覽列連結原本是 inline，padding 超出高度讓桌面版出現垂直捲軸 → 改成 block 並在捲動容器內留空間給焦點框。
+- 驗證：format ✅ lint ✅ typecheck ✅ test ✅（157）build ✅ e2e ✅（31，新增 14 個 axe 掃描與 1 個鍵盤跳過導覽測試）；瀏覽器鍵盤實測。
+- 下一步：i18n（繁中 / 英文）

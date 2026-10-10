@@ -180,6 +180,23 @@ export const watchlist = pgTable("watchlist", {
   addedAt: timestamp("added_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
+/**
+ * Failed site-password attempts, for login throttling (ADR-010). Stores a salted hash of the
+ * client IP, never the IP itself; rows older than a day are pruned.
+ */
+export const loginFailures = pgTable(
+  "login_failures",
+  {
+    id: bigserial("id", { mode: "number" }).primaryKey(),
+    clientHash: text("client_hash").notNull(),
+    failedAt: timestamp("failed_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    index("login_failures_client_time_idx").on(t.clientHash, t.failedAt),
+    index("login_failures_time_idx").on(t.failedAt),
+  ],
+);
+
 /** One run of an ingestion job, for the source health dashboard. */
 export const ingestionRuns = pgTable(
   "ingestion_runs",

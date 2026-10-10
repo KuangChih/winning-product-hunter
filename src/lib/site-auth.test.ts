@@ -1,7 +1,11 @@
 // @vitest-environment node
+// The docs call it unstable_doesProxyMatch; this Next.js version still exports the old name.
+import { unstable_doesMiddlewareMatch } from "next/experimental/testing/server";
 import { NextRequest } from "next/server";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { proxy } from "@/proxy";
+import nextConfig from "../../next.config";
+import { config, proxy } from "@/proxy";
+import { SECURITY_HEADERS } from "./security-headers";
 import { safeEqual, safeNextPath, SITE_AUTH_COOKIE, siteToken } from "./site-auth";
 
 describe("site auth helpers", () => {
@@ -60,5 +64,31 @@ describe("proxy", () => {
     expect((await proxy(request("/login"))).headers.get("location")).toBeNull();
     const ok = await proxy(request("/products", await siteToken("secret")));
     expect(ok.headers.get("location")).toBeNull();
+  });
+});
+
+describe("proxy matcher", () => {
+  const matches = (url: string) => unstable_doesMiddlewareMatch({ config, nextConfig, url });
+
+  it("guards pages and server actions but not static files or robots.txt", () => {
+    expect(matches("/")).toBe(true);
+    expect(matches("/products/ear-cleaner")).toBe(true);
+    expect(matches("/watchlist")).toBe(true);
+    expect(matches("/robots.txt")).toBe(false);
+    expect(matches("/_next/static/chunks/app.js")).toBe(false);
+    expect(matches("/favicon.ico")).toBe(false);
+  });
+});
+
+describe("security headers", () => {
+  it("apply to every route, deny framing and ask not to be indexed", async () => {
+    const rules = await nextConfig.headers!();
+    expect(rules).toEqual([{ source: "/:path*", headers: SECURITY_HEADERS }]);
+    const byKey = Object.fromEntries(SECURITY_HEADERS.map((h) => [h.key, h.value]));
+    expect(byKey["X-Frame-Options"]).toBe("DENY");
+    expect(byKey["Content-Security-Policy"]).toContain("frame-ancestors 'none'");
+    expect(byKey["X-Content-Type-Options"]).toBe("nosniff");
+    expect(byKey["X-Robots-Tag"]).toContain("noindex");
+    expect(nextConfig.poweredByHeader).toBe(false);
   });
 });

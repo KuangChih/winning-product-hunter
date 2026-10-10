@@ -100,7 +100,7 @@ async function RankedProducts({
 
 export default function ProductsPage({ searchParams }: PageProps<"/products">) {
   return (
-    <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-10">
+    <main id="main" className="mx-auto w-full max-w-6xl flex-1 px-4 py-10">
       <h1 className="text-3xl font-semibold tracking-tight">Winning products</h1>
       <p className="text-muted-foreground mt-2 max-w-2xl">
         Ranked by Winning Score: ad longevity, scaling activity, search demand and marketplace
