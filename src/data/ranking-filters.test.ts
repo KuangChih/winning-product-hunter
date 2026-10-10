@@ -8,6 +8,8 @@ const product = (
   markets: string[],
   ageDays: number,
   penalty: number,
+  retailUsdCents: number | null = null,
+  sources: string[] = ["meta_ads"],
 ) =>
   ({
     id: title,
@@ -18,15 +20,16 @@ const product = (
     score,
     confidence: 0.5,
     computedAt: new Date(),
-    sources: ["meta_ads"],
+    sources,
     markets,
+    retailUsdCents,
     isSample: false,
     breakdown: { saturation: { ageDays, penalty, activeAdvertisers: 1, value: 0 } },
   }) as unknown as RankedProduct;
 
 const items = [
-  product("Neck Massager Pro", 70, ["US", "GB"], 90, 0.3),
-  product("Dog Paw Cleaner", 65, ["AU"], 10, 0.1),
+  product("Neck Massager Pro", 70, ["US", "GB"], 90, 0.3, 4999, ["meta_ads", "shopify"]),
+  product("Dog Paw Cleaner", 65, ["AU"], 10, 0.1, 1999),
   product("Posture Corrector", 50, ["US"], 40, 0.05),
 ];
 
@@ -44,6 +47,25 @@ describe("applyRankingFilters", () => {
       "Posture Corrector",
     ]);
     expect(applyRankingFilters(items, { minScore: 60 })).toHaveLength(2);
+  });
+
+  it("filters by US price range, hiding products without a known price", () => {
+    const titles = (f: { minPrice?: number; maxPrice?: number }) =>
+      applyRankingFilters(items, f).map((p) => p.title);
+    expect(titles({ minPrice: 20 })).toEqual(["Neck Massager Pro"]);
+    expect(titles({ maxPrice: 20 })).toEqual(["Dog Paw Cleaner"]);
+    expect(titles({ minPrice: 10, maxPrice: 60 })).toEqual([
+      "Neck Massager Pro",
+      "Dog Paw Cleaner",
+    ]);
+    // No range: products without a price stay.
+    expect(titles({})).toHaveLength(3);
+  });
+
+  it("filters by evidence source", () => {
+    expect(applyRankingFilters(items, { source: "shopify" }).map((p) => p.title)).toEqual([
+      "Neck Massager Pro",
+    ]);
   });
 
   it("sorts by score, newest or least crowded", () => {
@@ -79,5 +101,15 @@ describe("parseRankingParams", () => {
       sort: "score",
       includeSample: false,
     });
+  });
+
+  it("reads price range and evidence source, ignoring invalid values", () => {
+    expect(
+      parseRankingParams({ minPrice: "15", maxPrice: "60.4", source: "shopify" }),
+    ).toMatchObject({ minPrice: 15, maxPrice: 60, source: "shopify" });
+    expect(
+      parseRankingParams({ minPrice: "-5", maxPrice: "abc", source: "myspace" }),
+    ).toMatchObject({ minPrice: undefined, maxPrice: undefined, source: undefined });
+    expect(parseRankingParams({ minPrice: "", maxPrice: " " }).minPrice).toBeUndefined();
   });
 });

@@ -15,9 +15,14 @@ const product = (over: Partial<RankedProduct>): RankedProduct => ({
   sources: ["cj", "meta_ads"],
   markets: ["US", "DE"],
   isSample: true,
+  retailUsdCents: 2499,
   breakdown: {
     saturation: { activeAdvertisers: 2 },
-  } as RankedProduct["breakdown"],
+    subScores: {
+      longevity: { value: 0.83, weight: 0.15, raw: null, basis: "" },
+      margin: { value: null, weight: 0.15, raw: null, basis: "" },
+    },
+  } as unknown as RankedProduct["breakdown"],
   ...over,
 });
 
@@ -37,6 +42,7 @@ describe("ProductTable", () => {
       "/products/paw-cleaner",
     );
     expect(first.getByText("73")).toBeInTheDocument();
+    expect(first.getByText("$24.99")).toBeInTheDocument();
     expect(first.getByText("Medium")).toBeInTheDocument();
     expect(first.getByText("Meta Ads")).toBeInTheDocument();
     expect(first.getByText("Sample data")).toBeInTheDocument();
@@ -48,10 +54,43 @@ describe("ProductTable", () => {
   it("translates headers, confidence, badge and country names", () => {
     render(<ProductTable products={[product({})]} locale="zh-TW" />);
     expect(screen.getByRole("columnheader", { name: "可信度" })).toBeInTheDocument();
+    expect(screen.getByRole("columnheader", { name: "售價（美國）" })).toBeInTheDocument();
     const row = within(screen.getAllByRole("row")[1]);
     expect(row.getByText("中")).toBeInTheDocument();
     expect(row.getByText("樣本資料")).toBeInTheDocument();
     expect(row.getByTitle("美國")).toHaveTextContent("US");
     expect(row.getByTitle("德國")).toHaveTextContent("DE");
+  });
+
+  it("shows every sub-score, a dash when there is no data, and sortable headers", () => {
+    render(
+      <ProductTable
+        products={[product({})]}
+        locale="en"
+        filters={{ market: "US", sort: "longevity" }}
+        includeSample={false}
+      />,
+    );
+    const header = screen.getByRole("columnheader", { name: /Longevity/ });
+    expect(header).toHaveAttribute("aria-sort", "descending");
+    expect(within(header).getByRole("link")).toHaveAttribute(
+      "href",
+      "/products?market=US&sort=longevity",
+    );
+    expect(
+      within(screen.getByRole("columnheader", { name: /Margin/ })).getByRole("link"),
+    ).toHaveAttribute("href", "/products?market=US&sort=margin");
+
+    const cells = within(screen.getAllByRole("row")[1]).getAllByRole("cell");
+    // #, product, score, then the seven signals in order.
+    expect(cells.slice(3, 10).map((c) => c.textContent)).toEqual([
+      "83",
+      "—",
+      "—",
+      "—",
+      "—",
+      "—",
+      "—",
+    ]);
   });
 });

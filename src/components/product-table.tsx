@@ -1,12 +1,16 @@
 import Link from "next/link";
-import type { RankedProduct } from "@/data/products";
+import { type RankedProduct, type RankingFilters, signalValue } from "@/data/products";
+import { rankingHref } from "@/data/ranking-params";
 import { type Dictionary, getDictionary } from "@/i18n/dictionaries";
-import { countryName } from "@/i18n/format";
+import { countryName, fill } from "@/i18n/format";
 import { DEFAULT_LOCALE, type Locale } from "@/i18n/locales";
 import { marketTier } from "@/lib/markets";
 import { sourceLabel } from "@/lib/sources";
 import { cn } from "@/lib/utils";
-import { confidenceLabel } from "@/scoring/score";
+import { confidenceLabel, SUB_SCORE_ORDER } from "@/scoring/score";
+
+const usd = (cents: number) =>
+  (cents / 100).toLocaleString("en-US", { style: "currency", currency: "USD" });
 
 function ScoreBar({ score }: { score: number }) {
   return (
@@ -68,17 +72,50 @@ export function SampleDataBadge({
   );
 }
 
-export function ProductTable({ products, locale }: { products: RankedProduct[]; locale: Locale }) {
-  const { ranking: t, common } = getDictionary(locale);
+export function ProductTable({
+  products,
+  locale,
+  filters = {},
+  includeSample = false,
+}: {
+  products: RankedProduct[];
+  locale: Locale;
+  /** Current filters, so the signal column headers can link to a sort that keeps them. */
+  filters?: RankingFilters;
+  includeSample?: boolean;
+}) {
+  const { ranking: t, common, breakdown } = getDictionary(locale);
   return (
     <div className="overflow-x-auto rounded-lg border">
       {/* Scroll sideways on small screens instead of squeezing every column into tall rows. */}
-      <table className="w-full min-w-[60rem] text-sm">
+      <table className="w-full min-w-[96rem] text-sm">
         <thead className="bg-muted/50 text-muted-foreground text-left text-xs uppercase">
           <tr>
             <th className="px-3 py-2 font-medium">{t.columns.rank}</th>
             <th className="px-3 py-2 font-medium">{t.columns.product}</th>
             <th className="px-3 py-2 font-medium">{t.columns.score}</th>
+            {SUB_SCORE_ORDER.map((name) => {
+              const active = filters.sort === name;
+              return (
+                <th
+                  key={name}
+                  scope="col"
+                  aria-sort={active ? "descending" : undefined}
+                  title={breakdown.methods[name]}
+                  className="px-2 py-2 text-right font-medium"
+                >
+                  <Link
+                    href={rankingHref({ ...filters, sort: name }, includeSample)}
+                    aria-label={fill(t.sortByColumn, { signal: t.signals[name] })}
+                    className={active ? "text-foreground underline" : "hover:text-foreground"}
+                  >
+                    {t.signals[name]}
+                    {active ? " ↓" : ""}
+                  </Link>
+                </th>
+              );
+            })}
+            <th className="px-3 py-2 text-right font-medium">{t.columns.price}</th>
             <th className="px-3 py-2 font-medium">{t.columns.confidence}</th>
             <th className="px-3 py-2 font-medium">{t.columns.markets}</th>
             <th className="px-3 py-2 font-medium">{t.columns.evidence}</th>
@@ -102,6 +139,27 @@ export function ProductTable({ products, locale }: { products: RankedProduct[]; 
               </td>
               <td className="px-3 py-3">
                 <ScoreBar score={p.score} />
+              </td>
+              {SUB_SCORE_ORDER.map((name) => {
+                const v = signalValue(p, name);
+                return (
+                  <td key={name} className="px-2 py-3 text-right font-mono tabular-nums">
+                    {v === null ? (
+                      <span className="text-muted-foreground" title={t.noData}>
+                        —
+                      </span>
+                    ) : (
+                      v
+                    )}
+                  </td>
+                );
+              })}
+              <td className="px-3 py-3 text-right tabular-nums">
+                {p.retailUsdCents === null ? (
+                  <span className="text-muted-foreground">—</span>
+                ) : (
+                  usd(p.retailUsdCents)
+                )}
               </td>
               <td className="px-3 py-3">{common.confidence[confidenceLabel(p.confidence)]}</td>
               <td className="min-w-44 px-3 py-3">

@@ -1,18 +1,12 @@
 import { getDictionary } from "@/i18n/dictionaries";
 import { fill } from "@/i18n/format";
 import type { Locale } from "@/i18n/locales";
-import type { ScoreBreakdown as Breakdown, SubScore, SubScoreName } from "@/scoring/score";
-
-/** Fixed display order: jsonb does not preserve key order. */
-const ORDER: SubScoreName[] = [
-  "longevity",
-  "scaling",
-  "marketReach",
-  "momentum",
-  "demandTrend",
-  "marketplace",
-  "margin",
-];
+import {
+  type ScoreBreakdown as Breakdown,
+  SUB_SCORE_ORDER as ORDER,
+  type SubScore,
+  type SubScoreName,
+} from "@/scoring/score";
 
 function pct(x: number) {
   return `${Math.round(x * 100)}`;

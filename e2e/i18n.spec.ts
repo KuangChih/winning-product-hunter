@@ -45,7 +45,9 @@ test("the ranking page is translated", async ({ page, context, baseURL }) => {
   await expect(page.getByRole("heading", { level: 1, name: "熱賣產品" })).toBeVisible();
   await expect(page.getByRole("combobox", { name: "排序" })).toBeVisible();
   const table = page.getByRole("table");
-  await expect(table.or(page.getByText(/尚未設定資料庫|還沒有/))).toBeVisible();
+  await expect(
+    table.or(page.getByText(/尚未設定資料庫|還沒有真實產品|還沒有已評分的產品/)),
+  ).toBeVisible();
   if (await table.isVisible()) {
     await expect(table.getByRole("columnheader", { name: "可信度" })).toBeVisible();
   }
@@ -55,9 +57,11 @@ test("the product detail page is translated", async ({ page, context, baseURL })
   await context.addCookies([{ name: "locale", value: "zh-TW", url: baseURL! }]);
   await page.goto("/products");
   const table = page.getByRole("table");
-  await expect(table.or(page.getByText(/尚未設定資料庫|還沒有/))).toBeVisible();
+  await expect(
+    table.or(page.getByText(/尚未設定資料庫|還沒有真實產品|還沒有已評分的產品/)),
+  ).toBeVisible();
   test.skip(!(await table.isVisible()), "No products in this environment");
-  await table.getByRole("link").first().click();
+  await table.locator("tbody").getByRole("link").first().click();
   await expect(page.getByRole("heading", { name: "分數怎麼來的" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "毛利估算" })).toBeVisible();
   await expect(page.getByRole("link", { name: "← 所有熱賣產品" })).toBeVisible();
@@ -68,9 +72,11 @@ test("the evidence list is translated", async ({ page, context, baseURL }) => {
   await context.addCookies([{ name: "locale", value: "zh-TW", url: baseURL! }]);
   await page.goto("/products");
   const table = page.getByRole("table");
-  await expect(table.or(page.getByText(/尚未設定資料庫|還沒有/))).toBeVisible();
+  await expect(
+    table.or(page.getByText(/尚未設定資料庫|還沒有真實產品|還沒有已評分的產品/)),
+  ).toBeVisible();
   test.skip(!(await table.isVisible()), "No products in this environment");
-  await table.getByRole("link").first().click();
+  await table.locator("tbody").getByRole("link").first().click();
   await expect(page.getByRole("heading", { name: "證據" })).toBeVisible();
   await expect(
     page.getByRole("heading", { name: /^(廣告|販售的店家|搜尋需求|供應商報價)/ }).first(),

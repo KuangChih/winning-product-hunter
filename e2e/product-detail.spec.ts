@@ -10,7 +10,7 @@ test("a ranked product opens its detail page with score breakdown and evidence",
   ).toBeVisible();
   test.skip(!(await table.isVisible()), "No scored products in this environment");
 
-  const link = table.getByRole("link").first();
+  const link = table.locator("tbody").getByRole("link").first();
   const name = (await link.textContent())!.trim();
   await link.click();
   await expect(page.getByRole("heading", { name: "Why this score" })).toBeVisible();

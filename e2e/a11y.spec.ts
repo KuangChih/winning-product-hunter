@@ -34,7 +34,7 @@ for (const colorScheme of ["light", "dark"] as const) {
         table.or(page.getByText(/No database configured|No real products yet|not set up/)),
       ).toBeVisible();
       test.skip(!(await table.isVisible()), "No products in this environment");
-      await table.getByRole("link").first().click();
+      await table.locator("tbody").getByRole("link").first().click();
       await expect(page.getByRole("heading", { name: "Why this score" })).toBeVisible();
       await page.waitForLoadState("networkidle");
       const results = await new AxeBuilder({ page })

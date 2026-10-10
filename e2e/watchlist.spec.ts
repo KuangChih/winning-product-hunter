@@ -10,7 +10,7 @@ test("a product can be watched from its page and unwatched from the watchlist", 
   ).toBeVisible();
   test.skip(!(await table.isVisible()), "No scored products in this environment");
 
-  const link = table.getByRole("link").first();
+  const link = table.locator("tbody").getByRole("link").first();
   const name = (await link.textContent())!.trim();
   await link.click();
 

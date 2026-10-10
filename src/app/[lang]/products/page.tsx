@@ -60,10 +60,28 @@ async function RankedProducts({
     );
   }
 
-  const filtered = Boolean(filters.q || filters.market || filters.minScore !== undefined);
+  const filtered = Boolean(
+    filters.q ||
+    filters.market ||
+    filters.source ||
+    filters.signals ||
+    filters.minScore !== undefined ||
+    filters.minPrice !== undefined ||
+    filters.maxPrice !== undefined,
+  );
   let content;
   if (products.length > 0) {
-    content = <ProductTable products={products} locale={locale} />;
+    content = (
+      <>
+        <ProductTable
+          products={products}
+          locale={locale}
+          filters={filters}
+          includeSample={includeSample}
+        />
+        <p className="text-muted-foreground mt-2 text-xs">{t.signalsNote}</p>
+      </>
+    );
   } else if (filtered) {
     content = (
       <Notice title={t.noMatchTitle}>

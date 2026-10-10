@@ -24,6 +24,17 @@ export const SCORING_CONFIG = {
 
 export type SubScoreName = keyof typeof SCORING_CONFIG.weights;
 
+/** Display order of the sub-scores (jsonb does not preserve key order). */
+export const SUB_SCORE_ORDER: SubScoreName[] = [
+  "longevity",
+  "scaling",
+  "marketReach",
+  "momentum",
+  "demandTrend",
+  "marketplace",
+  "margin",
+];
+
 export type ConfidenceLabel = "low" | "medium" | "high";
 
 /** High needs nearly every signal present and three sources; v0 tops out at medium. */

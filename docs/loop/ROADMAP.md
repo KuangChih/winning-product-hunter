@@ -55,8 +55,8 @@
 
 ## Phase 2C — 資料品質
 - [x] 實體對應 v1：商品照片 dHash（`sharp`）+ 標題重疊判斷重複產品；合併時搬移證據、刪除重複產品的分數並標記 `merged_into`（之後探索到同代號會導向存活產品）；`npm run dedupe`，並加入 pipeline
-- [ ] [低優先，移到 Phase 4 之後] 實體對應 v2：向量相似度（CLIP 類 embedding，可用 transformers.js 在 GitHub Actions 本地計算，不需付費服務）+ 人工標註配對集校正門檻；v1 實測目前沒有重複，價值待資料量增加後再評估
-- [ ] 評分 v2：margin 扣除 CJ 運費（到岸毛利）、demandTrend 改用 Pinterest / Google Best sellers（皆需金鑰）
+- [ ] [blocked: 資料量 — 每日排程累積更多真實產品後再評估] 實體對應 v2：向量相似度（CLIP 類 embedding，可用 transformers.js 在 GitHub Actions 本地計算，不需付費服務）+ 人工標註配對集校正門檻；v1 實測目前沒有重複，價值待資料量增加後再評估
+- [ ] [blocked: human — 需要 `CJ_API_KEY`、Pinterest / Merchant Center] 評分 v2：margin 扣除 CJ 運費（到岸毛利）、demandTrend 改用 Pinterest / Google Best sellers（皆需金鑰）
 
 ## Phase 2（已完成部分，保留紀錄）
 - [x] 統一的 `SourceAdapter` 介面 + fixture 模式 + 重試/限流/錯誤紀錄（`src/ingestion`）
@@ -77,10 +77,22 @@
 - [x] 安全標頭：`X-Frame-Options: DENY`、`X-Content-Type-Options: nosniff`、`Referrer-Policy`、`X-Robots-Tag: noindex`（私人網站不被搜尋引擎收錄）＋ `robots.txt` 全部 disallow（另加 `Content-Security-Policy: frame-ancestors`、`Permissions-Policy`、HSTS、移除 `X-Powered-By`；完整 CSP 需 nonce 會讓所有頁面變動態，暫不做）
 - [x] 技術債清理：移除 `vite-tsconfig-paths`（改用 Vite 內建 `resolve.tsconfigPaths`）；`shadcn` CLI 移到 devDependencies（只在 build 時 import CSS），production `npm audit` 從 7 個 high 降為 0
 
+## Phase 4C — 找爆品能力強化（使用者 2026-10-10 要求：要能客觀、實質找到爆品）
+- [ ] 產品探索擴充：
+  - [ ] 追蹤廣告主：找到的 dropshipping 店家，定期查它在 Ad Library 的其他廣告（店家會同時測很多產品，能更早發現新品）
+  - [ ] 關鍵字自動延伸：從已探索到的產品標題 / 商品代號抽出候選關鍵字；依每個關鍵字「找到幾個有潛力的新產品」分配掃描次數，產出低的自動淘汰
+  - [ ] 不限品類的廣泛掃描：用 dropshipping 廣告常見用語（例如免運、限時折扣）掃描，先實測 Ad Library 對這類搜尋的回應再決定
+  - [ ] 衡量探索成效：每日新產品數、後來進入高分的比例，寫進資料來源頁
+- [ ] 真實銷量訊號（Shopify Global Catalog 沒有銷量）：研究並逐一接上能反映實際賣出的第一手來源——CJ 90 天銷量（需金鑰）、Google Merchant Center 熱銷排名（需申請）、TikTok Shop 商品頁公開售出數、Amazon 排名；每個來源標示「實際訂單 / 排名 / 推估」等級，先寫研究文件再實作
+- [ ] 照片比對 v2：CLIP 類圖片向量（transformers.js，在 GitHub Actions 免費執行）比對所有商品照片，能處理裁切、旋轉、修圖與部分角度差異；人工標註約 200 組配對量測準確率與漏抓率來定門檻；相似但不確定的配對列為「可能重複」讓使用者確認，不自動合併
+- [ ] 詳情頁的店家評分標示「店家自報，可能不實」（評分不計入 Winning Score）
+
 ## Phase 4 — 產品介面
 - [x] Landing page：價值主張、即時前三名真實產品（資料庫失敗時不影響頁面）、差異化重點、運作方式、資料來源
 - [x] 產品探索頁：標題搜尋、市場、最低分數、排序（最高分 / 最新 / 最不擁擠），GET 表單可分享網址
-  - [ ] 之後補：類別篩選（需要類別資料）、價格區間、平台篩選
+  - [x] 價格區間（美國售價中位數，USD，跨幣別以 ECB 換算）與證據來源篩選；表格新增「售價（美國）」欄
+  - [x] 7 個子分數直接顯示在排名表（0–100，沒有資料顯示「—」，不推估）；可依任一子分數排序（表頭點擊或排序選單，沒有資料的排最後），並可篩選「有資料」或「≥ 40 / 60 / 80」
+  - [ ] 之後補：類別篩選（需要類別資料）
 - [x] 產品詳情頁：分數拆解、分數歷史、廣告證據連結、搜尋趨勢、供應商、競爭店家（各市場零售價）——毛利區塊等補強移到 Phase 4A
 - [x] 廣告資料庫瀏覽頁（跨平台）：`/ads`，搜尋廣告文字 / 廣告主、市場、平台、狀態、排序（投放最久 / 最新 / 最近看到）、分頁，連到原始廣告與對應產品
   - [ ] 之後補：廣告素材縮圖（需確認 Meta 圖片網址的有效期限與熱連結限制）
