@@ -1,7 +1,9 @@
 import { desc, eq, inArray } from "drizzle-orm";
 import type { AnyDatabase } from "@/db/client";
 import { productScores, products, signalSnapshots, sourceItems } from "@/db/schema";
+import type { FxRates } from "@/lib/fx";
 import type { ScoreBreakdown } from "@/scoring/score";
+import { getLatestFxRates } from "./fx";
 
 export interface SeriesPoint {
   observedAt: Date;
@@ -16,6 +18,7 @@ export interface EvidenceItem {
   title: string | null;
   url: string | null;
   region: string | null;
+  countries: string[];
   advertiserName: string | null;
   format: string | null;
   startedAt: Date | null;
@@ -38,6 +41,8 @@ export interface ProductDetail {
   scoreHistory: Array<{ score: number; computedAt: Date }>;
   evidence: EvidenceItem[];
   isSample: boolean;
+  /** Latest ECB rates, for showing prices from several currencies together. */
+  fxRates: FxRates | null;
 }
 
 export async function getProductDetail(
@@ -87,6 +92,7 @@ export async function getProductDetail(
       title: i.title,
       url: i.url,
       region: i.region,
+      countries: i.countries,
       advertiserName: i.advertiserName,
       format: i.format,
       startedAt: i.startedAt,
@@ -115,6 +121,7 @@ export async function getProductDetail(
       : null,
     scoreHistory: scores.map((s) => ({ score: s.score, computedAt: s.computedAt })).reverse(),
     evidence,
-    isSample: items.length > 0 && items.every((i) => i.provider === "fixture"),
+    isSample: items.some((i) => i.provider === "fixture"),
+    fxRates: await getLatestFxRates(db),
   };
 }

@@ -3,17 +3,17 @@
  * first, then the second-wave European markets. Codes are ISO 3166-1 alpha-2 ("GB", not "UK").
  */
 export const MARKETS = [
-  { code: "US", name: "United States", tier: 1 },
-  { code: "CA", name: "Canada", tier: 1 },
-  { code: "GB", name: "United Kingdom", tier: 1 },
-  { code: "AU", name: "Australia", tier: 1 },
-  { code: "NZ", name: "New Zealand", tier: 1 },
-  { code: "DE", name: "Germany", tier: 2 },
-  { code: "FR", name: "France", tier: 2 },
-  { code: "SE", name: "Sweden", tier: 2 },
-  { code: "BE", name: "Belgium", tier: 2 },
-  { code: "ES", name: "Spain", tier: 2 },
-  { code: "NO", name: "Norway", tier: 2 },
+  { code: "US", name: "United States", tier: 1, currency: "USD" },
+  { code: "CA", name: "Canada", tier: 1, currency: "CAD" },
+  { code: "GB", name: "United Kingdom", tier: 1, currency: "GBP" },
+  { code: "AU", name: "Australia", tier: 1, currency: "AUD" },
+  { code: "NZ", name: "New Zealand", tier: 1, currency: "NZD" },
+  { code: "DE", name: "Germany", tier: 2, currency: "EUR" },
+  { code: "FR", name: "France", tier: 2, currency: "EUR" },
+  { code: "SE", name: "Sweden", tier: 2, currency: "SEK" },
+  { code: "BE", name: "Belgium", tier: 2, currency: "EUR" },
+  { code: "ES", name: "Spain", tier: 2, currency: "EUR" },
+  { code: "NO", name: "Norway", tier: 2, currency: "NOK" },
 ] as const;
 
 export type MarketCode = (typeof MARKETS)[number]["code"];
@@ -53,6 +53,11 @@ export function marketTier(country: string): 1 | 2 | null {
 export function marketWeight(country: string): number {
   const tier = marketTier(country);
   return tier ? TIER_WEIGHTS[tier] : TIER_WEIGHTS.other;
+}
+
+/** Local currency of a market (ISO 4217), or undefined for countries we don't target. */
+export function marketCurrency(country: string): string | undefined {
+  return MARKET_BY_CODE.get(country)?.currency;
 }
 
 export function marketName(country: string): string {

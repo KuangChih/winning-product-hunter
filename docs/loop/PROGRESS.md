@@ -117,3 +117,29 @@
 - 完成：`src/lib/markets.ts`（目標市場清單：英語系五國 tier 1、歐洲六國 tier 2；`toCountries` 把 UK/EU/EEA 等代碼正規化成 ISO 國家；市場權重與排序）；`source_items.countries`（text[] + GIN 索引），ingestion 自動由 `countries` 或 `region` 推導；migration `0002` 會依既有 `region` 回填；排名頁新增 Markets 欄（tier 1 市場深色標示）。
 - 驗證：format ✅ lint ✅ typecheck ✅ test ✅（57）build ✅ e2e ✅；回填在本機示範資料庫複本上驗證（EU→5 國、US→US）；瀏覽器實測排名頁與詳情頁（趨勢已正確顯示 11 週）。
 - 下一步：移除 AliExpress，改用 CJ Dropshipping 樣本資料
+
+## 2026-10-10 — 移除 AliExpress，改用 CJ Dropshipping 樣本資料
+- 完成：刪除 AliExpress 解析器與 fixture；新增 `src/ingestion/sources/cj.ts`（依 CJ 官方文件：`product/listV2` 列表、`product/productDetail/query` 的 90 天銷量 `soldOut` / `orderCount`、`logistic/freightCalculate` 運費），價格區間取最低價；fixture 產生器改產生 CJ 回應格式；評分 marketplace 子分數改用 `units_sold_90d`；詳情頁顯示「90 天銷量、上架店家數」；migration `0003` 刪除既有 AliExpress 樣本資料（enum 值因 Postgres 無法刪除而保留並標註 deprecated）。
+- 驗證：format ✅ lint ✅ typecheck ✅ test ✅（58）build ✅ e2e ✅；本機示範資料庫重新 seed，瀏覽器實測排名頁與詳情頁。
+- 發現：`get_page_text` 讀串流頁面可能只拿到 Suspense fallback，已寫入 CLAUDE.md 已知陷阱。
+- 下一步：Shopify Global Catalog adapter（需確認 early access 權限，可能 blocked）→ 否則先做 CJ live adapter 或 Meta 公開網站蒐集器研究
+
+## 2026-10-10 — Shopify Global Catalog adapter（第一個真實資料來源）
+- 完成：`src/ingestion/sources/shopify-catalog.ts`（官方 MCP，JSON-RPC `search_catalog`，依 ships_to 國家查詢；每個商品存成 per-country `store_product`，另存同類商品數 `catalog_results`）；`forProducts` 以產品名稱搜尋並直接掛到該產品（略過文字比對，避免產生大量新產品）；`FetchedItem.productId`；`npm run collect -- shopify_catalog [--products] [--countries] [--dry-run]`；詳情頁新增「Stores selling it」（依市場分組、同幣別中位數、評分、店家連結）；有任何 fixture 證據的產品就標示 Sample data。
+- 實測：不需金鑰；5 個產品 × 5 國抓到 525 筆真實資料，例如姿勢矯正帶美國中位數 28.95 USD、英國 30.00 GBP。
+- 修正：Vitest 沒開 globals，Testing Library 不會自動 cleanup → `vitest.setup.ts` 加上 `afterEach(cleanup)`。
+- 驗證：format ✅ lint ✅ typecheck ✅ test ✅（67）；瀏覽器實測詳情頁。
+- 下一步：CJ live adapter 需要 `CJ_API_KEY`（blocked）→ 改做 Meta Ad Library 公開網站蒐集器研究
+
+## 2026-10-10 — 匯率與跨幣別零售價
+- 完成：ECB 每日參考匯率（第一手、免費）：`src/lib/fx.ts` 解析與換算、`fx_rates` 表（migration `0004`）、`npm run fx`；`src/lib/retail-price.ts` 的 `marketRetailPrice`（換算成市場當地幣別後取中位數，沒有匯率時只用同幣別報價，不混用）；市場清單加上當地幣別；詳情頁中位數改用換算後的價格並註明匯率日期。
+- 修正：測試平行執行時 PGlite 啟動偶爾超過 5 秒 → Vitest testTimeout/hookTimeout 改為 20 秒。
+- 驗證：format ✅ lint ✅ typecheck ✅ test ✅（77）；真實 ECB 匯率存入示範資料庫，瀏覽器實測（例：加拿大中位數 55.74 CAD，6 筆換算）。
+- 下一步：CJ 需金鑰（blocked）→ Meta Ad Library 公開網站蒐集器研究
+
+## 2026-10-10 — Meta Ad Library 公開網站蒐集器（美國等非 EU 市場的廣告）
+- 研究：公開搜尋頁不需登入；HTML 內嵌 JSON 含完整結果，一般 HTTP GET 即可取得（誠實 User-Agent）。記錄於 `docs/research/meta-ad-library-web.md`。
+- 完成：`src/ingestion/sources/meta-ad-library-web.ts`（解析、CAPTCHA/登入頁偵測即停止、5 秒間隔、每次最多 50 頁）；`npm run collect -- meta_ad_library`；詳情頁廣告依來源標示（「Meta Ad Library」+ 國家 + 同創意廣告數），顯示各國刊登中廣告數，最多列出 20 支投放最久的廣告。
+- 實測：5 產品 × 5 國 = 25 個請求，443 筆真實資料，未被擋。
+- 驗證：format ✅ lint ✅ typecheck ✅ test ✅（84）；瀏覽器實測詳情頁。
+- 下一步：Pinterest Trends（需金鑰，blocked）→ Google Merchant（blocked）→ Keyword Planner（blocked）→ Meta API（blocked）→ TikTok Creative Center 公開頁面研究

@@ -64,7 +64,7 @@ describe("database schema", () => {
 
   it("rejects a duplicate external id from the same source", async () => {
     const item = {
-      source: "aliexpress" as const,
+      source: "cj" as const,
       provider: "fixture",
       externalId: "100500",
       kind: "listing" as const,

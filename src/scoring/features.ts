@@ -98,7 +98,7 @@ export function extractFeatures(items: ItemInput[], firstSeenAt: Date, now: Date
 
   const listings = items.filter((i) => i.kind === "listing");
   const orders = listings
-    .map((l) => latest(l.snapshots, "orders_recent"))
+    .map((l) => latest(l.snapshots, "units_sold_90d"))
     .filter((v): v is number => v !== null);
   const prices = listings.map((l) => l.priceCents).filter((v): v is number => v !== null);
 

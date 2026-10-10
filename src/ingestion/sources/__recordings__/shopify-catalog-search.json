@@ -1,0 +1,195 @@
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "result": {
+    "structuredContent": {
+      "ucp": {
+        "version": "2026-08-25",
+        "status": "success"
+      },
+      "products": [
+        {
+          "id": "gid://shopify/p/58F5YAD4kNMY3u29KBjlIj",
+          "title": "Medium Paw Cleaner Cup for Dogs & Cats in Black",
+          "media": [
+            {
+              "type": "image",
+              "url": "https://cdn.shopify.com/s/files/1/0864/9913/1710/files/Bugalugs-Medium-BLACK-Paw-Cleaner-Tub-and-Box.jpg",
+              "alt_text": "Medium Paw Cleaner Cup for Dogs & Cats in Black"
+            }
+          ],
+          "rating": {
+            "value": 4.3,
+            "scale_min": 1,
+            "scale_max": 5,
+            "count": 22
+          },
+          "variants": [
+            {
+              "id": "gid://shopify/ProductVariant/53270642327939",
+              "title": "Medium Paw Cleaner Cup for Dogs & Cats in Black",
+              "url": "https://bugalugspetcare.com/products/paw-cleaner-medium-copy?variant=53270642327939&_gsid=hiWHwZ7U9Stn&utm_source=shopify&utm_medium=catalog",
+              "price": {
+                "amount": 1999,
+                "currency": "USD"
+              },
+              "availability": {
+                "available": true
+              },
+              "seller": {
+                "id": "gid://shopify/Shop/86499131710",
+                "name": "Bugalugs Pet Care",
+                "url": "https://bugalugspetcare.com",
+                "domain": "bugalugs-pet-care.myshopify.com"
+              },
+              "rating": {
+                "value": 5,
+                "scale_min": 1,
+                "scale_max": 5,
+                "count": 10
+              },
+              "condition": [
+                "new"
+              ],
+              "eligible": {
+                "native_checkout": false
+              }
+            }
+          ],
+          "price_range": {
+            "min": {
+              "amount": 1999,
+              "currency": "USD"
+            },
+            "max": {
+              "amount": 1999,
+              "currency": "USD"
+            }
+          }
+        },
+        {
+          "id": "gid://shopify/p/7rCxFsYykaRCtpWMlnr97s",
+          "title": "Dog Paw Cleaner Cup",
+          "media": [
+            {
+              "type": "image",
+              "url": "https://cdn.shopify.com/s/files/1/0097/5375/5714/files/S211331edb81e4def8ffa024aa0f31e21x.webp",
+              "alt_text": "Dog Paw Cleaner Cup"
+            }
+          ],
+          "variants": [
+            {
+              "id": "gid://shopify/ProductVariant/43246153924796",
+              "title": "Dog Paw Cleaner Cup",
+              "url": "https://woofmeowwow.com/products/dog-paw-cleaner-cup?variant=43246153924796&_gsid=hiWHwZ7U9Stn&utm_source=shopify&utm_medium=catalog",
+              "price": {
+                "amount": 1835,
+                "currency": "USD"
+              },
+              "availability": {
+                "available": true
+              },
+              "options": [
+                {
+                  "name": "Color",
+                  "label": "Orange"
+                },
+                {
+                  "name": "Size",
+                  "label": "s-7.2x9.3cm"
+                }
+              ],
+              "seller": {
+                "id": "gid://shopify/Shop/9753755714",
+                "name": "Woof Meow WOW!!",
+                "url": "https://woofmeowwow.com",
+                "domain": "woofmeownow.myshopify.com"
+              },
+              "condition": [
+                "new"
+              ],
+              "eligible": {
+                "native_checkout": false
+              }
+            }
+          ],
+          "price_range": {
+            "min": {
+              "amount": 1835,
+              "currency": "USD"
+            },
+            "max": {
+              "amount": 1835,
+              "currency": "USD"
+            }
+          }
+        },
+        {
+          "id": "gid://shopify/p/6gLy6D1A7N1fUwnLX0IVDa",
+          "title": "Large Paw Cleaner Cup for Dogs in Pink",
+          "media": [
+            {
+              "type": "image",
+              "url": "https://cdn.shopify.com/s/files/1/0864/9913/1710/files/large-paw-cleaner-front-with-box.png",
+              "alt_text": "Bugalugs Large Paw Cleaner - Cleaning cup with carry handle"
+            }
+          ],
+          "rating": {
+            "value": 4.8,
+            "scale_min": 1,
+            "scale_max": 5,
+            "count": 4
+          },
+          "variants": [
+            {
+              "id": "gid://shopify/ProductVariant/49896009531710",
+              "title": "Large Paw Cleaner Cup for Dogs in Pink",
+              "url": "https://bugalugspetcare.com/products/paw-cleaner-large?variant=49896009531710&_gsid=hiWHwZ7U9Stn&utm_source=shopify&utm_medium=catalog",
+              "price": {
+                "amount": 2399,
+                "currency": "USD"
+              },
+              "availability": {
+                "available": true
+              },
+              "seller": {
+                "id": "gid://shopify/Shop/86499131710",
+                "name": "Bugalugs Pet Care",
+                "url": "https://bugalugspetcare.com",
+                "domain": "bugalugs-pet-care.myshopify.com"
+              },
+              "rating": {
+                "value": 4.9,
+                "scale_min": 1,
+                "scale_max": 5,
+                "count": 7
+              },
+              "condition": [
+                "new"
+              ],
+              "eligible": {
+                "native_checkout": false
+              }
+            }
+          ],
+          "price_range": {
+            "min": {
+              "amount": 2399,
+              "currency": "USD"
+            },
+            "max": {
+              "amount": 2399,
+              "currency": "USD"
+            }
+          }
+        }
+      ],
+      "messages": [],
+      "pagination": {
+        "has_next_page": true,
+        "total_count": 398,
+        "cursor": "eyJvZmZzZXQiOjMsInRvdGFsX2NvdW50IjozOTgsInJldHVybmVkIjozfQ"
+      }
+    }
+  }
+}

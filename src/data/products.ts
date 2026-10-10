@@ -17,7 +17,7 @@ export interface RankedProduct {
   sources: string[];
   /** ISO countries the evidence covers, target markets first. */
   markets: string[];
-  /** True when every piece of evidence comes from fixtures (sample data). */
+  /** True when any evidence comes from fixtures (sample data), so the score is not real. */
   isSample: boolean;
 }
 
@@ -44,7 +44,7 @@ export async function getRankedProducts(db: AnyDatabase, limit = 50): Promise<Ra
       .select({
         productId: sourceItems.productId,
         sources: sql<string[]>`array_agg(distinct ${sourceItems.source}::text)`,
-        nonFixture: sql<number>`count(*) filter (where ${sourceItems.provider} <> 'fixture')`,
+        fixture: sql<number>`count(*) filter (where ${sourceItems.provider} = 'fixture')`,
         countries: sql<
           string[]
         >`coalesce(array_agg(distinct c) filter (where c is not null), '{}')`,
@@ -74,7 +74,7 @@ export async function getRankedProducts(db: AnyDatabase, limit = 50): Promise<Ra
         breakdown: s.breakdown as ScoreBreakdown,
         sources: [...(e?.sources ?? [])].sort(),
         markets: sortByMarketPriority(e?.countries ?? []),
-        isSample: Number(e?.nonFixture ?? 0) === 0,
+        isSample: Number(e?.fixture ?? 0) > 0,
       },
     ];
   });

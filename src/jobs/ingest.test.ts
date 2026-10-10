@@ -25,11 +25,7 @@ describe("parseArgs", () => {
 describe("resolveAdapters", () => {
   it("expands 'all' to every fixture source", () => {
     const adapters = resolveAdapters(parseArgs(["all", "--fixture"]));
-    expect(adapters.map((a) => a.source).sort()).toEqual([
-      "aliexpress",
-      "google_trends",
-      "meta_ads",
-    ]);
+    expect(adapters.map((a) => a.source).sort()).toEqual(["cj", "google_trends", "meta_ads"]);
     expect(adapters.every((a) => a.provider === "fixture")).toBe(true);
   });
 
@@ -57,7 +53,7 @@ describe("fixture ingestion end to end", () => {
     const bySource = Object.groupBy(items, (i) => i.source);
     expect(bySource.meta_ads?.length).toBe(44);
     expect(bySource.google_trends?.length).toBe(5);
-    expect(bySource.aliexpress?.length).toBe(5);
+    expect(bySource.cj?.length).toBe(5);
     expect(items.every((i) => i.provider === "fixture")).toBe(true);
 
     // 11 complete weeks per trend query (the partial week is skipped).

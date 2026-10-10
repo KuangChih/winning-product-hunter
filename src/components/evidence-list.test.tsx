@@ -12,6 +12,7 @@ const base: EvidenceItem = {
   title: null,
   url: null,
   region: null,
+  countries: [],
   advertiserName: null,
   format: null,
   startedAt: null,
@@ -60,11 +61,11 @@ describe("EvidenceList", () => {
           {
             ...base,
             id: "l",
-            source: "aliexpress",
+            source: "cj",
             kind: "listing",
             priceCents: 380,
             currency: "USD",
-            metrics: { orders_recent: 1300 },
+            metrics: { units_sold_90d: 1300, stores_listed: 80 },
           },
         ]}
       />,
@@ -77,7 +78,93 @@ describe("EvidenceList", () => {
     expect(
       screen.getByRole("img", { name: "Search interest for cleaner cup" }),
     ).toBeInTheDocument();
-    expect(screen.getByText(/Price 3\.80 USD · 1,300 recent orders/)).toBeInTheDocument();
+    expect(
+      screen.getByText(/Price 3\.80 USD · 1,300 sold in 90 days · listed by 80 stores/),
+    ).toBeInTheDocument();
+  });
+
+  it("groups store offers by country with a same-currency median price and catalog supply", () => {
+    const offer = (id: string, country: string, cents: number, currency: string) => ({
+      ...base,
+      id,
+      source: "shopify",
+      kind: "store_product",
+      title: `Offer ${id}`,
+      countries: [country],
+      advertiserName: `Store ${id}`,
+      priceCents: cents,
+      currency,
+      url: `https://store-${id}.example/p`,
+      metrics: { rating: 4.5, rating_count: 12 },
+    });
+    render(
+      <EvidenceList
+        now={NOW}
+        evidence={[
+          offer("a", "GB", 1600, "GBP"),
+          offer("b", "GB", 3000, "GBP"),
+          offer("c", "GB", 4499, "USD"),
+          offer("d", "US", 1999, "USD"),
+          {
+            ...base,
+            id: "s",
+            source: "shopify",
+            kind: "trend",
+            title: "paw cleaner",
+            countries: ["GB"],
+            metrics: { catalog_results: 398 },
+          },
+        ]}
+      />,
+    );
+
+    expect(screen.getByText("Stores selling it (4)")).toBeInTheDocument();
+    // US is listed before GB (market priority); without FX rates the GB median ignores USD.
+    const headings = screen.getAllByText(/United States|United Kingdom/).map((e) => e.textContent);
+    expect(headings).toEqual(["United States", "United Kingdom"]);
+    expect(
+      screen.getByText(/Median price 23\.00 GBP · ~398 matching products in Shopify catalog/),
+    ).toBeInTheDocument();
+    expect(screen.getByText(/Store a · 16\.00 GBP · ★ 4\.5 \(12\)/)).toBeInTheDocument();
+    // Catalog supply items are not shown as search-demand trends.
+    expect(screen.queryByText("Search demand")).toBeNull();
+  });
+
+  it("labels public Ad Library ads with their country, variants and the active-ad count", () => {
+    render(
+      <EvidenceList
+        now={NOW}
+        evidence={[
+          {
+            ...base,
+            id: "w",
+            provider: "ad_library_web",
+            advertiserName: "Axzenia",
+            countries: ["US"],
+            format: "video",
+            startedAt: new Date("2024-10-31T00:00:00Z"),
+            metrics: { creative_variants: 2 },
+          },
+          {
+            ...base,
+            id: "c",
+            kind: "trend",
+            provider: "ad_library_web",
+            countries: ["US"],
+            metrics: { active_ads: 1700 },
+          },
+        ]}
+      />,
+    );
+
+    expect(
+      screen.getByText(
+        /Meta Ad Library · US · video · 2 ads use this creative · started 2024-10-31/,
+      ),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(/Active ads for this search in Meta Ad Library: US ~1,700/),
+    ).toBeInTheDocument();
   });
 
   it("says when there is no evidence", () => {

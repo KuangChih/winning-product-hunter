@@ -21,7 +21,7 @@ describe("runMatching on fixture data", () => {
     await t.close();
   });
 
-  it("resolves the five sample products across Meta, AliExpress and Google Trends", async () => {
+  it("resolves the five sample products across Meta, CJ Dropshipping and Google Trends", async () => {
     const result = await runMatching(t.db);
 
     expect(result).toEqual({ productsCreated: 5, itemsMatched: 54, itemsUnmatched: 0 });
@@ -30,7 +30,7 @@ describe("runMatching on fixture data", () => {
     const items = await t.db.select().from(sourceItems);
     for (const p of all) {
       const sources = new Set(items.filter((i) => i.productId === p.id).map((i) => i.source));
-      expect([...sources].sort(), p.title).toEqual(["aliexpress", "google_trends", "meta_ads"]);
+      expect([...sources].sort(), p.title).toEqual(["cj", "google_trends", "meta_ads"]);
     }
   });
 

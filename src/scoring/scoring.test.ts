@@ -82,7 +82,7 @@ describe("scoreProducts", () => {
     marketplaceOrders: 100,
     supplierPriceCents: 500,
     ageDays: 30,
-    sources: ["aliexpress", "google_trends", "meta_ads"],
+    sources: ["cj", "google_trends", "meta_ads"],
   };
 
   it("excludes missing sub-scores instead of counting them as zero", () => {

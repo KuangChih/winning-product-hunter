@@ -49,6 +49,7 @@ export async function runIngestion(
         priceCents: item.priceCents,
         currency: item.currency,
         raw: item.raw,
+        ...(item.productId ? { productId: item.productId } : {}),
       };
       const [stored] = await db
         .insert(sourceItems)

@@ -4,3 +4,6 @@ package-lock.json
 docs
 drizzle/meta
 src/ingestion/fixtures/*.json
+src/ingestion/sources/__recordings__/*.json
+src/ingestion/sources/__recordings__/*.xml
+src/ingestion/sources/__recordings__/*.html

@@ -19,6 +19,11 @@ export interface FetchedItem {
   url?: string;
   imageUrl?: string;
   region?: string;
+  /**
+   * Product this item is evidence for, when the collector already knows it (e.g. a search
+   * run for that product). Such items skip entity resolution.
+   */
+  productId?: string;
   /** ISO countries; defaults to the countries implied by `region`. */
   countries?: string[];
   advertiserId?: string;

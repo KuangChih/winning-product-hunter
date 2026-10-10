@@ -235,3 +235,10 @@
 - [AdLibrary：EU DSA Ad Repositories](https://adlibrary.com/posts/eu-dsa-ad-repositories-developers)
 - [cdx_toolkit（Common Crawl 索引工具）](https://pypi.org/project/cdx-toolkit/0.9.13/)
 - [Ringly：Shopify BFCM statistics](https://www.ringly.io/blog/shopify-bfcm-statistics-2026)
+
+## 實測紀錄（2026-10-10）
+
+- `POST https://catalog.shopify.com/api/ucp/mcp`（JSON-RPC `tools/call` → `search_catalog`），只帶 `meta["ucp-agent"].profile`（Shopify 官方範例 profile），**不需要 API key 或帳號**即回傳 200。
+- 回應：`structuredContent.products[]`（`id` 為 `gid://shopify/p/{upid}`、`title`、`media`、`rating`、`price_range.min/max`（minor units + currency）、`variants[].seller{name,domain,url}`），`pagination.total_count`（估計值）。
+- 同一個 `ships_to` 國家的結果可能混合幣別（例如英國結果中有 USD 標價的商品），計算毛利前需要處理。
+- 以 5 個產品 × 5 個主要市場實測，共 525 筆，每個請求間隔 1.5 秒，沒有遇到限流。

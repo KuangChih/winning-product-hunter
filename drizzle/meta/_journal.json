@@ -22,6 +22,20 @@
       "when": 1791606238970,
       "tag": "0002_source_item_countries",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1791606691889,
+      "tag": "0003_remove_aliexpress_fixtures",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1791607531291,
+      "tag": "0004_fx_rates",
+      "breakpoints": true
     }
   ]
 }

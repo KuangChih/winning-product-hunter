@@ -28,18 +28,21 @@
 目標：盡早開始每天累積英語系五國（US、CA、UK、AU、NZ）的真實資料，回測需要至少 4–8 週歷史。
 每個 live adapter 都先以 mock fetch 寫測試；沒有金鑰時在 HUMAN_TODO 標示並跳過，改做下一個。
 - [x] 資料模型：訊號與 source item 帶「國家」維度（ISO 3166-1），支援目標市場清單設定（英語系五國優先、歐洲第二波）
-- [ ] 移除 AliExpress：fixture、解析器與來源 enum 改為 CJ Dropshipping 樣本（依 `docs/research/suppliers.md` 的真實回應格式）
-- [ ] Shopify Global Catalog adapter（MCP，agent profile 認證）：依 ships_to 國家查詢商品 → 零售價中位數、販售店家數、店家網域；需先確認 early access 權限與使用條款
-- [ ] CJ Dropshipping API v2 adapter：Trending 商品、90 天銷量（soldOut / orderCount）、各國運費與運送時間、各倉庫存 → 供應成本與需求訊號
-- [ ] Meta Ad Library 公開網站蒐集器（US、CA、AU、NZ 優先，ADR-006）：先研究公開頁面的資料格式（廣告開始日期、是否仍在投放、同創意廣告數、平台、landing page 網域），以 Playwright 低頻率蒐集；被擋即停止退避；在 GitHub Actions 或使用者電腦上執行（不在 Vercel）
-- [ ] Meta Ad Library API adapter（UK + EU，官方 API）：廣告持續天數、創意變體、廣告主、landing page 網域
-- [ ] Pinterest Trends API adapter（US、CA、GB、AU+NZ）：搜尋趨勢與成長
-- [ ] Google Merchant API Best sellers adapter：每週/每月熱銷排名、relative_demand 與變化（11 國）；需 Merchant Center 達到資格門檻
-- [ ] Google Ads API Keyword Planner adapter：關鍵字月搜尋量與趨勢（需 developer token Basic access）
+- [x] 移除 AliExpress：fixture、解析器與來源 enum 改為 CJ Dropshipping 樣本（依 `docs/research/suppliers.md` 的真實回應格式）
+- [x] Shopify Global Catalog adapter（MCP，agent profile 認證，不需金鑰）：依 ships_to 國家查詢 → 零售價、店家、評分、同類商品數；`npm run collect -- shopify_catalog`；詳情頁「Stores selling it」
+  - [ ] [blocked: 部署] 部署後改用自己的 agent profile（`SHOPIFY_UCP_AGENT_PROFILE`，目前用 Shopify 官方範例 profile）
+  - [x] 零售價跨幣別：ECB 每日匯率（`npm run fx`、`fx_rates` 表）+ `marketRetailPrice`（換算成各市場當地幣別後取中位數）
+- [ ] [blocked: human — 需要 `CJ_API_KEY`] CJ Dropshipping API v2 adapter：Trending 商品、90 天銷量（soldOut / orderCount）、各國運費與運送時間、各倉庫存 → 供應成本與需求訊號
+- [x] Meta Ad Library 公開網站蒐集器（ADR-006）：一般 HTTP GET 解析內嵌 JSON（不需瀏覽器），每頁曝光最高的廣告、開始日、是否刊登中、同創意廣告數、landing page、各國刊登中廣告數；5 秒間隔、每次最多 50 頁、被擋即停止；`npm run collect -- meta_ad_library`（見 `docs/research/meta-ad-library-web.md`）
+  - [ ] 用廣告的 landing page 網域找出 Shopify 店家（接到「單一 Shopify 店家查詢」項目）
+- [ ] [blocked: human — 需要 `META_ACCESS_TOKEN`] Meta Ad Library API adapter（UK + EU，官方 API）：廣告持續天數、創意變體、廣告主、landing page 網域
+- [ ] [blocked: human — 需要 Pinterest 開發者 app] Pinterest Trends API adapter（US、CA、GB、AU+NZ）：搜尋趨勢與成長
+- [ ] [blocked: human — 需要 Merchant Center] Google Merchant API Best sellers adapter：每週/每月熱銷排名、relative_demand 與變化（11 國）；需 Merchant Center 達到資格門檻
+- [ ] [blocked: human — 需要 developer token] Google Ads API Keyword Planner adapter：關鍵字月搜尋量與趨勢（需 developer token Basic access）
 - [ ] TikTok Creative Center 公開頁面蒐集器（Top Ads 等不需登入的部分，依國家篩選，ADR-006）
-- [ ] TikTok Commercial Content API adapter（UK + EU）：廣告與觸及
+- [ ] [blocked: human — 需要 TikTok API 核准] TikTok Commercial Content API adapter（UK + EU）：廣告與觸及
 - [ ] 單一 Shopify 店家查詢（合規版）：robots.txt → `/meta.json`（國家、可出貨國家）→ 商品 `.js`；每店每天最多一次、遇 403/429/430 退避、不用 proxy；不追蹤庫存、訂單編號、best-selling 排序與 cart
-- [ ] 每日排程：GitHub Actions 依序跑 ingest（所有已設定金鑰的來源）→ match → score，含失敗通知
+- [ ] 每日排程：GitHub Actions 依序跑 fx → ingest（所有已設定金鑰的來源）→ collect（Shopify Catalog）→ match → score，含失敗通知
 - [ ] 資料來源健康度頁面：每個來源最近一次執行、筆數、錯誤
 
 ## Phase 2C — 資料品質

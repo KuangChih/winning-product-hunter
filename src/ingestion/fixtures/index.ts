@@ -1,12 +1,13 @@
 import { createFixtureAdapter } from "../fixture-adapter";
 import {
-  parseAliExpressResponse,
-  type AliExpressProductQueryResponse,
-} from "../sources/aliexpress";
+  parseCjProducts,
+  type CjListV2Response,
+  type CjProductDetailResponse,
+} from "../sources/cj";
 import { parseSerpApiTrends, type SerpApiTrendsResponse } from "../sources/google-trends";
 import { parseMetaAdsResponse, type MetaAdsArchiveResponse } from "../sources/meta-ads";
 import type { Source, SourceAdapter } from "../types";
-import aliexpress from "./aliexpress.json";
+import cj from "./cj-dropshipping.json";
 import googleTrends from "./google-trends.json";
 import metaAds from "./meta-ads.json";
 
@@ -22,9 +23,9 @@ export const fixtureAdapters: Partial<Record<Source, () => SourceAdapter>> = {
       "google_trends",
       parseSerpApiTrends(googleTrends as SerpApiTrendsResponse),
     ),
-  aliexpress: () =>
+  cj: () =>
     createFixtureAdapter(
-      "aliexpress",
-      parseAliExpressResponse(aliexpress as AliExpressProductQueryResponse),
+      "cj",
+      parseCjProducts(cj.listV2 as CjListV2Response, cj.details as CjProductDetailResponse[]),
     ),
 };

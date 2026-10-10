@@ -138,32 +138,70 @@ fs.writeFileSync(
   ) + "\n",
 );
 
-// --- AliExpress affiliate product.query ---
-const aliProducts = products.map((p, i) => ({
-  product_id: 1005007000000000 + i * 1111,
-  product_title: p.title,
-  product_main_image_url: `https://ae01.alicdn.com/kf/fixture-${p.key}.jpg`,
-  product_detail_url: `https://www.aliexpress.com/item/${1005007000000000 + i * 1111}.html`,
-  target_sale_price: p.price,
-  target_sale_price_currency: "USD",
-  target_original_price: (Number(p.price) * 2).toFixed(2),
-  lastest_volume: p.vol,
-  evaluate_rate: `${(92 + i).toFixed(1)}%`,
-  first_level_category_name: "Fixture Category",
+// --- CJ Dropshipping API v2: product/listV2 + product/productDetail/query ---
+// Shapes follow https://developers.cjdropshipping.com/en/api/api2/api/product.html
+const cjId = (i) => `FIXTURE-CJ-${String(i + 1).padStart(4, "0")}`;
+const cjList = products.map((p, i) => ({
+  id: cjId(i),
+  nameEn: p.title,
+  sku: `CJFX${1000 + i}`,
+  spu: `CJFX${1000 + i}`,
+  bigImage: `https://cf.cjdropshipping.com/fixture-${p.key}.jpg`,
+  sellPrice: p.price,
+  nowPrice: p.price,
+  // How many CJ stores have listed this product: a saturation hint.
+  listedNum: p.advertisers * 40,
+  categoryId: "FIXTURE",
+  addMarkStatus: 1,
+  isVideo: 1,
+  productType: "ORDINARY_PRODUCT",
+  supplierName: "Fixture Supplier",
+  createAt: NOW - p.days * DAY,
+  warehouseInventoryNum: 5000,
+  verifiedWarehouse: 1,
+}));
+const cjDetails = products.map((p, i) => ({
+  code: 200,
+  result: true,
+  message: "Success",
+  data: {
+    id: cjId(i),
+    nameen: p.title,
+    sellprice: p.price,
+    bigimg: cjList[i].bigImage,
+    listed: cjList[i].listedNum,
+    // Units sold in the last 90 days.
+    soldOut: p.vol,
+    orderCount: Math.round(p.vol * 0.8),
+    totalQuantity: p.vol,
+    totalRefundQuantity: Math.round(p.vol * 0.02),
+    variantInventory: [
+      {
+        vid: `${cjId(i)}-V1`,
+        inventory: [{ countryCode: "US", totalInventory: 800, cjInventory: 800 }],
+      },
+    ],
+  },
+  requestId: `fixture-detail-${i}`,
 }));
 fs.writeFileSync(
-  path.join(out, "aliexpress.json"),
+  path.join(out, "cj-dropshipping.json"),
   JSON.stringify(
     {
-      resp_result: {
-        resp_code: 200,
-        resp_msg: "Call succeeds",
-        result: {
-          current_page_no: 1,
-          total_record_count: aliProducts.length,
-          products: { product: aliProducts },
+      listV2: {
+        code: 200,
+        result: true,
+        message: "Success",
+        data: {
+          pageSize: 20,
+          pageNumber: 1,
+          totalRecords: cjList.length,
+          totalPages: 1,
+          content: [{ productList: cjList, relatedCategoryList: [], keyWord: "" }],
         },
+        requestId: "fixture-list",
       },
+      details: cjDetails,
     },
     null,
     2,

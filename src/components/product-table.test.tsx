@@ -12,7 +12,7 @@ const product = (over: Partial<RankedProduct>): RankedProduct => ({
   score: 73.4,
   confidence: 0.7,
   computedAt: new Date(),
-  sources: ["aliexpress", "meta_ads"],
+  sources: ["cj", "meta_ads"],
   markets: ["US", "DE"],
   isSample: true,
   breakdown: {

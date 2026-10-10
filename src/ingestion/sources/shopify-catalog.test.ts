@@ -1,0 +1,115 @@
+// @vitest-environment node
+import { eq, isNull } from "drizzle-orm";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { products, sourceItems } from "@/db/schema";
+import { createTestDb } from "@/db/testing/pglite";
+import { runMatching } from "@/matching/run";
+import { forProducts } from "../collect-for-products";
+import { runIngestion } from "../run";
+import recording from "./__recordings__/shopify-catalog-search.json";
+import {
+  buildSearchRequest,
+  type CatalogSearchResponse,
+  createShopifyCatalogAdapter,
+  parseCatalogSearch,
+  SHOPIFY_CATALOG_ENDPOINT,
+  ShopifyCatalogError,
+} from "./shopify-catalog";
+
+const res = recording as unknown as CatalogSearchResponse;
+
+describe("parseCatalogSearch (recorded real response)", () => {
+  it("maps products to per-country store items with retail price, seller and rating", () => {
+    const items = parseCatalogSearch(res, "dog paw cleaner cup", "US");
+    const productsOnly = items.filter((i) => i.kind === "store_product");
+
+    expect(productsOnly).toHaveLength(3);
+    expect(productsOnly[0]).toMatchObject({
+      externalId: "gid://shopify/p/58F5YAD4kNMY3u29KBjlIj|US",
+      title: "Medium Paw Cleaner Cup for Dogs & Cats in Black",
+      countries: ["US"],
+      priceCents: 1999,
+      currency: "USD",
+      advertiserId: "bugalugs-pet-care.myshopify.com",
+      advertiserName: "Bugalugs Pet Care",
+    });
+    expect(productsOnly[0].metrics).toEqual([
+      { metric: "selling_stores", value: 1 },
+      { metric: "rating", value: 4.3 },
+      { metric: "rating_count", value: 22 },
+    ]);
+  });
+
+  it("adds a keyword-level item with the number of matching catalog products", () => {
+    const supply = parseCatalogSearch(res, "Dog Paw Cleaner Cup", "US").at(-1)!;
+    expect(supply).toMatchObject({
+      externalId: "catalog-results|dog paw cleaner cup|US",
+      kind: "trend",
+      metrics: [{ metric: "catalog_results", value: 398 }],
+    });
+  });
+
+  it("throws on JSON-RPC errors", () => {
+    expect(() =>
+      parseCatalogSearch(
+        { jsonrpc: "2.0", id: 1, error: { code: -32602, message: "bad profile" } },
+        "x",
+        "US",
+      ),
+    ).toThrow(ShopifyCatalogError);
+  });
+});
+
+describe("buildSearchRequest", () => {
+  it("puts the agent profile in meta and filters by ship-to country", () => {
+    const body = buildSearchRequest({ query: "q", country: "GB", limit: 20, profile: "https://p" });
+    expect(body.params.arguments.meta).toEqual({ "ucp-agent": { profile: "https://p" } });
+    expect(body.params.arguments.catalog.filters.ships_to).toEqual({ country: "GB" });
+    expect(body.params.arguments.catalog.pagination).toEqual({ limit: 20 });
+  });
+});
+
+describe("Shopify Catalog adapter", () => {
+  let t: Awaited<ReturnType<typeof createTestDb>>;
+  beforeEach(async () => {
+    t = await createTestDb();
+  });
+  afterEach(async () => {
+    await t.close();
+  });
+
+  it("searches each product in each country and attaches results to that product", async () => {
+    const fetchImpl = vi.fn<typeof fetch>(async () => Response.json(res));
+    const [product] = await t.db
+      .insert(products)
+      .values({ slug: "paw", title: "Silicone Dog Paw Cleaner Cup", firstSeenAt: new Date() })
+      .returning();
+
+    const adapter = forProducts(
+      createShopifyCatalogAdapter({ countries: ["US", "GB"], retry: { fetchImpl } }),
+      [{ productId: product.id, query: product.title }],
+    );
+    const result = await runIngestion(t.db, adapter, { queries: [], limit: 100 });
+
+    expect(result).toMatchObject({ status: "succeeded", itemsFetched: 8 });
+    expect(fetchImpl).toHaveBeenCalledTimes(2);
+    const [url, init] = fetchImpl.mock.calls[1];
+    expect(url).toBe(SHOPIFY_CATALOG_ENDPOINT);
+    expect(JSON.parse(String(init?.body)).params.arguments.catalog.filters.ships_to).toEqual({
+      country: "GB",
+    });
+
+    const attached = await t.db
+      .select()
+      .from(sourceItems)
+      .where(eq(sourceItems.productId, product.id));
+    expect(attached).toHaveLength(8);
+    expect(await t.db.select().from(sourceItems).where(isNull(sourceItems.productId))).toEqual([]);
+    // Entity resolution leaves pre-assigned items alone instead of creating new products.
+    expect(await runMatching(t.db)).toEqual({
+      productsCreated: 0,
+      itemsMatched: 0,
+      itemsUnmatched: 0,
+    });
+  });
+});

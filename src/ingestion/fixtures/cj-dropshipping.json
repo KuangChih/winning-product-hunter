@@ -1,0 +1,259 @@
+{
+  "listV2": {
+    "code": 200,
+    "result": true,
+    "message": "Success",
+    "data": {
+      "pageSize": 20,
+      "pageNumber": 1,
+      "totalRecords": 5,
+      "totalPages": 1,
+      "content": [
+        {
+          "productList": [
+            {
+              "id": "FIXTURE-CJ-0001",
+              "nameEn": "Adjustable Posture Corrector Brace",
+              "sku": "CJFX1000",
+              "spu": "CJFX1000",
+              "bigImage": "https://cf.cjdropshipping.com/fixture-posture.jpg",
+              "sellPrice": "8.42",
+              "nowPrice": "8.42",
+              "listedNum": 160,
+              "categoryId": "FIXTURE",
+              "addMarkStatus": 1,
+              "isVideo": 1,
+              "productType": "ORDINARY_PRODUCT",
+              "supplierName": "Fixture Supplier",
+              "createAt": 1785024000000,
+              "warehouseInventoryNum": 5000,
+              "verifiedWarehouse": 1
+            },
+            {
+              "id": "FIXTURE-CJ-0002",
+              "nameEn": "LED Light Therapy Face Mask",
+              "sku": "CJFX1001",
+              "spu": "CJFX1001",
+              "bigImage": "https://cf.cjdropshipping.com/fixture-ledmask.jpg",
+              "sellPrice": "21.90",
+              "nowPrice": "21.90",
+              "listedNum": 560,
+              "categoryId": "FIXTURE",
+              "addMarkStatus": 1,
+              "isVideo": 1,
+              "productType": "ORDINARY_PRODUCT",
+              "supplierName": "Fixture Supplier",
+              "createAt": 1773360000000,
+              "warehouseInventoryNum": 5000,
+              "verifiedWarehouse": 1
+            },
+            {
+              "id": "FIXTURE-CJ-0003",
+              "nameEn": "Portable USB Rechargeable Blender",
+              "sku": "CJFX1002",
+              "spu": "CJFX1002",
+              "bigImage": "https://cf.cjdropshipping.com/fixture-blender.jpg",
+              "sellPrice": "9.15",
+              "nowPrice": "9.15",
+              "listedNum": 200,
+              "categoryId": "FIXTURE",
+              "addMarkStatus": 1,
+              "isVideo": 1,
+              "productType": "ORDINARY_PRODUCT",
+              "supplierName": "Fixture Supplier",
+              "createAt": 1765584000000,
+              "warehouseInventoryNum": 5000,
+              "verifiedWarehouse": 1
+            },
+            {
+              "id": "FIXTURE-CJ-0004",
+              "nameEn": "Silicone Dog Paw Cleaner Cup",
+              "sku": "CJFX1003",
+              "spu": "CJFX1003",
+              "bigImage": "https://cf.cjdropshipping.com/fixture-pawcleaner.jpg",
+              "sellPrice": "3.80",
+              "nowPrice": "3.80",
+              "listedNum": 80,
+              "categoryId": "FIXTURE",
+              "addMarkStatus": 1,
+              "isVideo": 1,
+              "productType": "ORDINARY_PRODUCT",
+              "supplierName": "Fixture Supplier",
+              "createAt": 1789948800000,
+              "warehouseInventoryNum": 5000,
+              "verifiedWarehouse": 1
+            },
+            {
+              "id": "FIXTURE-CJ-0005",
+              "nameEn": "Cloud Pillow Slides Sandals",
+              "sku": "CJFX1004",
+              "spu": "CJFX1004",
+              "bigImage": "https://cf.cjdropshipping.com/fixture-cloudslides.jpg",
+              "sellPrice": "5.60",
+              "nowPrice": "5.60",
+              "listedNum": 80,
+              "categoryId": "FIXTURE",
+              "addMarkStatus": 1,
+              "isVideo": 1,
+              "productType": "ORDINARY_PRODUCT",
+              "supplierName": "Fixture Supplier",
+              "createAt": 1788048000000,
+              "warehouseInventoryNum": 5000,
+              "verifiedWarehouse": 1
+            }
+          ],
+          "relatedCategoryList": [],
+          "keyWord": ""
+        }
+      ]
+    },
+    "requestId": "fixture-list"
+  },
+  "details": [
+    {
+      "code": 200,
+      "result": true,
+      "message": "Success",
+      "data": {
+        "id": "FIXTURE-CJ-0001",
+        "nameen": "Adjustable Posture Corrector Brace",
+        "sellprice": "8.42",
+        "bigimg": "https://cf.cjdropshipping.com/fixture-posture.jpg",
+        "listed": 160,
+        "soldOut": 5400,
+        "orderCount": 4320,
+        "totalQuantity": 5400,
+        "totalRefundQuantity": 108,
+        "variantInventory": [
+          {
+            "vid": "FIXTURE-CJ-0001-V1",
+            "inventory": [
+              {
+                "countryCode": "US",
+                "totalInventory": 800,
+                "cjInventory": 800
+              }
+            ]
+          }
+        ]
+      },
+      "requestId": "fixture-detail-0"
+    },
+    {
+      "code": 200,
+      "result": true,
+      "message": "Success",
+      "data": {
+        "id": "FIXTURE-CJ-0002",
+        "nameen": "LED Light Therapy Face Mask",
+        "sellprice": "21.90",
+        "bigimg": "https://cf.cjdropshipping.com/fixture-ledmask.jpg",
+        "listed": 560,
+        "soldOut": 18000,
+        "orderCount": 14400,
+        "totalQuantity": 18000,
+        "totalRefundQuantity": 360,
+        "variantInventory": [
+          {
+            "vid": "FIXTURE-CJ-0002-V1",
+            "inventory": [
+              {
+                "countryCode": "US",
+                "totalInventory": 800,
+                "cjInventory": 800
+              }
+            ]
+          }
+        ]
+      },
+      "requestId": "fixture-detail-1"
+    },
+    {
+      "code": 200,
+      "result": true,
+      "message": "Success",
+      "data": {
+        "id": "FIXTURE-CJ-0003",
+        "nameen": "Portable USB Rechargeable Blender",
+        "sellprice": "9.15",
+        "bigimg": "https://cf.cjdropshipping.com/fixture-blender.jpg",
+        "listed": 200,
+        "soldOut": 2100,
+        "orderCount": 1680,
+        "totalQuantity": 2100,
+        "totalRefundQuantity": 42,
+        "variantInventory": [
+          {
+            "vid": "FIXTURE-CJ-0003-V1",
+            "inventory": [
+              {
+                "countryCode": "US",
+                "totalInventory": 800,
+                "cjInventory": 800
+              }
+            ]
+          }
+        ]
+      },
+      "requestId": "fixture-detail-2"
+    },
+    {
+      "code": 200,
+      "result": true,
+      "message": "Success",
+      "data": {
+        "id": "FIXTURE-CJ-0004",
+        "nameen": "Silicone Dog Paw Cleaner Cup",
+        "sellprice": "3.80",
+        "bigimg": "https://cf.cjdropshipping.com/fixture-pawcleaner.jpg",
+        "listed": 80,
+        "soldOut": 1300,
+        "orderCount": 1040,
+        "totalQuantity": 1300,
+        "totalRefundQuantity": 26,
+        "variantInventory": [
+          {
+            "vid": "FIXTURE-CJ-0004-V1",
+            "inventory": [
+              {
+                "countryCode": "US",
+                "totalInventory": 800,
+                "cjInventory": 800
+              }
+            ]
+          }
+        ]
+      },
+      "requestId": "fixture-detail-3"
+    },
+    {
+      "code": 200,
+      "result": true,
+      "message": "Success",
+      "data": {
+        "id": "FIXTURE-CJ-0005",
+        "nameen": "Cloud Pillow Slides Sandals",
+        "sellprice": "5.60",
+        "bigimg": "https://cf.cjdropshipping.com/fixture-cloudslides.jpg",
+        "listed": 80,
+        "soldOut": 900,
+        "orderCount": 720,
+        "totalQuantity": 900,
+        "totalRefundQuantity": 18,
+        "variantInventory": [
+          {
+            "vid": "FIXTURE-CJ-0005-V1",
+            "inventory": [
+              {
+                "countryCode": "US",
+                "totalInventory": 800,
+                "cjInventory": 800
+              }
+            ]
+          }
+        ]
+      },
+      "requestId": "fixture-detail-4"
+    }
+  ]
+}

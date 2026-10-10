@@ -53,7 +53,8 @@ describe("getProductDetail", () => {
     expect(times).toEqual([...times].sort((a, b) => a - b));
 
     const listing = d!.evidence.find((e) => e.kind === "listing")!;
-    expect(listing.metrics.orders_recent).toBe(1300);
-    expect(listing.series.orders_recent).toBeUndefined();
+    expect(listing.source).toBe("cj");
+    expect(listing.metrics.units_sold_90d).toBe(1300);
+    expect(listing.series.units_sold_90d).toBeUndefined();
   });
 });

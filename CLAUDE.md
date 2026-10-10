@@ -95,5 +95,6 @@
 - CLI job 開頭 `import "@/lib/load-env"`，才會跟 Next.js 一樣讀到 `.env.local`。
 - PGlite 必須列在 `next.config.ts` 的 `serverExternalPackages`，否則 wasm 路徑會壞掉。
 - CSS 或設定改了但畫面沒變：先刪 `.next` 再重啟 dev server；瀏覽器分頁若連著已關閉的 dev server，要重新開頁面。
+- 串流頁面（Suspense）用 `get_page_text` 可能只讀到 fallback（例如「Loading…」），內容其實已經渲染；以截圖或 `find` 確認，不要誤判成卡住。
 - 修改 `src/db/schema.ts` 後要 `npm run db:generate` 並 commit `drizzle/`；Vercel 部署時 `vercel-build` 會自動套用 migration。
 - 長時間執行的指令加 `timeout`，避免整輪卡住。

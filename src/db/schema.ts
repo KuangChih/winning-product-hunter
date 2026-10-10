@@ -1,12 +1,14 @@
 import { sql } from "drizzle-orm";
 import {
   bigserial,
+  date,
   doublePrecision,
   index,
   integer,
   jsonb,
   pgEnum,
   pgTable,
+  primaryKey,
   real,
   text,
   timestamp,
@@ -21,6 +23,7 @@ export const sourceEnum = pgEnum("source", [
   "tiktok_creative_center",
   "google_ads",
   "google_trends",
+  /** Deprecated (ADR-005): kept only because Postgres enums cannot drop values. */
   "aliexpress",
   "amazon",
   "cj",
@@ -164,4 +167,15 @@ export const ingestionRuns = pgTable(
     error: text("error"),
   },
   (t) => [index("ingestion_runs_source_time_idx").on(t.source, t.startedAt.desc())],
+);
+
+/** Daily reference exchange rates from the European Central Bank (units of currency per EUR). */
+export const fxRates = pgTable(
+  "fx_rates",
+  {
+    date: date("date", { mode: "string" }).notNull(),
+    currency: text("currency").notNull(),
+    perEur: doublePrecision("per_eur").notNull(),
+  },
+  (t) => [primaryKey({ columns: [t.date, t.currency] })],
 );

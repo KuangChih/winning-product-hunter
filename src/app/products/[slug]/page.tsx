@@ -72,7 +72,7 @@ async function ProductDetailView({ params }: { params: Promise<{ slug: string }>
 
       <section className="space-y-3">
         <h2 className="text-xl font-semibold">Evidence</h2>
-        <EvidenceList evidence={product.evidence} now={now} />
+        <EvidenceList evidence={product.evidence} now={now} fxRates={product.fxRates} />
       </section>
     </>
   );

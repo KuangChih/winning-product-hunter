@@ -108,7 +108,7 @@ export function scoreProducts(features: ProductFeatures[]): ProductScore[] {
         value: market[i],
         weight: w.marketplace,
         raw: f.marketplaceOrders,
-        basis: "Recent marketplace orders (level, not growth yet), ranked.",
+        basis: "Units sold by the supplier (CJ) in the last 90 days, ranked.",
       },
       margin: {
         value: null,

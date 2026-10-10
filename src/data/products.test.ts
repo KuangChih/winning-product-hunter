@@ -42,8 +42,8 @@ describe("getRankedProducts", () => {
     expect(ranked[0]).toMatchObject({
       title: "Silicone Dog Paw Cleaner Cup",
       isSample: true,
-      sources: ["aliexpress", "google_trends", "meta_ads"],
-      // Meta fixtures are EU ads, Trends fixtures are US; AliExpress has no country.
+      sources: ["cj", "google_trends", "meta_ads"],
+      // Meta fixtures are EU ads, Trends fixtures are US; CJ listings have no country.
       markets: ["US", "DE", "FR", "SE", "BE", "ES"],
     });
     expect(ranked[0].breakdown.subScores.longevity.weight).toBe(0.2);

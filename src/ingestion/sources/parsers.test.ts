@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { AliExpressApiError, parseAliExpressResponse } from "./aliexpress";
+import { CjApiError, parseCjFreight, parseCjPriceCents, parseCjProducts } from "./cj";
 import { parseSerpApiTrends } from "./google-trends";
 import { parseMetaAd } from "./meta-ads";
 
@@ -73,44 +73,75 @@ describe("parseSerpApiTrends", () => {
   });
 });
 
-describe("parseAliExpressResponse", () => {
-  it("parses price, orders and rating", () => {
-    const [item] = parseAliExpressResponse({
-      resp_result: {
-        resp_code: 200,
-        result: {
-          products: {
-            product: [
-              {
-                product_id: 1005,
-                product_title: "Paw Cleaner",
-                target_sale_price: "3.80",
-                target_sale_price_currency: "USD",
-                lastest_volume: 1300,
-                evaluate_rate: "94.0%",
-              },
-            ],
-          },
-        },
-      },
-    });
+describe("CJ Dropshipping parsers", () => {
+  const list = (products: Array<Record<string, unknown>>) => ({
+    code: 200,
+    result: true,
+    message: "Success",
+    data: {
+      pageSize: 20,
+      pageNumber: 1,
+      totalRecords: products.length,
+      totalPages: 1,
+      content: [{ productList: products as never }],
+    },
+  });
 
-    expect(item).toMatchObject({
-      externalId: "1005",
+  it("merges list items with 90-day sales from product details", () => {
+    const items = parseCjProducts(
+      list([
+        { id: "P1", nameEn: "Paw Cleaner", sellPrice: "3.80", listedNum: 80 },
+        { id: "P2", nameEn: "No Detail", sellPrice: "2.47 -- 3.10" },
+      ]),
+      [
+        {
+          code: 200,
+          result: true,
+          message: "Success",
+          data: { id: "P1", soldOut: 1300, orderCount: 1040 },
+        },
+      ],
+    );
+
+    expect(items[0]).toMatchObject({
+      externalId: "P1",
       kind: "listing",
       priceCents: 380,
       currency: "USD",
-      url: "https://www.aliexpress.com/item/1005.html",
       metrics: [
-        { metric: "orders_recent", value: 1300 },
-        { metric: "positive_feedback_pct", value: 94 },
+        { metric: "stores_listed", value: 80 },
+        { metric: "units_sold_90d", value: 1300 },
+        { metric: "orders_total", value: 1040 },
       ],
     });
+    // Variant price ranges use the lowest price; missing details mean no sales metrics.
+    expect(items[1]).toMatchObject({ priceCents: 247, metrics: [] });
   });
 
-  it("throws on API error codes", () => {
+  it("parses prices and throws on API errors", () => {
+    expect(parseCjPriceCents("12")).toBe(1200);
+    expect(parseCjPriceCents(undefined)).toBeUndefined();
     expect(() =>
-      parseAliExpressResponse({ resp_result: { resp_code: 402, resp_msg: "Invalid signature" } }),
-    ).toThrow(AliExpressApiError);
+      parseCjProducts({ code: 1600001, result: false, message: "Invalid token", data: null }),
+    ).toThrow(CjApiError);
+  });
+
+  it("parses shipping options cheapest first", () => {
+    const options = parseCjFreight({
+      code: 200,
+      result: true,
+      message: "Success",
+      data: [
+        { logisticName: "DHL", logisticAging: "3-5", logisticPrice: 18.2 },
+        { logisticName: "USPS+", logisticAging: "2-5", logisticPrice: 4.71 },
+        { logisticName: "YunExpress", logisticAging: "7", logisticPrice: 3.1 },
+      ],
+    });
+
+    expect(options).toEqual([
+      { carrier: "YunExpress", costCents: 310, minDays: 7, maxDays: 7 },
+      { carrier: "USPS+", costCents: 471, minDays: 2, maxDays: 5 },
+      { carrier: "DHL", costCents: 1820, minDays: 3, maxDays: 5 },
+    ]);
   });
 });

@@ -22,7 +22,7 @@ Loop 遇到只有你能做的事（申請 API key、建立帳號、付費、法�
 
 1. [ ] **CJ Dropshipping**（免費）：建立帳號 → 安裝「API」app → Add API → `CJ_API_KEY`
    - 成果：每個產品的供應成本、各國運費與運送天數（算毛利），以及 Trending 標記與 90 天銷量（需求訊號）。
-2. [ ] **Shopify 開發者帳號 + agent profile**（免費）：申請 Dev Dashboard，建立 agent profile，並確認 Global Catalog 的 early access 權限
+2. [x] ~~Shopify 開發者帳號 + agent profile~~：Global Catalog 實測不需要帳號或金鑰即可使用（2026-10-10），已串接。部署到 Vercel 後我會改用我們自己的 agent profile。
    - 成果：各國的零售價中位數（算毛利）、有幾家店在賣（飽和度）、店家網域。
 3. [ ] **Google Cloud 專案 + OAuth client**（免費）：後面三個 Google 服務共用
 4. [ ] **Google Merchant Center**（免費，但需有已驗證網站與商品 feed，且達到資格門檻）：連結到 Google Cloud 專案
