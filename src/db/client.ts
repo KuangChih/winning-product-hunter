@@ -1,4 +1,4 @@
-import { neon } from "@neondatabase/serverless";
+import { neon, neonConfig } from "@neondatabase/serverless";
 import { drizzle } from "drizzle-orm/neon-http";
 import type { PgDatabase, PgQueryResultHKT } from "drizzle-orm/pg-core";
 import { mkdir } from "node:fs/promises";
@@ -32,6 +32,27 @@ async function connectPglite(dir: string): Promise<Connection> {
   return { db: db as unknown as AnyDatabase, close: () => client.close() };
 }
 
+/** A Neon HTTP query that has not answered by then fails instead of hanging the process. */
+export const NEON_QUERY_TIMEOUT_MS = 20_000;
+
+/** Migrations run in their own process (`npm run db:migrate`, Vercel build). */
+export const NEON_MIGRATION_TIMEOUT_MS = 10 * 60_000;
+
+/** Wraps fetch so every request also aborts after `timeoutMs`. */
+export function fetchWithTimeout(
+  timeoutMs: number,
+  fetchImpl: typeof fetch = (...args) => fetch(...args),
+): typeof fetch {
+  return (input, init) => {
+    const timeout = AbortSignal.timeout(timeoutMs);
+    const signal = init?.signal ? AbortSignal.any([init.signal, timeout]) : timeout;
+    return fetchImpl(input, { ...init, signal });
+  };
+}
+
+// Global to the Neon driver: applies to every HTTP query of this process.
+neonConfig.fetchFunction = fetchWithTimeout(NEON_QUERY_TIMEOUT_MS);
+
 export function createNeonDb(databaseUrl: string): AnyDatabase {
   return drizzle(neon(databaseUrl), { schema }) as unknown as AnyDatabase;
 }
@@ -62,6 +83,9 @@ export async function migrateDb(): Promise<void> {
     return;
   }
   const { migrate } = await import("drizzle-orm/neon-http/migrator");
+  // A migration (e.g. building an index on a grown table) may legitimately take minutes; a
+  // client-side abort would report failure for a change the server still commits.
+  neonConfig.fetchFunction = fetchWithTimeout(NEON_MIGRATION_TIMEOUT_MS);
   const db = drizzle(neon(url), { schema });
   await migrate(db, { migrationsFolder: path.resolve(process.cwd(), "drizzle") });
 }

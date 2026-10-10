@@ -199,7 +199,7 @@ export interface AdLibraryWebOptions {
   /** Hard cap on page requests per run (ADR-006). */
   maxRequests?: number;
   /** Pause between requests; keep it slow. */
-  wait?: () => Promise<void>;
+  wait?: (signal?: AbortSignal) => Promise<void>;
   retry?: RetryOptions;
 }
 
@@ -217,7 +217,7 @@ export function createAdLibraryWebAdapter(opts: AdLibraryWebOptions): SourceAdap
         if (advertiserMode && !target) continue;
         for (const country of target ? [target.country] : opts.countries) {
           if (ctx.signal?.aborted || emitted >= ctx.limit || requests >= maxRequests) return;
-          await opts.wait?.();
+          await opts.wait?.(ctx.signal);
           requests++;
           const res = await fetchWithRetry(
             target ? buildPageUrl(target.pageId, country) : buildSearchUrl(query, country),

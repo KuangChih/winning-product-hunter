@@ -1,16 +1,17 @@
 // @vitest-environment node
 import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { productScores, products } from "@/db/schema";
+import { getLatestFxRates } from "@/data/fx";
+import { productScores, products, signalSnapshots, sourceItems } from "@/db/schema";
 import { getDictionary } from "@/i18n/dictionaries";
 import { fill } from "@/i18n/format";
 import { createTestDb } from "@/db/testing/pglite";
 import { fixtureAdapters } from "@/ingestion/fixtures";
 import { runIngestion } from "@/ingestion/run";
 import { runMatching } from "@/matching/run";
-import { extractFeatures, type ItemInput } from "./features";
+import { adDaysOf, extractFeatures, type ItemInput } from "./features";
 import { runScoring } from "./run";
-import { scoreProducts } from "./score";
+import { SCORING_VERSION, scoreProducts } from "./score";
 import type { ProductFeatures } from "./features";
 import { percentileRanks, robustZ, theilSenSlope } from "./stats";
 
@@ -260,5 +261,113 @@ describe("runScoring on fixture data", () => {
     expect(pos("Paw Cleaner")).toBeLessThan(pos("Blender"));
     expect(pos("Posture")).toBeLessThan(pos("Blender"));
     expect(pos("Paw Cleaner")).toBeLessThan(pos("LED"));
+  });
+
+  /** The previous runScoring: every item column and every snapshot, filtered per product. */
+  async function legacyScores(now: Date) {
+    const items = await t.db.select().from(sourceItems);
+    const attached = items.filter((i) => i.productId);
+    const snapshots = await t.db.select().from(signalSnapshots);
+    const fx = await getLatestFxRates(t.db);
+    const productRows = (await t.db.select().from(products)).filter((p) =>
+      attached.some((i) => i.productId === p.id),
+    );
+    const features = productRows.map((p) =>
+      extractFeatures(
+        attached
+          .filter((i) => i.productId === p.id)
+          .map((i) => ({
+            ...i,
+            snapshots: snapshots
+              .filter((s) => s.sourceItemId === i.id)
+              .map((s) => ({ metric: s.metric, value: s.value, observedAt: s.observedAt })),
+          })),
+        p.firstSeenAt,
+        now,
+        fx,
+      ),
+    );
+    const scores = scoreProducts(features);
+    return new Map(productRows.map((p, i) => [p.id, scores[i]]));
+  }
+
+  it("gives exactly the scores of the previous implementation (SQL-reduced snapshots)", async () => {
+    // Long daily ad history (more days than the momentum window, with gaps and several
+    // metrics per day), changing creative variants, and a trend series.
+    const [product] = await t.db
+      .insert(products)
+      .values({ slug: "history", title: "History", firstSeenAt: daysAgo(40) })
+      .returning();
+    const ads = await t.db
+      .insert(sourceItems)
+      .values(
+        [0, 1, 2].map((k) => ({
+          source: "meta_ads" as const,
+          provider: "ad_library_web",
+          externalId: `hist-${k}`,
+          kind: "ad" as const,
+          productId: product.id,
+          advertiserId: `adv-${k}`,
+          format: "image",
+          startedAt: daysAgo(40 - k),
+          countries: ["US", "CA"],
+          firstSeenAt: daysAgo(30),
+          lastSeenAt: NOW,
+        })),
+      )
+      .returning();
+    const [trend] = await t.db
+      .insert(sourceItems)
+      .values({
+        source: "google_trends",
+        provider: "test",
+        externalId: "hist-trend",
+        kind: "trend",
+        productId: product.id,
+        firstSeenAt: daysAgo(30),
+        lastSeenAt: NOW,
+      })
+      .returning();
+    const rows: Array<typeof signalSnapshots.$inferInsert> = [];
+    for (let d = 30; d >= 0; d--) {
+      if (d % 7 === 3) continue;
+      ads.forEach((ad, k) => {
+        if ((d + k) % 4 === 0) return;
+        const at = new Date(daysAgo(d).getTime() + k * 3_600_000);
+        rows.push({
+          sourceItemId: ad.id,
+          metric: "creative_variants",
+          value: 1 + ((d + k) % 3),
+          observedAt: at,
+        });
+        rows.push({ sourceItemId: ad.id, metric: "eu_total_reach", value: d * 10, observedAt: at });
+      });
+      rows.push({
+        sourceItemId: trend.id,
+        metric: "search_interest",
+        value: 40 + d,
+        observedAt: daysAgo(d),
+      });
+    }
+    await t.db.insert(signalSnapshots).values(rows);
+
+    const expected = await legacyScores(NOW);
+    await runScoring(t.db, NOW);
+    const actual = await t.db.select().from(productScores);
+
+    expect(actual).toHaveLength(expected.size);
+    for (const row of actual) {
+      const want = expected.get(row.productId)!;
+      expect(row.scoringVersion).toBe(SCORING_VERSION);
+      expect({ score: row.score, confidence: row.confidence, breakdown: row.breakdown }).toEqual({
+        score: want.score,
+        confidence: want.confidence,
+        breakdown: JSON.parse(JSON.stringify(want.breakdown)),
+      });
+    }
+    // The history product really exercises momentum beyond the window.
+    const history = actual.find((r) => r.productId === product.id)!;
+    expect(JSON.stringify(history.breakdown)).toContain('"explain":{"key":"momentum"}');
+    expect(adDaysOf([]).total).toBe(0);
   });
 });

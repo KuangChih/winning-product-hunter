@@ -2,15 +2,14 @@ import { saveFxRates } from "@/data/fx";
 import type { AnyDatabase } from "@/db/client";
 import { advertiserTargets, pickAdvertisers } from "@/discovery/advertisers";
 import { runDiscovery } from "@/discovery/discover";
-import { forProducts } from "@/ingestion/collect-for-products";
 import type { RetryOptions } from "@/ingestion/http";
-import { runIngestion } from "@/ingestion/run";
+import { reapStaleIngestionRuns } from "@/ingestion/run";
 import type { SourceAdapter } from "@/ingestion/types";
-import { pickLandingPages, pickProducts } from "@/jobs/collect";
 import type { FxRates } from "@/lib/fx";
 import { hashProductImages, mergeDuplicateProducts } from "@/matching/merge";
 import { runMatching } from "@/matching/run";
 import { runScoring } from "@/scoring/run";
+import { collectForTargets, pickLandingPages, pickProducts } from "./targets";
 
 export interface PipelineDeps {
   fetchFxRates: () => Promise<FxRates>;
@@ -56,6 +55,9 @@ export async function runPipeline(db: AnyDatabase, deps: PipelineDeps): Promise<
     }
   };
 
+  // Rows left "running" by a killed process would show as running forever on /sources.
+  await reapStaleIngestionRuns(db).catch(() => 0);
+
   await step("fx", async () => {
     const rates = await deps.fetchFxRates();
     return `${await saveFxRates(db, rates)} rates for ${rates.date}`;
@@ -84,10 +86,7 @@ export async function runPipeline(db: AnyDatabase, deps: PipelineDeps): Promise<
       now: deps.now,
     });
     if (targets.length === 0) return "nothing to collect";
-    const r = await runIngestion(db, forProducts(deps.collectAdapter, targets), {
-      queries: [],
-      limit: 10_000,
-    });
+    const r = await collectForTargets(db, deps.collectAdapter, targets, { now: deps.now });
     if (r.status === "failed") throw new Error(r.error);
     return `${r.itemsFetched} items for ${targets.length} products`;
   });
@@ -97,10 +96,7 @@ export async function runPipeline(db: AnyDatabase, deps: PipelineDeps): Promise<
     await step("advertiser stores", async () => {
       const targets = await pickLandingPages(db, deps.collectProducts, { now: deps.now });
       if (targets.length === 0) return "nothing to look up";
-      const r = await runIngestion(db, forProducts(lookup, targets), {
-        queries: [],
-        limit: 10_000,
-      });
+      const r = await collectForTargets(db, lookup, targets, { now: deps.now });
       if (r.status === "failed") throw new Error(r.error);
       return `${r.itemsFetched} store listings for ${targets.length} products`;
     });

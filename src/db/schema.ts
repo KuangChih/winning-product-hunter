@@ -1,5 +1,6 @@
 import { sql } from "drizzle-orm";
 import {
+  bigint,
   bigserial,
   date,
   doublePrecision,
@@ -197,6 +198,115 @@ export const loginFailures = pgTable(
   ],
 );
 
+export const pipelineRunStatusEnum = pgEnum("pipeline_run_status", [
+  "running",
+  "succeeded",
+  "partial",
+  "failed",
+]);
+
+export const pipelineTriggerEnum = pgEnum("pipeline_trigger", ["web", "cron", "cli"]);
+
+/**
+ * One run of the daily real-data pipeline, executed in resumable units (ADR-013): the web
+ * button, Vercel Cron and the CLI all drive the same row. `state` holds the cursor, plan and
+ * progress; `lock_token` / `locked_until` is the lease of the process currently working on it.
+ */
+export const pipelineRuns = pgTable(
+  "pipeline_runs",
+  {
+    id: bigserial("id", { mode: "number" }).primaryKey(),
+    trigger: pipelineTriggerEnum("trigger").notNull(),
+    status: pipelineRunStatusEnum("status").notNull().default("running"),
+    /** Where the run was created ("production", "local"…); others never resume it. */
+    env: text("env").notNull(),
+    /** What the run was asked to do (keywords, advertisers, collect size, countries). */
+    options: jsonb("options").$type<unknown>().notNull(),
+    /** Versioned run state (cursor, plan, progress, rate limits, step results). */
+    state: jsonb("state").$type<unknown>().notNull(),
+    lockToken: uuid("lock_token"),
+    lockedUntil: timestamp("locked_until", { withTimezone: true }),
+    ticks: integer("ticks").notNull().default(0),
+    /** Ad Library requests reserved by this run (counted before each request is sent). */
+    adLibraryRequests: integer("ad_library_requests").notNull().default(0),
+    lastKickError: text("last_kick_error"),
+    error: text("error"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    // No $onUpdate: always set to now() in SQL, so every writer uses the database clock.
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+    finishedAt: timestamp("finished_at", { withTimezone: true }),
+  },
+  (t) => [
+    // At most one active run at a time.
+    uniqueIndex("pipeline_runs_one_running_idx")
+      .on(t.status)
+      .where(sql`"status" = 'running'`),
+    index("pipeline_runs_created_idx").on(t.createdAt.desc()),
+  ],
+);
+
+/**
+ * Items fetched by one Ad Library request of a run, kept until the run's discovery step
+ * groups them all together (a product is "promising" across every keyword of the sweep).
+ */
+export const pipelineStage = pgTable(
+  "pipeline_stage",
+  {
+    runId: bigint("run_id", { mode: "number" })
+      .notNull()
+      .references(() => pipelineRuns.id, { onDelete: "cascade" }),
+    /** "keyword" or "advertiser". */
+    bucket: text("bucket").notNull(),
+    /** Position of the request in the run's plan. */
+    idx: integer("idx").notNull(),
+    items: jsonb("items").$type<unknown>().notNull(),
+    /** Why the request failed (the sweep ends there), if it did. */
+    failure: text("failure"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [primaryKey({ columns: [t.runId, t.bucket, t.idx] })],
+);
+
+/**
+ * Last collection attempt per provider and product, so products that gave nothing (or whose
+ * photo failed to download) are not picked again ahead of products never tried.
+ */
+export const collectionAttempts = pgTable(
+  "collection_attempts",
+  {
+    /** "shopify_catalog", "shopify_catalog_lookup", "image_hash"… */
+    provider: text("provider").notNull(),
+    productId: uuid("product_id")
+      .notNull()
+      .references(() => products.id, { onDelete: "cascade" }),
+    attemptedAt: timestamp("attempted_at", { withTimezone: true }).notNull(),
+    outcome: text("outcome").$type<"found" | "empty" | "error">().notNull(),
+    error: text("error"),
+  },
+  (t) => [
+    primaryKey({ columns: [t.provider, t.productId] }),
+    index("collection_attempts_time_idx").on(t.provider, t.attemptedAt),
+  ],
+);
+
+/**
+ * A source that blocked us (CAPTCHA, 403/429, login wall): no requests until `until` (ADR-006).
+ * Keyed by egress ("vercel", "local") so a block of the server's IPs does not stop the
+ * user's own machine. `strikes` escalates the wait on repeated blocks and resets on success.
+ */
+export const sourceBackoff = pgTable(
+  "source_backoff",
+  {
+    provider: text("provider").notNull(),
+    egress: text("egress").notNull(),
+    until: timestamp("until", { withTimezone: true }).notNull(),
+    strikes: integer("strikes").notNull().default(1),
+    reason: text("reason"),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [primaryKey({ columns: [t.provider, t.egress] })],
+);
+
 /** One run of an ingestion job, for the source health dashboard. */
 export const ingestionRuns = pgTable(
   "ingestion_runs",
@@ -209,8 +319,15 @@ export const ingestionRuns = pgTable(
     finishedAt: timestamp("finished_at", { withTimezone: true }),
     itemsFetched: integer("items_fetched").notNull().default(0),
     error: text("error"),
+    /** The pipeline run that started it; null for standalone CLI jobs. */
+    pipelineRunId: bigint("pipeline_run_id", { mode: "number" }).references(() => pipelineRuns.id, {
+      onDelete: "set null",
+    }),
   },
-  (t) => [index("ingestion_runs_source_time_idx").on(t.source, t.startedAt.desc())],
+  (t) => [
+    index("ingestion_runs_source_time_idx").on(t.source, t.startedAt.desc()),
+    index("ingestion_runs_pipeline_run_idx").on(t.pipelineRunId),
+  ],
 );
 
 /** Daily reference exchange rates from the European Central Bank (units of currency per EUR). */

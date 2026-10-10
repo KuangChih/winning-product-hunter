@@ -146,7 +146,7 @@ export interface ShopifyCatalogOptions {
   perQuery?: number;
   profile?: string;
   /** Pause between requests, to stay well within any fair-use limit. */
-  wait?: () => Promise<void>;
+  wait?: (signal?: AbortSignal) => Promise<void>;
   retry?: RetryOptions;
 }
 
@@ -161,7 +161,7 @@ export function createShopifyCatalogAdapter(opts: ShopifyCatalogOptions): Source
       for (const query of ctx.queries) {
         for (const country of opts.countries) {
           if (ctx.signal?.aborted || emitted >= ctx.limit) return;
-          await opts.wait?.();
+          await opts.wait?.(ctx.signal);
           const res = await fetchWithRetry(
             SHOPIFY_CATALOG_ENDPOINT,
             {
@@ -217,7 +217,7 @@ export interface StoreLookupOptions {
   /** Buyer context for prices and availability. */
   country: string;
   profile?: string;
-  wait?: () => Promise<void>;
+  wait?: (signal?: AbortSignal) => Promise<void>;
   retry?: RetryOptions;
 }
 
@@ -231,7 +231,7 @@ export function createStoreLookupAdapter(opts: StoreLookupOptions): SourceAdapte
       let emitted = 0;
       for (let i = 0; i < ctx.queries.length; i += 50) {
         if (ctx.signal?.aborted || emitted >= ctx.limit) return;
-        await opts.wait?.();
+        await opts.wait?.(ctx.signal);
         const res = await fetchWithRetry(
           SHOPIFY_CATALOG_ENDPOINT,
           {

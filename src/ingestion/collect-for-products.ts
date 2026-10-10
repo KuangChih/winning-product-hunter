@@ -18,6 +18,8 @@ export function forProducts(
   products: ProductQuery[],
   /** Drops results that are not about this product (e.g. other stores' ads for a keyword). */
   keep: (item: FetchedItem, product: ProductQuery) => boolean = () => true,
+  /** Called before each product's queries are sent. */
+  onStart?: (product: ProductQuery) => void,
 ): SourceAdapter {
   return {
     source: adapter.source,
@@ -28,6 +30,7 @@ export function forProducts(
         if (ctx.signal?.aborted || emitted >= ctx.limit) return;
         const queries = Array.isArray(p.query) ? p.query : [p.query];
         const sub = { ...ctx, queries, limit: ctx.limit - emitted };
+        onStart?.(p);
         for await (const item of adapter.fetch(sub)) {
           if (!keep(item, p)) continue;
           emitted++;

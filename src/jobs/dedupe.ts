@@ -10,9 +10,12 @@ import { runJob } from "./run-job";
 
 async function main() {
   const db = await getDb();
-  const { hashed, failed } = await hashProductImages(db, { limit: 500 });
+  const { hashed, failed, skipped } = await hashProductImages(db, { limit: 500 });
   const { merged } = await mergeDuplicateProducts(db);
-  console.log(`${hashed} images hashed (${failed} failed), ${merged} duplicates merged`);
+  console.log(
+    `${hashed} images hashed (${failed} failed, ${skipped} without a usable photo), ` +
+      `${merged} duplicates merged`,
+  );
 }
 
 runJob(main);

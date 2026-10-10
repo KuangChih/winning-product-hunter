@@ -6,7 +6,13 @@ import { ingestionRuns, products, sourceItems } from "@/db/schema";
 import { createTestDb } from "@/db/testing/pglite";
 import { createAdLibraryWebAdapter } from "@/ingestion/sources/meta-ad-library-web";
 import type { FetchedItem } from "@/ingestion/types";
-import { groupAdsByLanding, isPromising, runDiscovery } from "./discover";
+import {
+  fetchDiscoveryItems,
+  groupAdsByLanding,
+  isPromising,
+  runDiscovery,
+  storeDiscovery,
+} from "./discover";
 import { keywordsForDay } from "./keywords";
 import { landingKey, normalizeHandle, titleFromHandle } from "./landing";
 
@@ -151,5 +157,65 @@ describe("runDiscovery with the recorded Ad Library page", () => {
     expect(result.ingestion.status).toBe("failed");
     expect(await t.db.select().from(products)).toEqual([]);
     expect((await t.db.select().from(ingestionRuns))[0].status).toBe("failed");
+  });
+
+  it("stores the union of separately fetched batches, grouping across them", async () => {
+    const one = (id: string): FetchedItem => ({
+      externalId: id,
+      kind: "ad",
+      title: "Neck massager",
+      startedAt: NOW,
+      metrics: [],
+      raw: { landing_url: `https://store${id}.com/products/neck-massager` },
+    });
+    const meta = { source: "meta_ads" as const, provider: "ad_library_web" };
+    // One ad per keyword request: neither request alone makes the product promising.
+    const batches = [[one("1")], [one("2")]];
+    for (const batch of batches) {
+      expect(groupAdsByLanding(batch).filter((g) => isPromising(g, NOW))).toHaveLength(0);
+    }
+
+    const result = await storeDiscovery(t.db, meta, ["a", "b"], batches.flat(), undefined, NOW);
+    expect(result).toMatchObject({ adsFetched: 2, groups: 1, productsCreated: 1 });
+    expect(result.ingestion.status).toBe("succeeded");
+  });
+
+  it("fetch + store gives the same result as runDiscovery", async () => {
+    const fetched = await fetchDiscoveryItems(adapter(html), ["posture corrector"]);
+    expect(fetched.failure).toBeUndefined();
+    const stored = await storeDiscovery(
+      t.db,
+      adapter(html),
+      ["posture corrector"],
+      fetched.items,
+      fetched.failure,
+      NOW,
+    );
+    expect(stored).toMatchObject({ adsFetched: 3, groups: 1, productsCreated: 1 });
+  });
+
+  it("rethrows when the caller aborts the fetch instead of reporting a source failure", async () => {
+    const controller = new AbortController();
+    controller.abort(new Error("time budget"));
+    const blocked = createAdLibraryWebAdapter({
+      countries: ["US"],
+      wait: async (signal) => signal?.throwIfAborted(),
+    });
+    await expect(fetchDiscoveryItems(blocked, ["x"], controller.signal)).rejects.toThrow(
+      "time budget",
+    );
+  });
+
+  it("does not duplicate a product when two sweeps store it at the same time", async () => {
+    const fetched = await fetchDiscoveryItems(adapter(html), ["posture corrector"]);
+    const store = () =>
+      storeDiscovery(t.db, adapter(html), ["posture corrector"], fetched.items, undefined, NOW);
+    const results = await Promise.all([store(), store()]);
+
+    expect(results.map((r) => r.productsCreated).sort()).toEqual([0, 1]);
+    const all = await t.db.select().from(products);
+    expect(all).toHaveLength(1);
+    const ads = (await t.db.select().from(sourceItems)).filter((i) => i.kind === "ad");
+    expect(ads.every((a) => a.productId === all[0].id)).toBe(true);
   });
 });

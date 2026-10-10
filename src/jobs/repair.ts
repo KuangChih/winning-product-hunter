@@ -3,22 +3,38 @@
  *
  *   npm run repair -- ad-attachments            (dry run: report only)
  *   npm run repair -- ad-attachments --apply    (fix, then re-score)
+ *   npm run repair -- product-images            (dry run: report only)
+ *   npm run repair -- product-images --apply    (clear wrong photos; `npm run dedupe` re-hashes)
  *
  * ad-attachments: Ad Library ads that a keyword search attached to the wrong product move to
  * the product whose page they link to, or are dropped (they are re-collected by discovery).
+ *
+ * product-images: products whose photo came from a Shopify search result (a similar product
+ * from another store) lose that photo and its hash; the next dedupe uses the advertiser's own
+ * listing photo, or leaves the product without one.
  */
 import "@/lib/load-env";
 import { getDb } from "@/db/client";
-import { repairAdAttachments } from "@/matching/repair";
+import { repairAdAttachments, repairProductImages } from "@/matching/repair";
 import { runScoring } from "@/scoring/run";
 import { runJob } from "./run-job";
 
 async function main() {
   const [task, ...flags] = process.argv.slice(2);
-  if (task !== "ad-attachments")
-    throw new Error("Usage: npm run repair -- ad-attachments [--apply]");
+  if (task !== "ad-attachments" && task !== "product-images")
+    throw new Error("Usage: npm run repair -- <ad-attachments|product-images> [--apply]");
   const apply = flags.includes("--apply");
   const db = await getDb();
+  if (task === "product-images") {
+    const r = await repairProductImages(db, { apply });
+    console.log(
+      `${apply ? "repaired" : "dry run"}: ${r.wrongImages} products show a photo that is not ` +
+        `from their own listing or ads (${r.withOwnListingPhoto} have an own-listing photo); ` +
+        `${r.mergedIntoAffected} earlier merges involved them (not undone)` +
+        (apply ? `; ${r.reset} reset, run \`npm run dedupe\` to hash the right photos` : ""),
+    );
+    return;
+  }
   const r = await repairAdAttachments(db, { apply });
   console.log(
     `${apply ? "repaired" : "dry run"}: ${r.mismatched} mismatched ads on ${r.affectedProducts} products ` +

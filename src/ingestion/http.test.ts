@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { createRateLimiter, fetchWithRetry, HttpError } from "./http";
+import { createRateLimiter, defaultSleep, fetchWithRetry, HttpError } from "./http";
 
 function respond(status: number, headers: Record<string, string> = {}) {
   return new Response(status === 200 ? "ok" : "err", { status, headers });
@@ -29,7 +29,7 @@ describe("fetchWithRetry", () => {
 
     await fetchWithRetry("https://x.test", {}, { fetchImpl, sleep });
 
-    expect(sleep).toHaveBeenCalledWith(7000);
+    expect(sleep.mock.calls[0][0]).toBe(7000);
   });
 
   it("does not retry 4xx client errors", async () => {
@@ -82,5 +82,69 @@ describe("createRateLimiter", () => {
     await wait();
 
     expect(slept).toEqual([250, 500]);
+  });
+});
+
+describe("timeouts and aborts", () => {
+  it("retries an attempt that times out, then gives up with the timeout", async () => {
+    const fetchImpl = vi.fn<typeof fetch>(
+      (_url, init) =>
+        new Promise<Response>((_resolve, reject) => {
+          init?.signal?.addEventListener("abort", () => reject(init.signal!.reason));
+        }),
+    );
+    const err = await fetchWithRetry(
+      "https://x.test",
+      {},
+      { fetchImpl, sleep: async () => {}, retries: 1, timeoutMs: 20 },
+    ).catch((e: unknown) => e);
+    expect(err).toMatchObject({ name: "TimeoutError" });
+    expect(fetchImpl).toHaveBeenCalledTimes(2);
+  });
+
+  it("does not retry when the caller aborts, and aborts a pending backoff", async () => {
+    const controller = new AbortController();
+    const fetchImpl = vi.fn<typeof fetch>(async () => {
+      controller.abort(new Error("time budget"));
+      return respond(503);
+    });
+    const started = Date.now();
+    await expect(
+      fetchWithRetry(
+        "https://x.test",
+        { signal: controller.signal },
+        { fetchImpl, baseDelayMs: 60_000, maxDelayMs: 60_000 },
+      ),
+    ).rejects.toThrow("time budget");
+    expect(fetchImpl).toHaveBeenCalledTimes(1);
+    expect(Date.now() - started).toBeLessThan(5_000);
+  });
+
+  it("defaultSleep rejects as soon as the signal aborts", async () => {
+    const controller = new AbortController();
+    const pending = defaultSleep(60_000, controller.signal);
+    controller.abort(new Error("stop"));
+    await expect(pending).rejects.toThrow("stop");
+  });
+});
+
+describe("createRateLimiter across processes", () => {
+  it("starts from a saved next-request time, clamped to one interval from now", async () => {
+    const slept: number[] = [];
+    const sleep = async (ms: number) => {
+      slept.push(ms);
+    };
+    await createRateLimiter(5000, () => 1000, sleep, 3000)();
+    // A saved time far in the future (another machine's clock) waits one interval at most.
+    await createRateLimiter(5000, () => 1000, sleep, 999_999)();
+    // A saved time in the past does not wait.
+    await createRateLimiter(5000, () => 1000, sleep, 500)();
+    expect(slept).toEqual([2000, 5000]);
+  });
+
+  it("rejects when its signal is aborted", async () => {
+    const controller = new AbortController();
+    controller.abort(new Error("stop"));
+    await expect(createRateLimiter(5000)(controller.signal)).rejects.toThrow("stop");
   });
 });

@@ -1,7 +1,7 @@
 import { inArray } from "drizzle-orm";
 import type { AnyDatabase } from "@/db/client";
 import { products } from "@/db/schema";
-import { runIngestion, type IngestionResult } from "@/ingestion/run";
+import { runIngestion, type AdapterMeta, type IngestionResult } from "@/ingestion/run";
 import type { FetchedItem, SourceAdapter } from "@/ingestion/types";
 import { slugify } from "@/matching/normalize";
 import { landingKey, titleFromHandle, type LandingKey } from "./landing";
@@ -79,31 +79,29 @@ export interface DiscoveryResult {
   ingestion: IngestionResult;
 }
 
-/**
- * Sweeps keywords with an ad source, groups ads by landing page and tracks promising groups as
- * products. Ads are stored attached to their product; keyword-level items (e.g. active ad
- * counts) are stored unattached. If the source blocks part-way, everything collected so far is
- * still stored and the run is recorded as failed.
- */
-export async function runDiscovery(
-  db: AnyDatabase,
+/** Runs the ad source over the queries, keeping what arrived before any failure. */
+export async function fetchDiscoveryItems(
   adapter: SourceAdapter,
-  keywords: string[],
-  now: Date = new Date(),
-): Promise<DiscoveryResult> {
-  const fetched: FetchedItem[] = [];
-  let failure: unknown;
+  queries: string[],
+  signal?: AbortSignal,
+): Promise<{ items: FetchedItem[]; failure?: unknown }> {
+  const items: FetchedItem[] = [];
   try {
-    for await (const item of adapter.fetch({ queries: keywords, limit: 10_000 })) {
-      fetched.push(item);
+    for await (const item of adapter.fetch({ queries, limit: 10_000, signal })) {
+      items.push(item);
     }
+    // Adapters stop quietly on abort; a cut-short sweep must not look complete.
+    signal?.throwIfAborted();
   } catch (err) {
-    failure = err;
+    // The caller stopped us (e.g. a time budget): not a source failure.
+    if (signal?.aborted) throw err;
+    return { items, failure: err };
   }
+  return { items };
+}
 
-  const groups = groupAdsByLanding(fetched).filter((g) => isPromising(g, now));
-  const keys = groups.map((g) => g.landing.key);
-  const existing = keys.length
+async function productIdsByLandingKey(db: AnyDatabase, keys: string[]) {
+  const rows = keys.length
     ? await db
         .select({
           id: products.id,
@@ -114,13 +112,38 @@ export async function runDiscovery(
         .where(inArray(products.landingKey, keys))
     : [];
   // A merged duplicate's landing key keeps pointing at the product it was merged into.
-  const idByKey = new Map(existing.map((p) => [p.landingKey!, p.mergedInto ?? p.id]));
+  return new Map(rows.map((p) => [p.landingKey!, p.mergedInto ?? p.id]));
+}
+
+/**
+ * Groups fetched ads by landing page, tracks promising groups as products and stores the ads
+ * attached to their product; keyword-level items (e.g. active ad counts) are stored
+ * unattached. Everything fetched is stored even when the fetch failed part-way; the ingestion
+ * run is then recorded as failed.
+ */
+export async function storeDiscovery(
+  db: AnyDatabase,
+  meta: AdapterMeta,
+  queries: string[],
+  fetched: FetchedItem[],
+  failure: unknown,
+  now: Date,
+  opts: { pipelineRunId?: number } = {},
+): Promise<DiscoveryResult> {
+  const groups = groupAdsByLanding(fetched).filter((g) => isPromising(g, now));
+  const idByKey = await productIdsByLandingKey(
+    db,
+    groups.map((g) => g.landing.key),
+  );
 
   const usedSlugs = new Set(
     (await db.select({ slug: products.slug }).from(products)).map((p) => p.slug),
   );
   const toCreate = groups.filter((g) => !idByKey.has(g.landing.key));
+  let productsCreated = 0;
   if (toCreate.length > 0) {
+    // Another process may create the same product meanwhile: skip landing-key conflicts, then
+    // re-read. A slug clash still throws, so a group is never dropped silently.
     const inserted = await db
       .insert(products)
       .values(
@@ -139,13 +162,19 @@ export async function runDiscovery(
           };
         }),
       )
+      .onConflictDoNothing({ target: products.landingKey })
       .returning({ id: products.id, landingKey: products.landingKey });
+    productsCreated = inserted.length;
     for (const p of inserted) idByKey.set(p.landingKey!, p.id);
+    const missing = toCreate.map((g) => g.landing.key).filter((k) => !idByKey.has(k));
+    for (const [key, id] of await productIdsByLandingKey(db, missing)) idByKey.set(key, id);
   }
 
   const productIdByAd = new Map<string, string>();
   for (const g of groups) {
-    for (const ad of g.ads) productIdByAd.set(ad.externalId, idByKey.get(g.landing.key)!);
+    const productId = idByKey.get(g.landing.key);
+    if (!productId) continue;
+    for (const ad of g.ads) productIdByAd.set(ad.externalId, productId);
   }
   // Keep ads that belong to a tracked product, plus keyword-level evidence.
   const toStore = fetched.flatMap((item) => {
@@ -159,22 +188,38 @@ export async function runDiscovery(
   const ingestion = await runIngestion(
     db,
     {
-      source: adapter.source,
-      provider: adapter.provider,
+      source: meta.source,
+      provider: meta.provider,
       async *fetch() {
         yield* toStore;
         if (failure) throw failure;
       },
     },
-    { queries: keywords, limit: toStore.length + 1 },
+    { queries, limit: toStore.length + 1 },
     () => now,
+    opts,
   );
 
   return {
     adsFetched: fetched.filter((i) => i.kind === "ad").length,
     groups: groups.length,
-    productsCreated: toCreate.length,
+    productsCreated,
     productsUpdated: groups.length - toCreate.length,
     ingestion,
   };
+}
+
+/**
+ * Sweeps keywords with an ad source, groups ads by landing page and tracks promising groups as
+ * products (`fetchDiscoveryItems` + `storeDiscovery`). If the source blocks part-way,
+ * everything collected so far is still stored and the run is recorded as failed.
+ */
+export async function runDiscovery(
+  db: AnyDatabase,
+  adapter: SourceAdapter,
+  keywords: string[],
+  now: Date = new Date(),
+): Promise<DiscoveryResult> {
+  const { items, failure } = await fetchDiscoveryItems(adapter, keywords);
+  return storeDiscovery(db, adapter, keywords, items, failure, now);
 }

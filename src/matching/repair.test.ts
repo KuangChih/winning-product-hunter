@@ -4,7 +4,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { products, sourceItems, watchlist } from "@/db/schema";
 import { createTestDb } from "@/db/testing/pglite";
 import { sameProductAdsOnly } from "@/jobs/collect";
-import { repairAdAttachments } from "./repair";
+import { repairAdAttachments, repairProductImages } from "./repair";
 import { runMatching } from "./run";
 
 const NOW = new Date("2026-10-10T00:00:00Z");
@@ -108,5 +108,87 @@ describe("sameProductAdsOnly", () => {
     expect(
       sameProductAdsOnly({ externalId: "k", kind: "trend", metrics: [] } as never, product(null)),
     ).toBe(true);
+  });
+});
+
+describe("repairProductImages", () => {
+  let t: Awaited<ReturnType<typeof createTestDb>>;
+  let n = 0;
+  beforeEach(async () => {
+    t = await createTestDb();
+  });
+  afterEach(async () => {
+    await t.close();
+  });
+
+  it("finds products showing a similar product's photo and clears it on apply", async () => {
+    const photo = (name: string) => `https://cdn.test/${name}.jpg`;
+    const withPhoto = async (
+      slug: string,
+      imageUrl: string | null,
+      mergedInto?: string,
+      discovered = true,
+    ) => {
+      const [p] = await t.db
+        .insert(products)
+        .values({
+          slug,
+          title: slug,
+          imageUrl,
+          imageHash: "ab",
+          firstSeenAt: NOW,
+          mergedInto,
+          landingKey: discovered ? `handle:${slug}` : null,
+        })
+        .returning();
+      return p.id;
+    };
+    const listing = (productId: string, provider: string, imageUrl: string) =>
+      t.db.insert(sourceItems).values({
+        source: "shopify",
+        provider,
+        externalId: `l-${n++}`,
+        kind: "store_product",
+        productId,
+        imageUrl,
+        firstSeenAt: NOW,
+        lastSeenAt: NOW,
+      });
+    const good = await withPhoto("good", photo("own"));
+    await listing(good, "shopify_catalog_lookup", photo("own"));
+    const fixable = await withPhoto("fixable", photo("similar-1"));
+    await listing(fixable, "shopify_catalog", photo("similar-1"));
+    await listing(fixable, "shopify_catalog_lookup", photo("own-2"));
+    const noOwn = await withPhoto("no-own", photo("similar-2"));
+    await listing(noOwn, "shopify_catalog", photo("similar-2"));
+    await withPhoto("merged", photo("similar-1"), fixable);
+    await withPhoto("no-photo", null);
+    // Created by matching from a search result: that photo is its own.
+    const matched = await withPhoto("matched", photo("seed"), undefined, false);
+    await listing(matched, "shopify_catalog", photo("seed"));
+    // Sample products are left alone.
+    const sample = await withPhoto("sample", photo("similar-3"));
+    await listing(sample, "shopify_catalog", photo("similar-3"));
+    await listing(sample, "fixture", photo("x"));
+
+    const dry = await repairProductImages(t.db);
+    expect(dry).toEqual({
+      wrongImages: 2,
+      withOwnListingPhoto: 1,
+      mergedIntoAffected: 1,
+      reset: 0,
+    });
+    expect((await t.db.select().from(products).where(eq(products.id, noOwn)))[0].imageUrl).toBe(
+      photo("similar-2"),
+    );
+
+    expect(await repairProductImages(t.db, { apply: true })).toMatchObject({ reset: 2 });
+    const after = new Map((await t.db.select().from(products)).map((p) => [p.slug, p]));
+    expect(after.get("fixable")).toMatchObject({ imageUrl: null, imageHash: null });
+    expect(after.get("no-own")).toMatchObject({ imageUrl: null, imageHash: null });
+    expect(after.get("good")).toMatchObject({ imageUrl: photo("own"), imageHash: "ab" });
+    expect(after.get("matched")).toMatchObject({ imageUrl: photo("seed"), imageHash: "ab" });
+    expect(after.get("sample")).toMatchObject({ imageUrl: photo("similar-3") });
+    expect(await repairProductImages(t.db)).toMatchObject({ wrongImages: 0 });
   });
 });

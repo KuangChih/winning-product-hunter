@@ -15,6 +15,16 @@
 | Phase 2C / 3 資料品質與評分 | 實體對應 v1（商品照片 dHash 去重）、廣告動能（評分 v1.1）                                                                                                                  |
 | Phase 4 / 4A / 4B 介面與安全 | Landing page、排名頁搜尋篩選與 7 個子分數欄、廣告資料庫、Watchlist、站台密碼、防暴力破解、安全標頭、RWD、深色模式、無障礙（axe 0 違規）、中英文介面（ADR-008～011） |
 
+## Vercel 網頁觸發探索 + UI/UX 改版（使用者 2026-10-10 要求，最優先）
+
+- [x] M1 資料層強化（runner 的前置）：`pipeline_runs` 等 schema、可中斷的 HTTP / rate limiter、分批寫入、`collection_attempts` 防止重挑、照片只用廣告主自己的、評分查詢縮減
+- [ ] M2 可續跑的 pipeline runner（純邏輯 + CLI）
+- [ ] M3 Vercel 觸發：routes、proxy、cron（ADR-013）
+- [ ] M4 介面殼層、探索頁、移除樣本資料
+- [ ] M5 產品列表、首頁儀表板、排名效能
+- [ ] M6 詳情頁、廣告、收藏
+- [ ] M7 文件收尾
+
 ## Phase 4C — 找爆品能力強化（最優先；使用者 2026-10-10 要求：要能客觀、實質找到爆品）
 
 - [x] 追蹤廣告主：找到的電商店家，定期查它在 Ad Library 的其他廣告

@@ -58,3 +58,27 @@
 
 - 完成：git history 依功能從 65 個 commit 合併成 18 個（最終檔案內容與原本完全相同，原歷史備份在本機分支 `backup/pre-squash-2026-10-10`）；docs 全面改寫：刪除已被取代的 `research/data-sources.md`，ROADMAP 與 PROGRESS 把已完成項目整理成摘要，DEPLOY 與 HUMAN_TODO 更新成目前狀態，研究文件移除過時建議並統一用語。
 - 限制：本地 `main` 與 GitHub 上的 `origin/main` 歷史已分岔，要同步需使用者自行決定是否 force push。
+
+## 2026-10-10 — Vercel 探索 M1：資料層強化（runner 的前置）
+
+- 完成：
+  - Schema（migration 0009，只新增）：`pipeline_runs`（同時只能一個 `running`）、`pipeline_stage`、`collection_attempts`、`source_backoff`、`ingestion_runs.pipeline_run_id`。
+  - HTTP：sleep / rate limiter 可被 `AbortSignal` 中斷；每次嘗試逾時（`timeoutMs`）；rate limiter 可接續保存的下次請求時間。
+  - 寫入：`runIngestion` 拆成 start / ingest / finish，每批 100 筆（或最舊一筆等滿 2 秒）寫入，同一 `externalId` 照順序、不同的 8 個並行，結果與逐筆寫入相同；呼叫端中止時已抓到的照樣存，`/sources` 記錄存了幾筆並標成「Interrupted」；`reapStaleIngestionRuns` 關閉卡住的紀錄。
+  - 探索：拆成 fetch / store；建立產品遇到 landing key 衝突就跳過再重查（slug 衝突仍會報錯，不會默默丟廣告）。
+  - 挑選：`src/pipeline/targets.ts` 用 `collection_attempts`（有結果或沒結果 7 天、錯誤 1 天內不重挑，從未嘗試的優先，排除樣本產品）；中途被中止時，已做完的產品照樣記錄，只有被切斷的那一個留待下次；只有關鍵字層級資料（`trend`）不算「找到」；抓到但沒存進去的記成錯誤。
+  - 照片：只用產品自己的、廣告主商品頁的或廣告的照片，不再用「同類商品」的照片；下載 15 秒逾時、只允許 https、拒絕私有網段、每次轉址都重新檢查、10 MB 上限；失敗的照片隔一天才重試且不擋住新產品；被中止時已完成的結果照樣記錄，沒輪到的產品還原。
+  - `npm run repair -- product-images [--apply]`（預設預覽）：只處理探索出來、非樣本、照片確實來自 Shopify 搜尋結果的產品。
+  - 評分：不讀 `raw`、snapshot 改用 JOIN（沒有 65,535 參數上限）、資料庫端只回傳評分用得到的值。
+  - Neon 查詢 20 秒逾時；migration 改用 10 分鐘。
+- 成效（示範資料庫的複本，示範資料庫本身沒有寫入）：
+  - 評分重構：213 個產品新舊實作分數、信心值、breakdown 差異都是 0；PGlite 評分時間 878–1110 ms → 396–483 ms。
+  - 產品照片：正確（廣告主自己的）23、錯圖（同類商品）17 個真實 + 1 個樣本、沒有照片 172。對複本執行 repair `--apply` + `npm run dedupe`（約 53 張 Shopify CDN 照片）→ 52 張成功、1 張失敗（超過 10 MB）、132 個沒有可用照片；之後**正確照片 74、錯圖 0**；合併 1 → 2（新的一組是同一款 4D 雷射面罩，看起來正確）。原本 1 組依錯圖做的合併（兩個姿勢矯正器）只回報、不還原。
+  - 防重挑：示範資料庫還沒有嘗試紀錄，量不到；之後量法是每天看 `collection_attempts` 中各 provider 的 found / empty / error 數，以及每次 collect 挑到「從未嘗試」產品的比例。
+- 驗證：format ✅ lint ✅ typecheck ✅ test ✅（227）build ✅；e2e 未跑（沒動頁面、路由、proxy）。
+- 限制：
+  - `source_backoff`、`pipeline_stage` 尚未使用（M2）；`runIngestion` 每次呼叫仍建立新的 ingestion 紀錄（M2 處理重試共用）。
+  - 照片 repair 尚未套用到示範資料庫（等使用者決定）。
+  - 照片網址只檢查字面上的私有 IP，解析到私有 IP 的網域名稱擋不到。
+  - 「兩個同時探索」的測試在同一個 PGlite 連線上跑，不能證明 Neon 上的真實競態。
+- 下一步：M2 可續跑的 pipeline runner。

@@ -76,7 +76,31 @@ function latest(snapshots: ItemInput["snapshots"], metric: string): number | nul
 
 /** Momentum needs at least this many earlier days of ad observations as a baseline. */
 export const MOMENTUM_MIN_BASELINE_DAYS = 4;
-const MOMENTUM_MAX_BASELINE_DAYS = 14;
+export const MOMENTUM_MAX_BASELINE_DAYS = 14;
+
+/**
+ * Ads observed per collection day (UTC), for momentum: the counts of the latest
+ * `MOMENTUM_MAX_BASELINE_DAYS + 1` days, oldest first, and how many days there are in all.
+ */
+export interface AdDays {
+  recent: number[];
+  total: number;
+}
+
+/** `AdDays` from the ads' snapshots (an ad counts once per day it has any snapshot). */
+export function adDaysOf(ads: ItemInput[]): AdDays {
+  const adsPerDay = new Map<string, Set<number>>();
+  ads.forEach((a, idx) => {
+    for (const s of a.snapshots) {
+      const day = s.observedAt.toISOString().slice(0, 10);
+      adsPerDay.set(day, (adsPerDay.get(day) ?? new Set()).add(idx));
+    }
+  });
+  const daily = [...adsPerDay.entries()]
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([, s]) => s.size);
+  return { recent: daily.slice(-1 - MOMENTUM_MAX_BASELINE_DAYS), total: daily.length };
+}
 
 /** Sum of tier weights of the five priority markets: full reach = active ads in all five. */
 const FULL_REACH = MARKETS.filter((m) => m.tier === 1).reduce(
@@ -89,6 +113,11 @@ export function extractFeatures(
   firstSeenAt: Date,
   now: Date,
   fx: FxRates | null = null,
+  /**
+   * Ad observation days computed elsewhere (e.g. in SQL, see src/scoring/run.ts); by default
+   * from the ads' snapshots, which must then hold every snapshot.
+   */
+  adDays?: AdDays,
 ): ProductFeatures {
   const ads = items.filter((i) => i.kind === "ad" && i.startedAt);
   const active = ads.filter((a) => !a.endedAt || a.endedAt > now);
@@ -130,19 +159,11 @@ export function extractFeatures(
   }
 
   // Momentum: ads seen per collection day (from their daily snapshots), latest day vs baseline.
-  const adsPerDay = new Map<string, Set<number>>();
-  ads.forEach((a, idx) => {
-    for (const s of a.snapshots) {
-      const day = s.observedAt.toISOString().slice(0, 10);
-      adsPerDay.set(day, (adsPerDay.get(day) ?? new Set()).add(idx));
-    }
-  });
-  const daily = [...adsPerDay.entries()]
-    .sort(([a], [b]) => a.localeCompare(b))
-    .map(([, s]) => s.size);
+  const days = adDays ?? adDaysOf(ads);
+  const daily = days.recent.slice(-1 - MOMENTUM_MAX_BASELINE_DAYS);
   const adMomentum =
-    daily.length > MOMENTUM_MIN_BASELINE_DAYS
-      ? robustZ(daily[daily.length - 1], daily.slice(-1 - MOMENTUM_MAX_BASELINE_DAYS, -1))
+    days.total > MOMENTUM_MIN_BASELINE_DAYS && daily.length > 0
+      ? robustZ(daily[daily.length - 1], daily.slice(0, -1))
       : null;
 
   let marketReach: number | null = null;
@@ -192,7 +213,7 @@ export function extractFeatures(
     activeAdvertisers: new Set(active.map((a) => a.advertiserId).filter(Boolean)).size,
     newAdActivity14d,
     adMomentum,
-    adHistoryDays: daily.length,
+    adHistoryDays: days.total,
     marketReach,
     sellingStores,
     retailUsdCents: retail?.medianCents ?? null,

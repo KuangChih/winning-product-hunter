@@ -1,7 +1,20 @@
-import { and, eq, inArray, isNotNull, isNull, notExists, sql } from "drizzle-orm";
+import {
+  and,
+  eq,
+  exists,
+  inArray,
+  isNotNull,
+  isNull,
+  not,
+  notExists,
+  or,
+  sql,
+  type SQL,
+} from "drizzle-orm";
 import type { AnyDatabase } from "@/db/client";
-import { products, sourceItems, watchlist } from "@/db/schema";
+import { collectionAttempts, products, sourceItems, watchlist } from "@/db/schema";
 import { landingKey } from "@/discovery/landing";
+import { OWN_LISTING_PROVIDER } from "@/lib/retail-price";
 
 export interface AdAttachmentRepair {
   /** Ad Library ads attached to a product whose page they do not link to. */
@@ -105,5 +118,87 @@ export async function repairAdAttachments(
     dropped: drops.length,
     emptiedProducts,
     affectedProducts: affected.size,
+  };
+}
+
+/** Provider of Shopify search results (similar products from other stores). */
+const SHOPIFY_SEARCH_PROVIDER = "shopify_catalog";
+
+export interface ProductImageRepair {
+  /**
+   * Active discovered, non-sample products showing a Shopify search result's photo that is not
+   * also their own listing's or an ad's.
+   */
+  wrongImages: number;
+  /** …of which have an own-listing photo, used the next time photos are hashed. */
+  withOwnListingPhoto: number;
+  /** Products earlier merged into an affected product on the strength of its photo. */
+  mergedIntoAffected: number;
+  /** Products reset (apply only). */
+  reset: number;
+}
+
+/**
+ * Finds products whose photo came from a Shopify search result (a similar product from another
+ * store) instead of the advertiser's own listing or an ad. Applying clears the photo and its
+ * hash so the next dedupe hashes the right photo (or none). Earlier merges are not undone.
+ * Dry run unless `apply` is set.
+ */
+export async function repairProductImages(
+  db: AnyDatabase,
+  { apply = false }: { apply?: boolean } = {},
+): Promise<ProductImageRepair> {
+  const hasItem = (...match: SQL[]) =>
+    exists(
+      db
+        .select({ one: sql`1` })
+        .from(sourceItems)
+        .where(and(eq(sourceItems.productId, products.id), ...match)),
+    );
+  const own = or(eq(sourceItems.provider, OWN_LISTING_PROVIDER), eq(sourceItems.kind, "ad"))!;
+  const samePhoto = eq(sourceItems.imageUrl, products.imageUrl);
+  const affected = await db
+    .select({ id: products.id, hasOwn: hasItem(own, isNotNull(sourceItems.imageUrl)) })
+    .from(products)
+    .where(
+      and(
+        isNull(products.mergedInto),
+        isNotNull(products.imageUrl),
+        // Only discovered products: a product created by matching shows its seed item's photo,
+        // which may be a Shopify search result and is its real photo.
+        isNotNull(products.landingKey),
+        hasItem(eq(sourceItems.provider, SHOPIFY_SEARCH_PROVIDER), samePhoto),
+        not(hasItem(own, samePhoto)),
+        not(hasItem(eq(sourceItems.provider, "fixture"))),
+      ),
+    );
+  const ids = affected.map((p) => p.id);
+  const merged = ids.length
+    ? await db.select({ id: products.id }).from(products).where(inArray(products.mergedInto, ids))
+    : [];
+
+  let reset = 0;
+  if (apply && ids.length > 0) {
+    reset = (
+      await db
+        .update(products)
+        .set({ imageUrl: null, imageHash: null })
+        .where(inArray(products.id, ids))
+        .returning({ id: products.id })
+    ).length;
+    await db
+      .delete(collectionAttempts)
+      .where(
+        and(
+          eq(collectionAttempts.provider, "image_hash"),
+          inArray(collectionAttempts.productId, ids),
+        ),
+      );
+  }
+  return {
+    wrongImages: ids.length,
+    withOwnListingPhoto: affected.filter((p) => p.hasOwn).length,
+    mergedIntoAffected: merged.length,
+    reset,
   };
 }

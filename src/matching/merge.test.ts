@@ -2,13 +2,18 @@
 import { eq, isNull } from "drizzle-orm";
 import sharp from "sharp";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { productScores, products, sourceItems, watchlist } from "@/db/schema";
+import { collectionAttempts, productScores, products, sourceItems, watchlist } from "@/db/schema";
 import { createTestDb } from "@/db/testing/pglite";
 import { runDiscovery } from "@/discovery/discover";
 import { runIngestion } from "@/ingestion/run";
 import type { FetchedItem, SourceAdapter } from "@/ingestion/types";
 import { runScoring } from "@/scoring/run";
-import { findDuplicateGroups, hashProductImages, mergeDuplicateProducts } from "./merge";
+import {
+  findDuplicateGroups,
+  hashProductImages,
+  isAllowedImageUrl,
+  mergeDuplicateProducts,
+} from "./merge";
 
 const NOW = new Date("2026-10-10T00:00:00Z");
 const day = (d: number) => new Date(NOW.getTime() - d * 86_400_000);
@@ -136,7 +141,7 @@ describe("hashProductImages + mergeDuplicateProducts", () => {
     );
     await runScoring(t.db, NOW);
 
-    expect(await hashProductImages(t.db, { retry: { fetchImpl } })).toEqual({
+    expect(await hashProductImages(t.db, { retry: { fetchImpl } })).toMatchObject({
       hashed: 3,
       failed: 0,
     });
@@ -175,5 +180,182 @@ describe("hashProductImages + mergeDuplicateProducts", () => {
     expect(result).toMatchObject({ productsCreated: 0, productsUpdated: 1 });
     const [ad9] = await t.db.select().from(sourceItems).where(eq(sourceItems.externalId, "9"));
     expect(ad9.productId).toBe(a.id);
+  });
+});
+
+describe("hashProductImages attempts and photo choice", () => {
+  let t: Awaited<ReturnType<typeof createTestDb>>;
+  let n = 0;
+  beforeEach(async () => {
+    t = await createTestDb();
+  });
+  afterEach(async () => {
+    await t.close();
+  });
+
+  const jpeg = () =>
+    sharp({ create: { width: 20, height: 20, channels: 3, background: "#888" } })
+      .jpeg()
+      .toBuffer();
+  async function product(title: string, imageUrl: string | null = null) {
+    const [p] = await t.db
+      .insert(products)
+      .values({ slug: `s-${n++}`, title, imageUrl, firstSeenAt: NOW })
+      .returning();
+    return p.id;
+  }
+  async function listing(productId: string, provider: string, imageUrl: string) {
+    await t.db.insert(sourceItems).values({
+      source: "shopify",
+      provider,
+      externalId: `l-${n++}`,
+      kind: "store_product",
+      productId,
+      imageUrl,
+      firstSeenAt: NOW,
+      lastSeenAt: NOW,
+    });
+  }
+
+  it("uses the advertiser's own listing photo, never a similar product's", async () => {
+    const own = await product("Own listing");
+    const similarOnly = await product("Similar only");
+    await listing(own, "shopify_catalog", "https://cdn.test/similar-1.jpg");
+    await listing(own, "shopify_catalog_lookup", "https://cdn.test/own.jpg");
+    await listing(similarOnly, "shopify_catalog", "https://cdn.test/similar-2.jpg");
+    const body = await jpeg();
+    const fetchImpl = vi.fn<typeof fetch>(async () => new Response(new Uint8Array(body)));
+
+    const r = await hashProductImages(t.db, { retry: { fetchImpl }, now: NOW });
+    expect(r).toEqual({ hashed: 1, failed: 0, skipped: 1, more: false });
+    expect(fetchImpl.mock.calls.map((c) => String(c[0]))).toEqual(["https://cdn.test/own.jpg"]);
+    const [p] = await t.db.select().from(products).where(eq(products.id, own));
+    expect(p.imageUrl).toBe("https://cdn.test/own.jpg");
+    const [s] = await t.db.select().from(products).where(eq(products.id, similarOnly));
+    expect(s.imageUrl).toBeNull();
+  });
+
+  it("does not retry a failed photo before new products, nor within a day", async () => {
+    const broken = await product("Broken", "https://cdn.test/broken.jpg");
+    const fetchImpl = vi.fn<typeof fetch>(async () => new Response("", { status: 404 }));
+    expect(await hashProductImages(t.db, { retry: { fetchImpl }, now: NOW })).toMatchObject({
+      failed: 1,
+    });
+
+    const fresh = await product("Fresh", "https://cdn.test/fresh.jpg");
+    const later = new Date(NOW.getTime() + 3_600_000);
+    const ok = await jpeg();
+    const okFetch = vi.fn<typeof fetch>(async () => new Response(new Uint8Array(ok)));
+    expect(
+      await hashProductImages(t.db, { retry: { fetchImpl: okFetch }, now: later, limit: 1 }),
+    ).toMatchObject({ hashed: 1 });
+    expect(okFetch.mock.calls.map((c) => String(c[0]))).toEqual(["https://cdn.test/fresh.jpg"]);
+    // Still within a day: the broken photo is not tried again.
+    expect(await hashProductImages(t.db, { retry: { fetchImpl: okFetch }, now: later })).toEqual({
+      hashed: 0,
+      failed: 0,
+      skipped: 0,
+      more: false,
+    });
+    const nextDay = new Date(NOW.getTime() + 25 * 3_600_000);
+    expect(
+      await hashProductImages(t.db, { retry: { fetchImpl: okFetch }, now: nextDay }),
+    ).toMatchObject({ hashed: 1 });
+    const [b] = await t.db.select().from(products).where(eq(products.id, broken));
+    expect(b.imageHash).not.toBeNull();
+    expect(fresh).toBeTruthy();
+  });
+
+  it("skips sample products and unsafe URLs, and stops at the deadline", async () => {
+    const sample = await product("Sample", "https://cdn.test/sample.jpg");
+    await listing(sample, "fixture", "https://cdn.test/sample.jpg");
+    await product("Local", "http://127.0.0.1/x.jpg");
+    await product("Waiting", "https://cdn.test/waiting.jpg");
+    const fetchImpl = vi.fn<typeof fetch>();
+
+    expect(
+      await hashProductImages(t.db, { retry: { fetchImpl }, now: NOW, until: Date.now() - 1 }),
+    ).toEqual({ hashed: 0, failed: 0, skipped: 0, more: true });
+    // Not reached: not marked as tried.
+    expect(await t.db.select().from(collectionAttempts)).toEqual([]);
+
+    const r = await hashProductImages(t.db, {
+      retry: { fetchImpl: async () => new Response("", { status: 500 }) },
+      now: NOW,
+    });
+    expect(r).toMatchObject({ skipped: 1, failed: 1 });
+    expect(fetchImpl).not.toHaveBeenCalled();
+  });
+
+  it("on abort keeps finished outcomes and gives back products it never reached", async () => {
+    const ids = new Map<string, string>();
+    for (const i of [1, 2, 3]) {
+      ids.set(`https://cdn.test/${i}.jpg`, await product(`P${i}`, `https://cdn.test/${i}.jpg`));
+    }
+    const body = await jpeg();
+    const controller = new AbortController();
+    const fetchImpl = vi.fn<typeof fetch>(async () => {
+      // The second download is cut short by the caller's time budget.
+      if (fetchImpl.mock.calls.length === 2) {
+        controller.abort(new Error("time budget"));
+        throw controller.signal.reason;
+      }
+      return new Response(new Uint8Array(body));
+    });
+
+    await expect(
+      hashProductImages(t.db, { retry: { fetchImpl }, now: NOW, signal: controller.signal }),
+    ).rejects.toThrow("time budget");
+    const [done, cut] = fetchImpl.mock.calls.map((c) => ids.get(String(c[0]))!);
+    const untried = [...ids.values()].find((id) => id !== done && id !== cut)!;
+    const rows = await t.db.select().from(collectionAttempts);
+    const byId = new Map(rows.map((r) => [r.productId, r]));
+    expect(byId.get(done)?.outcome).toBe("found");
+    expect(byId.get(cut)).toMatchObject({ outcome: "error", error: "Interrupted" });
+    expect(byId.has(untried)).toBe(false);
+  });
+
+  it("checks every redirect hop against the URL guard", async () => {
+    const safe = await product("Safe redirect", "https://cdn.test/a.jpg");
+    const unsafe = await product("Unsafe redirect", "https://cdn.test/b.jpg");
+    const body = await jpeg();
+    const redirect = (location: string) =>
+      new Response(null, { status: 302, headers: { location } });
+    const fetchImpl = vi.fn<typeof fetch>(async (url) => {
+      const u = String(url);
+      if (u === "https://cdn.test/a.jpg") return redirect("/a2.jpg");
+      if (u === "https://cdn.test/b.jpg") return redirect("http://169.254.169.254/latest");
+      return new Response(new Uint8Array(body));
+    });
+
+    const r = await hashProductImages(t.db, { retry: { fetchImpl }, now: NOW });
+    expect(r).toMatchObject({ hashed: 1, failed: 1 });
+    expect(fetchImpl.mock.calls.map((c) => String(c[0])).sort()).toEqual([
+      "https://cdn.test/a.jpg",
+      "https://cdn.test/a2.jpg",
+      "https://cdn.test/b.jpg",
+    ]);
+    expect(fetchImpl.mock.calls.every((c) => c[1]?.redirect === "manual")).toBe(true);
+    const [s] = await t.db.select().from(products).where(eq(products.id, safe));
+    expect(s.imageHash).not.toBeNull();
+    const [u] = await t.db.select().from(products).where(eq(products.id, unsafe));
+    expect(u.imageHash).toBeNull();
+  });
+
+  it("rejects non-https and private-network image URLs", () => {
+    expect(isAllowedImageUrl("https://cdn.shopify.com/a.jpg")).toBe(true);
+    for (const url of [
+      "http://cdn.shopify.com/a.jpg",
+      "file:///etc/passwd",
+      "https://localhost/a.jpg",
+      "https://10.0.0.1/a.jpg",
+      "https://192.168.1.1/a.jpg",
+      "https://172.16.0.1/a.jpg",
+      "https://169.254.169.254/latest",
+      "https://[::1]/a.jpg",
+      "not a url",
+    ]) {
+      expect(isAllowedImageUrl(url), url).toBe(false);
+    }
   });
 });
