@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import type { ScoreBreakdown as Breakdown } from "@/scoring/score";
 import { ScoreBreakdown } from "./score-breakdown";
@@ -17,9 +17,16 @@ const breakdown = {
 describe("ScoreBreakdown", () => {
   it("shows the explanation stored with the score in English", () => {
     render(<ScoreBreakdown breakdown={breakdown} locale="en" />);
-    expect(screen.getByRole("cell", { name: "Ad longevity" })).toBeInTheDocument();
-    expect(screen.getByText("83")).toBeInTheDocument();
-    expect(screen.getByText("No data")).toBeInTheDocument();
+    const rows = screen.getAllByRole("listitem");
+    expect(rows).toHaveLength(2);
+    expect(rows[0]).toHaveTextContent("Ad longevity");
+    expect(rows[0]).toHaveTextContent("weight 15%");
+    expect(within(rows[0]).getByText("83")).toBeInTheDocument();
+    // Missing data is a dash (and "No data" for screen readers), never an estimated number.
+    expect(within(rows[1]).getByText("—")).toBeInTheDocument();
+    expect(within(rows[1]).getByText("No data")).toHaveClass("sr-only");
+    // The explanation folds away in a native disclosure.
+    expect(screen.getByText("Stored English explanation.").closest("details")).not.toBeNull();
     expect(screen.getByText("Stored English explanation.")).toBeInTheDocument();
     expect(
       screen.getByText(
@@ -31,8 +38,9 @@ describe("ScoreBreakdown", () => {
 
   it("translates labels and explains the method in Traditional Chinese", () => {
     render(<ScoreBreakdown breakdown={breakdown} locale="zh-TW" />);
-    expect(screen.getByRole("columnheader", { name: "計算方式" })).toBeInTheDocument();
-    expect(screen.getByRole("cell", { name: "廣告持久度" })).toBeInTheDocument();
+    expect(screen.getAllByText("計算方式")).toHaveLength(2);
+    expect(screen.getAllByRole("listitem")[0]).toHaveTextContent("廣告持久度");
+    expect(screen.getAllByRole("listitem")[0]).toHaveTextContent("權重 15%");
     expect(screen.getByText("沒有資料")).toBeInTheDocument();
     expect(screen.queryByText("Stored English explanation.")).toBeNull();
     expect(screen.getByText(/投放最久的 3 則廣告/)).toBeInTheDocument();

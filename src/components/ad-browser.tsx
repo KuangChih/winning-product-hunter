@@ -9,13 +9,13 @@ import {
 import { type Dictionary, getDictionary } from "@/i18n/dictionaries";
 import { countryName, fill } from "@/i18n/format";
 import type { Locale } from "@/i18n/locales";
+import { externalHref, urlHost } from "@/lib/ad-facts";
 import { MARKETS } from "@/lib/markets";
 import { sourceLabel } from "@/lib/sources";
+import { AdRunBadges } from "./ad-badges";
 import { FilterChips, FilterDisclosure, type FilterChip } from "./filter-disclosure";
 import { Pagination } from "./pagination";
 import { fieldClass } from "./ui/field";
-
-const DAY = 86_400_000;
 
 type BrowserState = AdFilters;
 
@@ -158,52 +158,51 @@ function platformLabel(ad: AdListItem, e: Dictionary["evidence"], locale: Locale
   return ad.provider === "ad_library_web" ? e.metaWeb : e.metaApi;
 }
 
-function AdCard({ ad, now, locale }: { ad: AdListItem; now: Date; locale: Locale }) {
-  const { ads: t, evidence: e } = getDictionary(locale);
-  const active = !ad.endedAt || ad.endedAt > now;
-  const end = active ? now : ad.endedAt!;
-  const days = ad.startedAt ? Math.round((end.getTime() - ad.startedAt.getTime()) / DAY) : null;
+export function AdCard({ ad, now, locale }: { ad: AdListItem; now: Date; locale: Locale }) {
+  const { ads: t, evidence: e, detail } = getDictionary(locale);
+  const href = externalHref(ad.url);
+  const meta = [
+    platformLabel(ad, e, locale),
+    ad.countries.length ? ad.countries.join(", ") : null,
+    ad.format ? (e.formats[ad.format] ?? ad.format) : null,
+    ad.startedAt ? fill(e.started, { date: ad.startedAt.toISOString().slice(0, 10) }) : null,
+    urlHost(ad.landingUrl),
+  ];
   return (
-    <li className="flex flex-col gap-2 border-t py-3 first:border-t-0 sm:flex-row sm:items-start sm:justify-between sm:gap-3">
-      <div className="min-w-0 flex-1 space-y-1">
-        <div className="font-medium">{ad.advertiserName ?? e.unknownAdvertiser}</div>
-        {ad.title && <p className="line-clamp-2 text-sm">{ad.title}</p>}
-        <div className="text-muted-foreground text-xs">
-          {[
-            platformLabel(ad, e, locale),
-            ad.countries.length ? ad.countries.join(", ") : null,
-            ad.format ? (e.formats[ad.format] ?? ad.format) : null,
-            ad.startedAt
-              ? fill(e.started, { date: ad.startedAt.toISOString().slice(0, 10) })
-              : null,
-            days !== null ? fill(e.days, { n: days }) : null,
-            active ? e.active : e.stopped,
-          ]
-            .filter(Boolean)
-            .join(" · ")}
+    <article className="flex h-full flex-col gap-2 rounded-lg border p-3 sm:p-4">
+      <div className="flex flex-wrap items-start justify-between gap-2">
+        <h2 className="min-w-0 font-medium break-words">
+          {ad.advertiserName ?? e.unknownAdvertiser}
+        </h2>
+        <AdRunBadges ad={ad} now={now} labels={e} />
+      </div>
+      {ad.title && <p className="line-clamp-3 text-sm break-words">{ad.title}</p>}
+      <p className="text-muted-foreground text-xs break-words">
+        {meta.filter(Boolean).join(" · ")}
+      </p>
+      {(href || ad.product) && (
+        <div className="mt-auto flex flex-wrap items-center gap-x-4 gap-y-1 pt-1 text-sm">
+          {href && (
+            <a
+              href={href}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="font-medium underline underline-offset-4"
+            >
+              {e.viewAd} <span className="sr-only">{detail.newTab}</span>
+            </a>
+          )}
+          {ad.product && (
+            <Link
+              href={`/products/${ad.product.slug}`}
+              className="text-muted-foreground min-w-0 break-words underline-offset-4 hover:underline"
+            >
+              {fill(t.productLink, { title: ad.product.title })}
+            </Link>
+          )}
         </div>
-      </div>
-      <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm sm:flex-col sm:items-end">
-        {ad.url && (
-          <a
-            href={ad.url}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="underline underline-offset-4"
-          >
-            {e.viewAd}
-          </a>
-        )}
-        {ad.product && (
-          <Link
-            href={`/products/${ad.product.slug}`}
-            className="text-muted-foreground underline-offset-4 hover:underline"
-          >
-            {fill(t.productLink, { title: ad.product.title })}
-          </Link>
-        )}
-      </div>
-    </li>
+      )}
+    </article>
   );
 }
 
@@ -226,9 +225,11 @@ export function AdList({
         {fill(t.total, { n: page.total.toLocaleString("en-US") })}
         {page.ads.length > 0 && fill(t.showing, { from, to: from + page.ads.length - 1 })}
       </p>
-      <ul className="rounded-lg border px-4">
+      <ul className="grid gap-3 md:grid-cols-2">
         {page.ads.map((ad) => (
-          <AdCard key={ad.id} ad={ad} now={now} locale={locale} />
+          <li key={ad.id}>
+            <AdCard ad={ad} now={now} locale={locale} />
+          </li>
         ))}
       </ul>
       <Pagination

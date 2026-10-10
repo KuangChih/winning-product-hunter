@@ -3,7 +3,7 @@ import { connection } from "next/server";
 import { Suspense } from "react";
 import { Notice } from "@/components/notice";
 import { Pagination } from "@/components/pagination";
-import { ProductList } from "@/components/product-table";
+import { ProductList, SignalLegend } from "@/components/product-table";
 import { RankingControls } from "@/components/ranking-controls";
 import { ListSkeleton } from "@/components/skeleton";
 import { StartDiscoveryCard } from "@/components/start-discovery-card";
@@ -85,6 +85,7 @@ async function RankedProducts({
           hrefFor={(n) => rankingHref(filters, n)}
           labels={t}
         />
+        <SignalLegend locale={locale} />
         <p className="text-muted-foreground text-xs">
           {t.signalsNote} {t.priceNote}
         </p>

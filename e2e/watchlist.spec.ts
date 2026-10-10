@@ -29,9 +29,11 @@ test("a product can be watched from its page and unwatched from the watchlist", 
     .getByRole("navigation", { name: "Main" })
     .getByRole("link", { name: "Watchlist" })
     .click();
-  const row = page.getByRole("row").filter({ hasText: name });
-  await expect(row).toBeVisible();
+  // One card per product (a compact row on desktop); the alerts box may name it too.
+  const list = page.getByRole("list", { name: "Watched products" });
+  const card = list.getByRole("article").filter({ hasText: name });
+  await expect(card).toBeVisible();
 
-  await row.getByRole("button", { name: "★ Watching" }).click();
-  await expect(page.getByRole("row").filter({ hasText: name })).toHaveCount(0);
+  await card.getByRole("button", { name: "★ Watching" }).click();
+  await expect(list.getByRole("article").filter({ hasText: name })).toHaveCount(0);
 });

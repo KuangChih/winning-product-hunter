@@ -48,6 +48,8 @@ export interface AdListItem {
   url: string | null;
   imageUrl: string | null;
   advertiserName: string | null;
+  /** Where the ad sends people (the store's page), from the source's raw payload. */
+  landingUrl: string | null;
   countries: string[];
   format: string | null;
   startedAt: Date | null;
@@ -125,8 +127,23 @@ export async function getAds(db: AnyDatabase, options: AdQueryOptions = {}): Pro
   const [[{ total }], rows] = await Promise.all([
     db.select({ total: count() }).from(sourceItems).where(where),
     db
+      // Explicit columns: the raw payload is large and only its landing URL is shown.
       .select({
-        item: sourceItems,
+        item: {
+          id: sourceItems.id,
+          source: sourceItems.source,
+          provider: sourceItems.provider,
+          title: sourceItems.title,
+          url: sourceItems.url,
+          imageUrl: sourceItems.imageUrl,
+          advertiserName: sourceItems.advertiserName,
+          landingUrl: sql<string | null>`${sourceItems.raw}->>'landing_url'`,
+          countries: sourceItems.countries,
+          format: sourceItems.format,
+          startedAt: sourceItems.startedAt,
+          endedAt: sourceItems.endedAt,
+          lastSeenAt: sourceItems.lastSeenAt,
+        },
         productSlug: products.slug,
         productTitle: products.title,
       })
@@ -147,6 +164,7 @@ export async function getAds(db: AnyDatabase, options: AdQueryOptions = {}): Pro
       url: item.url,
       imageUrl: item.imageUrl,
       advertiserName: item.advertiserName,
+      landingUrl: item.landingUrl,
       countries: item.countries,
       format: item.format,
       startedAt: item.startedAt,

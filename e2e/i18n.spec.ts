@@ -88,7 +88,9 @@ test("the ads and watchlist pages are translated", async ({ page, context, baseU
   await expect(page).toHaveTitle("收藏 · Winning Product Hunter");
   await expect(page.getByRole("heading", { level: 1, name: "收藏" })).toBeVisible();
   await expect(
-    page.getByRole("table").or(page.getByText(/還沒有收藏任何產品|尚未設定資料庫|資料庫尚未建立/)),
+    page
+      .getByRole("list", { name: "收藏的產品" })
+      .or(page.getByText(/還沒有收藏任何產品|尚未設定資料庫|資料庫尚未建立/)),
   ).toBeVisible();
 });
 

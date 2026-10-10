@@ -1,4 +1,4 @@
-import { and, desc, eq, exists, inArray, not } from "drizzle-orm";
+import { and, desc, eq, exists, inArray, not, sql } from "drizzle-orm";
 import type { AnyDatabase } from "@/db/client";
 import { productScores, products, signalSnapshots, sourceItems } from "@/db/schema";
 import type { FxRates } from "@/lib/fx";
@@ -19,7 +19,10 @@ export interface EvidenceItem {
   url: string | null;
   region: string | null;
   countries: string[];
+  advertiserId: string | null;
   advertiserName: string | null;
+  /** Where an ad sends people (its landing page); null for other kinds of evidence. */
+  landingUrl: string | null;
   format: string | null;
   startedAt: Date | null;
   endedAt: Date | null;
@@ -36,6 +39,8 @@ export interface ProductDetail {
   slug: string;
   title: string;
   imageUrl: string | null;
+  /** The advertiser's product page this product was found from (ads' landing page). */
+  canonicalUrl: string | null;
   firstSeenAt: Date;
   score: { score: number; confidence: number; computedAt: Date; breakdown: ScoreBreakdown } | null;
   scoreHistory: Array<{ score: number; computedAt: Date }>;
@@ -100,56 +105,70 @@ export async function getProductDetail(
     return product.mergedInto ? null : { redirectTo: product.slug };
   }
 
-  const [scores, items] = await Promise.all([
+  // Independent queries run together (PGlite serializes them; Neon runs them in parallel).
+  const itemIds = db
+    .select({ id: sourceItems.id })
+    .from(sourceItems)
+    .where(eq(sourceItems.productId, product.id));
+  const [scores, items, snapshots, fxRates] = await Promise.all([
     db
       .select()
       .from(productScores)
       .where(eq(productScores.productId, product.id))
       .orderBy(desc(productScores.computedAt))
       .limit(30),
-    db.select().from(sourceItems).where(eq(sourceItems.productId, product.id)),
+    // Every column but the raw payload, which is large and only needed for the landing URL.
+    db
+      .select({
+        id: sourceItems.id,
+        source: sourceItems.source,
+        provider: sourceItems.provider,
+        kind: sourceItems.kind,
+        title: sourceItems.title,
+        url: sourceItems.url,
+        region: sourceItems.region,
+        countries: sourceItems.countries,
+        advertiserId: sourceItems.advertiserId,
+        advertiserName: sourceItems.advertiserName,
+        landingUrl: sql<string | null>`${sourceItems.raw}->>'landing_url'`,
+        format: sourceItems.format,
+        startedAt: sourceItems.startedAt,
+        endedAt: sourceItems.endedAt,
+        priceCents: sourceItems.priceCents,
+        currency: sourceItems.currency,
+      })
+      .from(sourceItems)
+      .where(eq(sourceItems.productId, product.id)),
+    db
+      .select({
+        sourceItemId: signalSnapshots.sourceItemId,
+        metric: signalSnapshots.metric,
+        value: signalSnapshots.value,
+        observedAt: signalSnapshots.observedAt,
+      })
+      .from(signalSnapshots)
+      .where(inArray(signalSnapshots.sourceItemId, itemIds))
+      .orderBy(signalSnapshots.observedAt),
+    getLatestFxRates(db),
   ]);
 
-  const snapshots = items.length
-    ? await db
-        .select()
-        .from(signalSnapshots)
-        .where(
-          inArray(
-            signalSnapshots.sourceItemId,
-            items.map((i) => i.id),
-          ),
-        )
-        .orderBy(signalSnapshots.observedAt)
-    : [];
+  // Group once instead of filtering all snapshots for every item.
+  const snapshotsByItem = new Map<string, typeof snapshots>();
+  for (const s of snapshots) {
+    const list = snapshotsByItem.get(s.sourceItemId);
+    if (list) list.push(s);
+    else snapshotsByItem.set(s.sourceItemId, [s]);
+  }
 
   const evidence: EvidenceItem[] = items.map((i) => {
-    const own = snapshots.filter((s) => s.sourceItemId === i.id);
     const metrics: Record<string, number> = {};
     const series: Record<string, SeriesPoint[]> = {};
-    for (const s of own) {
+    for (const s of snapshotsByItem.get(i.id) ?? []) {
       metrics[s.metric] = s.value; // ordered by time, so the last write is the latest
       (series[s.metric] ??= []).push({ observedAt: s.observedAt, value: s.value });
     }
     for (const k of Object.keys(series)) if (series[k].length < 2) delete series[k];
-    return {
-      id: i.id,
-      source: i.source,
-      provider: i.provider,
-      kind: i.kind,
-      title: i.title,
-      url: i.url,
-      region: i.region,
-      countries: i.countries,
-      advertiserName: i.advertiserName,
-      format: i.format,
-      startedAt: i.startedAt,
-      endedAt: i.endedAt,
-      priceCents: i.priceCents,
-      currency: i.currency,
-      metrics,
-      series,
-    };
+    return { ...i, landingUrl: i.kind === "ad" ? i.landingUrl : null, metrics, series };
   });
 
   const isSample = items.some((i) => i.provider === "fixture");
@@ -161,6 +180,7 @@ export async function getProductDetail(
     slug: product.slug,
     title: product.title,
     imageUrl: product.imageUrl,
+    canonicalUrl: product.canonicalUrl,
     firstSeenAt: product.firstSeenAt,
     score: latest
       ? {
@@ -173,6 +193,6 @@ export async function getProductDetail(
     scoreHistory: scores.map((s) => ({ score: s.score, computedAt: s.computedAt })).reverse(),
     evidence,
     isSample,
-    fxRates: await getLatestFxRates(db),
+    fxRates,
   };
 }

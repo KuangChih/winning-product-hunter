@@ -1,7 +1,7 @@
 // @vitest-environment node
 import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { products } from "@/db/schema";
+import { products, signalSnapshots, sourceItems } from "@/db/schema";
 import { createTestDb } from "@/db/testing/pglite";
 import { fixtureAdapters } from "@/ingestion/fixtures";
 import { runIngestion } from "@/ingestion/run";
@@ -89,5 +89,57 @@ describe("getProductDetail", () => {
       title: "Real Product",
       isSample: false,
     });
+  });
+
+  it("returns the advertiser's page and each ad's landing URL, with snapshots per item", async () => {
+    const [p] = await t.db
+      .insert(products)
+      .values({
+        slug: "neck-fan",
+        title: "Neck Fan",
+        canonicalUrl: "https://shop.example/products/neck-fan",
+        firstSeenAt: NOW,
+      })
+      .returning();
+    const items = await t.db
+      .insert(sourceItems)
+      .values(
+        ["1", "2"].map((n) => ({
+          source: "meta_ads" as const,
+          provider: "ad_library_web",
+          externalId: `neck-fan-${n}`,
+          kind: "ad" as const,
+          productId: p.id,
+          url: `https://www.facebook.com/ads/library/?id=${n}`,
+          raw: { landing_url: `https://store-${n}.example/products/neck-fan?utm=x` },
+          firstSeenAt: NOW,
+          lastSeenAt: NOW,
+        })),
+      )
+      .returning();
+    // Interleaved in time, so grouping by item must not mix them up.
+    await t.db.insert(signalSnapshots).values(
+      [0, 1, 2].flatMap((i) =>
+        items.map((item, k) => ({
+          sourceItemId: item.id,
+          metric: "creative_variants",
+          value: (k + 1) * 10 + i,
+          observedAt: new Date(NOW.getTime() + i * 1000),
+        })),
+      ),
+    );
+
+    const d = (await getProductDetail(t.db, "neck-fan")) as ProductDetail;
+    expect(d.canonicalUrl).toBe("https://shop.example/products/neck-fan");
+    const byId = new Map(d.evidence.map((e) => [e.id, e]));
+    const [a, b] = items.map((i) => byId.get(i.id)!);
+    expect(a.landingUrl).toBe("https://store-1.example/products/neck-fan?utm=x");
+    expect(b.landingUrl).toBe("https://store-2.example/products/neck-fan?utm=x");
+    expect(a.metrics.creative_variants).toBe(12);
+    expect(b.metrics.creative_variants).toBe(22);
+    expect(a.series.creative_variants.map((s) => s.value)).toEqual([10, 11, 12]);
+    expect(b.series.creative_variants.map((s) => s.value)).toEqual([20, 21, 22]);
+    // The large raw payload itself is not loaded.
+    expect(a).not.toHaveProperty("raw");
   });
 });

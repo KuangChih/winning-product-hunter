@@ -1,6 +1,7 @@
 import { getDictionary } from "@/i18n/dictionaries";
 import { fill } from "@/i18n/format";
 import type { Locale } from "@/i18n/locales";
+import { cn } from "@/lib/utils";
 import {
   type ScoreBreakdown as Breakdown,
   SUB_SCORE_ORDER as ORDER,
@@ -26,34 +27,57 @@ export function ScoreBreakdown({ breakdown, locale }: { breakdown: Breakdown; lo
   const { saturation } = breakdown;
   return (
     <div className="space-y-4">
-      <div className="overflow-x-auto rounded-lg border">
-        <table className="w-full min-w-[40rem] text-sm">
-          <thead className="bg-muted/50 text-muted-foreground text-left text-xs uppercase">
-            <tr>
-              <th className="px-3 py-2 font-medium">{t.signal}</th>
-              <th className="px-3 py-2 font-medium">{t.score}</th>
-              <th className="px-3 py-2 font-medium">{t.weight}</th>
-              <th className="px-3 py-2 font-medium">{t.howMeasured}</th>
-            </tr>
-          </thead>
-          <tbody>
-            {entries.map(([name, s]) => (
-              <tr key={name} className="border-t align-top">
-                <td className="px-3 py-3 font-medium">{t.labels[name]}</td>
-                <td className="px-3 py-3 tabular-nums">
-                  {s.value === null ? (
-                    <span className="text-muted-foreground">{t.noData}</span>
-                  ) : (
-                    pct(s.value)
+      {/* Stacked rows instead of a wide table: readable on a phone without sideways scrolling. */}
+      <ul className="divide-y rounded-lg border">
+        {entries.map(([name, s]) => {
+          const value = s.value === null ? null : Math.round(s.value * 100);
+          return (
+            <li key={name} className="space-y-2 px-3 py-3">
+              <div className="flex items-baseline justify-between gap-3">
+                <span className="font-medium">{t.labels[name]}</span>
+                <span className="text-muted-foreground text-xs tabular-nums">
+                  {fill(t.weightValue, { pct: pct(s.weight) })}
+                </span>
+              </div>
+              <div className="flex items-center gap-3">
+                {/* The number next to it carries the value; the bar is only a visual aid. */}
+                <div
+                  aria-hidden
+                  className={cn(
+                    "h-2 flex-1 overflow-hidden rounded-full",
+                    value === null ? "border border-dashed" : "bg-muted",
                   )}
-                </td>
-                <td className="text-muted-foreground px-3 py-3 tabular-nums">{pct(s.weight)}%</td>
-                <td className="text-muted-foreground min-w-64 px-3 py-3">{explain(name, s)}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+                >
+                  {value !== null && (
+                    <div
+                      className="bg-primary h-full rounded-full"
+                      style={{ width: `${value}%` }}
+                    />
+                  )}
+                </div>
+                <span className="w-8 text-right font-mono text-sm tabular-nums">
+                  {value === null ? (
+                    <>
+                      <span aria-hidden className="text-muted-foreground">
+                        —
+                      </span>
+                      <span className="sr-only">{t.noData}</span>
+                    </>
+                  ) : (
+                    value
+                  )}
+                </span>
+              </div>
+              <details className="group text-sm">
+                <summary className="text-muted-foreground hover:text-foreground w-fit cursor-pointer text-xs underline-offset-4 hover:underline">
+                  {t.howMeasured}
+                </summary>
+                <p className="text-muted-foreground mt-1">{explain(name, s)}</p>
+              </details>
+            </li>
+          );
+        })}
+      </ul>
       <dl className="grid gap-3 text-sm sm:grid-cols-3">
         <div className="rounded-lg border p-3">
           <dt className="text-muted-foreground">{t.corroboration}</dt>

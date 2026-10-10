@@ -271,6 +271,33 @@ function SignalGrid({
 }
 
 /**
+ * What each sub-score abbreviation means. The table and cards only show short labels (full
+ * names are tooltips, which a phone cannot show), so this folded legend spells them out.
+ */
+export function SignalLegend({ locale }: { locale: Locale }) {
+  const { ranking: t, breakdown, common } = getDictionary(locale);
+  return (
+    <details className="text-sm">
+      <summary className="text-muted-foreground hover:text-foreground w-fit cursor-pointer text-xs font-medium underline-offset-4 hover:underline">
+        {t.signalsLegend}
+      </summary>
+      <dl className="mt-2 grid gap-x-6 gap-y-2 rounded-lg border p-3 sm:grid-cols-2">
+        {SUB_SCORE_ORDER.map((name) => (
+          <div key={name} className="flex gap-2">
+            <dt className="w-14 shrink-0 font-mono text-xs leading-5 font-medium">
+              {t.signalsShort[name]}
+            </dt>
+            <dd className="text-muted-foreground text-xs leading-5">
+              {fill(common.chip, { name: breakdown.labels[name], value: breakdown.methods[name] })}
+            </dd>
+          </div>
+        ))}
+      </dl>
+    </details>
+  );
+}
+
+/**
  * The ranking, responsive: a compact table from `lg` up, cards below it (no sideways scrolling
  * on a phone). Both are in the page; CSS shows one.
  */

@@ -1,7 +1,7 @@
 import { render, screen, within } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import type { RankedProduct } from "@/data/products";
-import { ProductCard, ProductList, ProductTable } from "./product-table";
+import { ProductCard, ProductList, ProductTable, SignalLegend } from "./product-table";
 
 // The star posts to a Server Action; the component only needs a function to put in the form.
 vi.mock("@/app/[lang]/watchlist/actions", () => ({ setWatched: vi.fn() }));
@@ -186,5 +186,16 @@ describe("ProductList", () => {
       "aria-pressed",
       "true",
     );
+  });
+});
+
+describe("SignalLegend", () => {
+  it("spells out every abbreviation in a folded legend (phones have no tooltips)", () => {
+    const { container } = render(<SignalLegend locale="zh-TW" />);
+    expect(container.querySelector("details")).not.toHaveAttribute("open");
+    expect(screen.getByText("子分數縮寫說明")).toBeInTheDocument();
+    expect(screen.getAllByRole("term")).toHaveLength(7);
+    expect(screen.getByText("持久")).toBeInTheDocument();
+    expect(screen.getByText(/^廣告持久度：投放最久的 3 則廣告/)).toBeInTheDocument();
   });
 });

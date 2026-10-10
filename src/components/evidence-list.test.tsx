@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import type { EvidenceItem } from "@/data/product-detail";
 import { EvidenceList } from "./evidence-list";
@@ -13,7 +13,9 @@ const base: EvidenceItem = {
   url: null,
   region: null,
   countries: [],
+  advertiserId: null,
   advertiserName: null,
+  landingUrl: null,
   format: null,
   startedAt: null,
   endedAt: null,
@@ -72,9 +74,16 @@ describe("EvidenceList", () => {
     );
 
     expect(screen.getByText("Ads (2)")).toBeInTheDocument();
-    expect(screen.getByText(/18 days · active/)).toBeInTheDocument();
-    expect(screen.getByText(/31 days · stopped/)).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "View ad" })).toHaveAttribute("target", "_blank");
+    const rows = screen.getAllByRole("listitem").slice(0, 2);
+    // Longest-running first, with a day badge and a status chip.
+    expect(rows[0]).toHaveTextContent("Paw Store 2");
+    expect(within(rows[0]).getByText("31 days")).toBeInTheDocument();
+    expect(within(rows[0]).getByText("stopped")).toBeInTheDocument();
+    expect(within(rows[1]).getByText("18 days")).toBeInTheDocument();
+    expect(within(rows[1]).getByText("active")).toBeInTheDocument();
+    const link = screen.getByRole("link", { name: "View ad (opens in a new tab)" });
+    expect(link).toHaveAttribute("target", "_blank");
+    expect(link).toHaveAttribute("rel", "noopener noreferrer");
     expect(
       screen.getByRole("img", { name: "Search interest for cleaner cup" }),
     ).toBeInTheDocument();
@@ -167,6 +176,85 @@ describe("EvidenceList", () => {
     ).toBeInTheDocument();
   });
 
+  it("shows the 5 longest-running ads first and the rest behind a show-all disclosure", () => {
+    const ads = Array.from({ length: 7 }, (_, i) => ({
+      ...base,
+      id: `ad${i}`,
+      advertiserName: `Store ${i}`,
+      startedAt: new Date(NOW.getTime() - (i + 1) * 86_400_000),
+    }));
+    const { container } = render(<EvidenceList now={NOW} evidence={ads} />);
+    const section = container.querySelector("details")!;
+    expect(section).toHaveAttribute("open");
+    expect(within(section.querySelector("summary")!).getByRole("heading")).toHaveTextContent(
+      "Ads (7)",
+    );
+    const firstList = section.querySelector("ul")!;
+    expect(
+      within(firstList)
+        .getAllByRole("listitem")
+        .map((li) => li.textContent),
+    ).toEqual([
+      expect.stringContaining("Store 6"),
+      expect.stringContaining("Store 5"),
+      expect.stringContaining("Store 4"),
+      expect.stringContaining("Store 3"),
+      expect.stringContaining("Store 2"),
+    ]);
+    const more = screen.getByText("Show all 7 ads").closest("details")!;
+    expect(more).not.toHaveAttribute("open");
+    expect(within(more).getAllByRole("listitem")).toHaveLength(2);
+  });
+
+  it("opens ads and advertiser stores, folds the rest, and links only to web URLs", () => {
+    const { container } = render(
+      <EvidenceList
+        now={NOW}
+        evidence={[
+          {
+            ...base,
+            id: "a",
+            url: "javascript:alert(1)",
+            landingUrl: "https://www.shop.example/products/cup?x=1",
+          },
+          {
+            ...base,
+            id: "own",
+            source: "shopify",
+            provider: "shopify_catalog_lookup",
+            kind: "store_product",
+            title: "Cup",
+            countries: ["US"],
+            priceCents: 1999,
+            currency: "USD",
+          },
+          {
+            ...base,
+            id: "sim",
+            source: "shopify",
+            provider: "shopify_catalog",
+            kind: "store_product",
+            title: "Other cup",
+            countries: ["US"],
+            priceCents: 999,
+            currency: "USD",
+          },
+        ]}
+      />,
+    );
+    const sections = [...container.querySelectorAll(":scope > div > details")];
+    expect(
+      sections.map((d) => [d.querySelector("h3")!.textContent, d.hasAttribute("open")]),
+    ).toEqual([
+      ["Ads (1)", true],
+      ["Advertiser stores (1)", true],
+      ["Similar products in the Shopify catalog (1)", false],
+    ]);
+    // A stored javascript: URL never becomes a link; the landing store's domain is shown.
+    expect(screen.queryByRole("link", { name: /View ad/ })).toBeNull();
+    expect(screen.getByText(/shop\.example/)).toBeInTheDocument();
+  });
+
   it("says when there is no evidence", () => {
     render(<EvidenceList now={NOW} evidence={[]} />);
     expect(screen.getByText("No evidence collected yet.")).toBeInTheDocument();
@@ -211,10 +299,10 @@ describe("EvidenceList", () => {
       />,
     );
     expect(screen.getByRole("heading", { name: "廣告（1）" })).toBeInTheDocument();
-    expect(
-      screen.getByText("Meta Ad Library · US · 影片 · 2026-09-21 開始 · 18 天 · 投放中"),
-    ).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "查看廣告" })).toBeInTheDocument();
+    expect(screen.getByText("Meta Ad Library · US · 影片 · 2026-09-21 開始")).toBeInTheDocument();
+    expect(screen.getByText("18 天")).toBeInTheDocument();
+    expect(screen.getByText("投放中")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "查看廣告 （在新分頁開啟）" })).toBeInTheDocument();
     expect(
       screen.getByRole("heading", { name: "Shopify 商品目錄中的同類商品（1）" }),
     ).toBeInTheDocument();

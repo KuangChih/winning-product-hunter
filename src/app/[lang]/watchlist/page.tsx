@@ -3,19 +3,12 @@ import Link from "next/link";
 import { connection } from "next/server";
 import { Suspense } from "react";
 import { Notice } from "@/components/notice";
-import { ScoreBadge } from "@/components/score-badge";
 import { ListSkeleton } from "@/components/skeleton";
-import { WatchButton } from "@/components/watch-button";
-import { ScoreChange, WatchAlerts } from "@/components/watch-alerts";
-import {
-  ALERT_THRESHOLD,
-  getWatchlist,
-  scoreAlerts,
-  scoreChange,
-  type WatchedProduct,
-} from "@/data/watchlist";
+import { WatchAlerts } from "@/components/watch-alerts";
+import { WatchList } from "@/components/watch-list";
+import { ALERT_THRESHOLD, getWatchlist, scoreAlerts } from "@/data/watchlist";
 import { getDb, isDatabaseConfigured, isMissingTableError } from "@/db/client";
-import { type Dictionary, getDictionary } from "@/i18n/dictionaries";
+import { getDictionary } from "@/i18n/dictionaries";
 import { fill } from "@/i18n/format";
 import type { Locale } from "@/i18n/locales";
 import { getLocale } from "@/i18n/server";
@@ -25,64 +18,8 @@ export async function generateMetadata(): Promise<Metadata> {
   return { title: `${t.watchlist.title} · ${t.site.name}` };
 }
 
-function WatchTable({ items, dict }: { items: WatchedProduct[]; dict: Dictionary }) {
-  const t = dict.watchlist;
-  return (
-    <div className="overflow-x-auto rounded-lg border">
-      <table className="w-full min-w-[40rem] text-sm">
-        <thead className="text-muted-foreground border-b text-left text-xs uppercase">
-          <tr>
-            <th className="px-3 py-2 font-medium">{t.columns.product}</th>
-            <th className="px-3 py-2 text-right font-medium">{t.columns.score}</th>
-            <th className="px-3 py-2 text-right font-medium">{t.columns.lastUpdate}</th>
-            <th className="px-3 py-2 text-right font-medium">{t.columns.sinceAdded}</th>
-            <th className="px-3 py-2 font-medium">{t.columns.added}</th>
-            <th className="px-3 py-2">
-              <span className="sr-only">{t.columns.actions}</span>
-            </th>
-          </tr>
-        </thead>
-        <tbody>
-          {items.map((w) => (
-            <tr key={w.productId} className="border-t first:border-t-0">
-              <td className="px-3 py-2">
-                <Link
-                  href={`/products/${w.slug}`}
-                  className="font-medium underline-offset-4 hover:underline"
-                >
-                  {w.title}
-                </Link>
-              </td>
-              <td className="px-3 py-2 text-right">
-                {w.score === null ? (
-                  <span className="text-muted-foreground">{t.notScored}</span>
-                ) : (
-                  <ScoreBadge score={w.score} />
-                )}
-              </td>
-              <td className="px-3 py-2 text-right">
-                <ScoreChange value={scoreChange(w.score, w.previousScore)} />
-              </td>
-              <td className="px-3 py-2 text-right">
-                <ScoreChange value={scoreChange(w.score, w.scoreAtAdd)} />
-              </td>
-              <td className="text-muted-foreground px-3 py-2">
-                {w.addedAt.toISOString().slice(0, 10)}
-              </td>
-              <td className="px-3 py-2 text-right">
-                <WatchButton productId={w.productId} watched labels={dict.detail} />
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
-  );
-}
-
 async function Watchlist({ locale }: { locale: Locale }) {
-  const dict = getDictionary(locale);
-  const { watchlist: t, common } = dict;
+  const { watchlist: t, common } = getDictionary(locale);
   await connection();
   if (!isDatabaseConfigured()) {
     return (
@@ -122,7 +59,7 @@ async function Watchlist({ locale }: { locale: Locale }) {
   return (
     <div className="space-y-6">
       <WatchAlerts alerts={alerts} labels={t} />
-      <WatchTable items={items} dict={dict} />
+      <WatchList items={items} locale={locale} />
     </div>
   );
 }

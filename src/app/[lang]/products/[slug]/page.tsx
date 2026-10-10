@@ -7,17 +7,16 @@ import { EvidenceList } from "@/components/evidence-list";
 import { MarginEstimate } from "@/components/margin-estimate";
 import { ScoreBreakdown } from "@/components/score-breakdown";
 import { BlockSkeleton } from "@/components/skeleton";
-import { Sparkline } from "@/components/sparkline";
-import { WatchButton } from "@/components/watch-button";
+import { KeyFacts, ProductSummary } from "@/components/product-summary";
 import { getProductDetail, getProductTitle } from "@/data/product-detail";
 import { isWatched } from "@/data/watchlist";
 import { getDb, isDatabaseConfigured, isMissingTableError } from "@/db/client";
 import { getDictionary } from "@/i18n/dictionaries";
-import { fill } from "@/i18n/format";
 import type { Locale } from "@/i18n/locales";
 import { getLocale } from "@/i18n/server";
+import { adFacts } from "@/lib/ad-facts";
 import { estimateMargin } from "@/lib/margin";
-import { confidenceLabel } from "@/scoring/score";
+import { sortByMarketPriority } from "@/lib/markets";
 
 // The page body already streams per request, so this metadata streams with it.
 export async function generateMetadata({
@@ -62,43 +61,22 @@ async function ProductDetailView({
   if (!product) notFound();
   // Duplicates merged by dedupe keep working links: send them to the surviving product.
   if ("redirectTo" in product) redirect(`/products/${encodeURIComponent(product.redirectTo)}`);
+  const now = new Date();
+  const facts = adFacts(product.evidence, now);
+  const margin = estimateMargin(product.evidence, product.fxRates);
+  const markets = sortByMarketPriority(new Set(product.evidence.flatMap((e) => e.countries)));
   const watched = await isWatched(db, product.id);
 
-  const now = new Date();
   return (
     <>
-      <header className="space-y-3">
-        <div className="flex flex-wrap items-center gap-2">
-          <h1 className="text-3xl font-semibold tracking-tight">{product.title}</h1>
-          <div className="ml-auto">
-            <WatchButton productId={product.id} watched={watched} labels={t} />
-          </div>
-        </div>
-        {product.score ? (
-          <div className="flex flex-wrap items-end gap-6">
-            <div>
-              <div className="text-muted-foreground text-xs uppercase">{t.winningScore}</div>
-              <div className="text-5xl font-semibold tabular-nums">
-                {product.score.score.toFixed(0)}
-              </div>
-            </div>
-            <div className="text-sm">
-              <div>
-                {t.confidence}{" "}
-                <span className="font-medium">
-                  {dict.common.confidence[confidenceLabel(product.score.confidence)]}
-                </span>
-              </div>
-              <div className="text-muted-foreground">
-                {fill(t.updated, { date: product.score.computedAt.toISOString().slice(0, 10) })}
-              </div>
-            </div>
-            <Sparkline values={product.scoreHistory.map((s) => s.score)} label={t.scoreHistory} />
-          </div>
-        ) : (
-          <p className="text-muted-foreground text-sm">{t.notScored}</p>
-        )}
-      </header>
+      <ProductSummary product={product} facts={facts} watched={watched} locale={locale} />
+
+      <KeyFacts
+        facts={facts}
+        markets={markets}
+        retailUsdCents={margin.retailUsdCents}
+        locale={locale}
+      />
 
       {product.score && (
         <section className="space-y-3">
@@ -109,10 +87,7 @@ async function ProductDetailView({
 
       <section className="space-y-3">
         <h2 className="text-xl font-semibold">{t.marginHeading}</h2>
-        <MarginEstimate
-          estimate={estimateMargin(product.evidence, product.fxRates)}
-          t={dict.margin}
-        />
+        <MarginEstimate estimate={margin} t={dict.margin} />
       </section>
 
       <section className="space-y-3">
@@ -132,7 +107,10 @@ export default async function ProductPage({ params }: PageProps<"/[lang]/product
   const locale = await getLocale();
   const t = getDictionary(locale).detail;
   return (
-    <main id="main" className="mx-auto w-full max-w-5xl flex-1 space-y-10 px-4 py-10">
+    <main
+      id="main"
+      className="mx-auto w-full max-w-5xl flex-1 space-y-8 px-4 py-8 sm:space-y-10 sm:py-10"
+    >
       <Link
         href="/products"
         className="text-muted-foreground text-sm underline-offset-4 hover:underline"
