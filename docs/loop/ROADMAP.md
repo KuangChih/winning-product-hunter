@@ -30,7 +30,7 @@
 - [x] 追蹤廣告主：找到的電商店家，定期查它在 Ad Library 的其他廣告
 - [x] 資料品質 A：Meta 廣告只掛到它連到的產品（846 則中 173 則錯掛 → 0）；`npm run repair -- ad-attachments [--apply]`
 - [x] 資料品質 B（ADR-012）：售價只用廣告主自己的商品頁，搜尋結果改稱「同類商品」
-- [ ] **資料品質 C：廣告主商品頁紀錄被搜尋結果覆蓋**（M2 量測發現）：Shopify 搜尋（`shopify_catalog`）與廣告主商品頁查詢（`shopify_catalog_lookup`）的 `externalId` 都是 `${p.id}|${country}`、source 都是 `shopify`，搜尋結果碰到已查過的廣告主商品時會覆蓋那一筆，ADR-012 的售價就不見了。示範資料庫複本跑一次 pipeline：lookup 紀錄 77 → 73。修正後要量：同樣跑一次 lookup 紀錄數不減少、有廣告主售價的產品數前後對比，並提供 repair 把被覆蓋的重新查回
+- [x] **資料品質 C：廣告主商品頁紀錄被搜尋結果覆蓋**（M2 量測發現）：Shopify 搜尋（`shopify_catalog`）與廣告主商品頁查詢（`shopify_catalog_lookup`）的 `externalId` 都是 `${p.id}|${country}`、source 都是 `shopify`，搜尋結果碰到已查過的廣告主商品時會覆蓋那一筆，ADR-012 的售價就不見了。示範資料庫複本跑一次 pipeline：lookup 紀錄 77 → 73。修正後要量：同樣跑一次 lookup 紀錄數不減少、有廣告主售價的產品數前後對比，並提供 repair 把被覆蓋的重新查回（2026-10-11 完成：lookup 改用 `lookup|` 前綴的 externalId + migration 0010 改名既有紀錄；`npm run repair -- store-listings`）
 - [ ] 售價覆蓋率：目前只有 26 / 208 個產品有廣告主自己的售價；讓每日排程對所有「有商品頁網址、還沒查過」的產品執行廣告主商品頁查詢，並在資料來源頁顯示覆蓋率
 - [ ] 產品探索擴充：
   - [ ] 關鍵字自動延伸：從已探索到的產品標題 / 商品代號抽出候選關鍵字；依每個關鍵字「找到幾個有潛力的新產品」分配掃描次數，產出低的自動淘汰

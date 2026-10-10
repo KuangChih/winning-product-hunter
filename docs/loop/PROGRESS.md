@@ -132,3 +132,24 @@
   - start 只接受自訂關鍵字；廣告主數、collect 數用預設值。
   - 還沒有按鈕（M4）；部署前只能直接呼叫 API。
 - 下一步：M4 介面殼層、探索頁（開始探索按鈕、進度）、移除樣本資料。
+
+## 2026-10-11 — 資料品質 C：廣告主商品頁紀錄不再被搜尋結果覆蓋
+
+- 原因：Shopify 搜尋（`shopify_catalog`）與廣告主商品頁查詢（`shopify_catalog_lookup`）都用 `source=shopify`、`externalId=${商品 id}|${國家}`，`source_items` 的 (source, external_id) 唯一索引讓搜尋結果直接覆蓋 lookup 那一筆（provider、售價、`advertised` 標記都被換掉）。
+- 完成：
+  - lookup 的 externalId 改成 `lookup|${商品 id}|${國家}`（`LOOKUP_ID_PREFIX`），搜尋維持原樣。讀 lookup 紀錄的地方（`OWN_LISTING_PROVIDER` 的評分、毛利、詳情頁、合併照片、repair）都用 provider 判斷、沒有解析 externalId，不受影響。
+  - Migration `0010_lookup_external_ids`：既有 lookup 紀錄改名到新命名空間（新 id 已存在就不動、不刪任何資料），否則下次查回來會多一筆重複、舊的那筆仍會被搜尋覆蓋。
+  - `npm run repair -- store-listings [--apply]`（預設只預覽）：產品的廣告連到某個商品頁（同網域 + 同 handle），那個商品頁在資料庫裡只剩搜尋紀錄、產品自己沒有該頁的 lookup 紀錄 → 視為被覆蓋，`--apply` 只清掉該產品的 lookup 嘗試紀錄，讓下一次 pipeline 重查；不改、不刪任何證據。
+  - 測試：同一商品同一國家先 lookup 再搜尋，兩筆都在、lookup 售價與 `advertised` 保留；repair 預覽 / 套用（含部分遺失、跨網域同 handle、樣本產品、完好產品）。
+- 成效（示範資料庫的複本；`.data/dev` 本身沒有寫入）：
+  - 修正前：lookup 紀錄 77、有廣告主售價的產品 76（未合併的產品 213）。M2 量測時同樣跑一次 pipeline 是 77 → 73。
+  - migration 後 77 筆全部改成 `lookup|` 前綴。repair 預覽：11 個產品符合（11 個完全沒有自己的商品頁紀錄、0 個還有其他新鮮的 lookup）；這份資料庫沒有任何 lookup 嘗試紀錄（嘗試紀錄是 M1 才加的），所以 `--apply` 清掉 0 筆——這 11 個本來就排得到。
+  - `npm run pipeline -- --keywords=1 --advertisers=0 --collect=5`（5 個 Meta 請求、79 秒、沒被擋）：lookup 紀錄 77 → 77（不再減少）；這次搜尋有 6 筆的商品 id / 國家與既有 lookup 相同，修正前會覆蓋掉 6 筆，現在兩筆並存。有廣告主售價的產品 76 → 75：差的 1 個是 dedupe 把兩個 JOVS 面罩產品合併（兩邊各有一筆 lookup、合併後兩筆都在目標產品上），不是資料遺失。
+  - stores 步驟這次查 5 個產品、0 筆結果（都記成 empty）；跑完後 repair 預覽變成 13 個（新的搜尋結果多對到 2 個）。
+- 驗證：format ✅ lint ✅ typecheck ✅ test ✅（302）build ✅；e2e 未跑（沒動頁面、路由、proxy）。
+- 限制：
+  - repair 的規則也會抓到「搜尋碰巧找到廣告主商品、但從沒 lookup 過」的產品；對這些產品重查一樣是正確的下一步，但數字不全是被覆蓋的。
+  - 已經有其他新鮮 lookup 紀錄的產品（部分遺失）清掉嘗試紀錄也不會馬上重查，要等那筆超過 7 天；預覽會分開列出（`stillFresh`）。
+  - 被覆蓋前的歷史 snapshot 已經混進搜尋紀錄，無法拆回；只能靠重查補回目前售價。
+  - 售價覆蓋率仍低（lookup 對多數商品頁回空結果），屬於下一個 ROADMAP 項目。
+- 下一步：售價覆蓋率。

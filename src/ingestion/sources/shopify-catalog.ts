@@ -83,7 +83,19 @@ export function buildSearchRequest(opts: {
   };
 }
 
-function productToItem(p: CatalogProduct, country: string, extraRaw: object = {}): FetchedItem {
+/**
+ * External id prefix of the advertiser's own listings (lookups). Search results and lookups
+ * share `source: "shopify"` and the unique (source, external_id) index, so without it a search
+ * that returns an advertiser's product overwrote the lookup row and its ADR-012 price.
+ */
+export const LOOKUP_ID_PREFIX = "lookup|";
+
+function productToItem(
+  p: CatalogProduct,
+  country: string,
+  extraRaw: object = {},
+  idPrefix = "",
+): FetchedItem {
   const variants = p.variants ?? [];
   const sellers = new Set(variants.map((v) => v.seller?.domain).filter(Boolean));
   const firstSeller = variants.find((v) => v.seller)?.seller;
@@ -93,7 +105,7 @@ function productToItem(p: CatalogProduct, country: string, extraRaw: object = {}
     metrics.push({ metric: "rating_count", value: p.rating.count });
   }
   return {
-    externalId: `${p.id}|${country}`,
+    externalId: `${idPrefix}${p.id}|${country}`,
     kind: "store_product",
     title: p.title,
     url: p.url ?? variants[0]?.url,
@@ -210,7 +222,9 @@ export function parseCatalogLookup(res: CatalogSearchResponse, country: string):
   if (res.result?.isError) throw new ShopifyCatalogError("tool returned an error");
   const content = res.result?.structuredContent;
   if (!content) throw new ShopifyCatalogError("missing structuredContent");
-  return (content.products ?? []).map((p) => productToItem(p, country, { advertised: true }));
+  return (content.products ?? []).map((p) =>
+    productToItem(p, country, { advertised: true }, LOOKUP_ID_PREFIX),
+  );
 }
 
 export interface StoreLookupOptions {

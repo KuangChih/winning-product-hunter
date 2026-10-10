@@ -140,4 +140,44 @@ describe("Global Catalog lookup of advertisers' product pages (recorded real res
     expect(body.params.arguments.catalog.ids).toHaveLength(50);
     expect(body.params.arguments.catalog.context).toEqual({ address_country: "GB" });
   });
+
+  describe("stored next to search results", () => {
+    let t: Awaited<ReturnType<typeof createTestDb>>;
+    beforeEach(async () => {
+      t = await createTestDb();
+    });
+    afterEach(async () => {
+      await t.close();
+    });
+
+    it("a search returning the advertiser's product keeps the own-listing row and price", async () => {
+      const lookup = (await import("./__recordings__/shopify-catalog-lookup.json")).default;
+      const { createStoreLookupAdapter } = await import("./shopify-catalog");
+      // The search response returns the very same catalog products (same ids, same country).
+      const fetchImpl = vi.fn<typeof fetch>(async () => Response.json(lookup));
+      await runIngestion(t.db, createStoreLookupAdapter({ country: "US", retry: { fetchImpl } }), {
+        queries: ["https://s.com/products/a"],
+        limit: 100,
+      });
+      await runIngestion(
+        t.db,
+        createShopifyCatalogAdapter({ countries: ["US"], retry: { fetchImpl } }),
+        { queries: ["posture corrector"], limit: 100 },
+      );
+
+      const rows = await t.db.select().from(sourceItems);
+      const own = rows.filter((r) => r.provider === "shopify_catalog_lookup");
+      const search = rows.filter((r) => r.provider === "shopify_catalog");
+      expect(own).toHaveLength(2);
+      expect(search).toHaveLength(2);
+      expect(own.every((r) => r.externalId.startsWith("lookup|"))).toBe(true);
+      expect(own.find((r) => r.advertiserName === "Corecare")).toMatchObject({
+        priceCents: 6490,
+        raw: expect.objectContaining({ advertised: true }),
+      });
+      expect(search.map((r) => `lookup|${r.externalId}`).sort()).toEqual(
+        own.map((r) => r.externalId).sort(),
+      );
+    });
+  });
 });

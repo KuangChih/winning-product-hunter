@@ -15,6 +15,7 @@ import type { AnyDatabase } from "@/db/client";
 import { collectionAttempts, products, sourceItems, watchlist } from "@/db/schema";
 import { landingKey } from "@/discovery/landing";
 import { OWN_LISTING_PROVIDER } from "@/lib/retail-price";
+import { ATTEMPT_FRESH_DAYS } from "@/pipeline/targets";
 
 export interface AdAttachmentRepair {
   /** Ad Library ads attached to a product whose page they do not link to. */
@@ -123,6 +124,130 @@ export async function repairAdAttachments(
 
 /** Provider of Shopify search results (similar products from other stores). */
 const SHOPIFY_SEARCH_PROVIDER = "shopify_catalog";
+
+export interface StoreListingRepair {
+  /**
+   * Active, non-sample products whose advertiser listing was looked up (or whose ads link to a
+   * page) but is now stored only as a Shopify search row: their own listing was overwritten.
+   */
+  affected: number;
+  /** …of which have no own-listing row left at all (their advertiser price is gone). */
+  withoutOwnListing: number;
+  /**
+   * …of which still have a fresh own-listing row for another page: clearing attempts does not
+   * make them due, they are looked up again once that row is older than the freshness window.
+   */
+  stillFresh: number;
+  /** Lookup attempts cleared (apply only). */
+  attemptsCleared: number;
+}
+
+/**
+ * Finds products whose advertiser listing (ADR-012 price) was overwritten by a Shopify search
+ * result. Before lookups had their own external id namespace (`lookup|…`), a search returning
+ * the advertiser's product reused the lookup row's id and replaced it with a search row.
+ *
+ * Rule (conservative; it only re-enables a lookup, it never deletes or edits evidence): a
+ * product is affected when one of its ads links to a page (same store and product handle) that is stored
+ * as a Shopify search row (attached to any product) while the product has no own-listing row
+ * for that page. That is exactly what an overwrite leaves behind; a search that found the
+ * advertiser's page without an earlier lookup matches too, and a lookup for it is still the
+ * right next step. Applying clears the product's lookup attempts so the next pipeline run
+ * queries it again. Dry run unless `apply` is set.
+ */
+export async function repairStoreListings(
+  db: AnyDatabase,
+  { apply = false, now = new Date() }: { apply?: boolean; now?: Date } = {},
+): Promise<StoreListingRepair> {
+  const landingUrl = sql<string | null>`${sourceItems.raw}->>'landing_url'`;
+  const [ads, listings, active, samples] = await Promise.all([
+    db
+      .select({ productId: sourceItems.productId, url: landingUrl })
+      .from(sourceItems)
+      .where(
+        and(
+          eq(sourceItems.kind, "ad"),
+          isNotNull(sourceItems.productId),
+          sql`${landingUrl} is not null`,
+        ),
+      ),
+    db
+      .select({
+        productId: sourceItems.productId,
+        provider: sourceItems.provider,
+        url: sourceItems.url,
+        lastSeenAt: sourceItems.lastSeenAt,
+      })
+      .from(sourceItems)
+      .where(
+        and(
+          eq(sourceItems.kind, "store_product"),
+          inArray(sourceItems.provider, [SHOPIFY_SEARCH_PROVIDER, OWN_LISTING_PROVIDER]),
+        ),
+      ),
+    db.select({ id: products.id }).from(products).where(isNull(products.mergedInto)),
+    db
+      .selectDistinct({ productId: sourceItems.productId })
+      .from(sourceItems)
+      .where(and(eq(sourceItems.provider, "fixture"), isNotNull(sourceItems.productId))),
+  ]);
+  // Same store and same product page (a collection or locale prefix in the path still matches).
+  const pageOf = (url: string | null) => {
+    const k = landingKey(url);
+    return k ? `${k.host} ${k.key}` : undefined;
+  };
+  const activeIds = new Set(active.map((p) => p.id));
+  const sampleIds = new Set(samples.map((s) => s.productId));
+
+  const searchPages = new Set<string>();
+  const ownPages = new Map<string, Set<string>>();
+  const freshSince = now.getTime() - ATTEMPT_FRESH_DAYS * 86_400_000;
+  const fresh = new Set<string>();
+  const hasOwn = new Set<string>();
+  for (const l of listings) {
+    const page = pageOf(l.url);
+    if (l.provider === SHOPIFY_SEARCH_PROVIDER) {
+      if (page) searchPages.add(page);
+      continue;
+    }
+    if (!l.productId) continue;
+    hasOwn.add(l.productId);
+    if (page) ownPages.set(l.productId, (ownPages.get(l.productId) ?? new Set()).add(page));
+    if (l.lastSeenAt.getTime() >= freshSince) fresh.add(l.productId);
+  }
+
+  const affected = new Set<string>();
+  for (const ad of ads) {
+    const id = ad.productId!;
+    if (!activeIds.has(id) || sampleIds.has(id) || affected.has(id)) continue;
+    const page = pageOf(ad.url);
+    if (page && searchPages.has(page) && !ownPages.get(id)?.has(page)) affected.add(id);
+  }
+  const ids = [...affected];
+
+  let attemptsCleared = 0;
+  if (apply && ids.length > 0) {
+    for (let i = 0; i < ids.length; i += 500) {
+      attemptsCleared += (
+        await db
+          .delete(collectionAttempts)
+          .where(
+            and(
+              eq(collectionAttempts.provider, OWN_LISTING_PROVIDER),
+              inArray(collectionAttempts.productId, ids.slice(i, i + 500)),
+            ),
+          )
+          .returning({ id: collectionAttempts.productId })
+      ).length;
+    }
+  }
+  return {
+    affected: ids.length,
+    withoutOwnListing: ids.filter((id) => !hasOwn.has(id)).length,
+    stillFresh: ids.filter((id) => fresh.has(id)).length,
+    attemptsCleared,
+  };
+}
 
 export interface ProductImageRepair {
   /**

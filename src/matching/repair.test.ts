@@ -1,10 +1,10 @@
 // @vitest-environment node
 import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { products, sourceItems, watchlist } from "@/db/schema";
+import { collectionAttempts, products, sourceItems, watchlist } from "@/db/schema";
 import { createTestDb } from "@/db/testing/pglite";
 import { sameProductAdsOnly } from "@/jobs/collect";
-import { repairAdAttachments, repairProductImages } from "./repair";
+import { repairAdAttachments, repairProductImages, repairStoreListings } from "./repair";
 import { runMatching } from "./run";
 
 const NOW = new Date("2026-10-10T00:00:00Z");
@@ -190,5 +190,99 @@ describe("repairProductImages", () => {
     expect(after.get("matched")).toMatchObject({ imageUrl: photo("seed"), imageHash: "ab" });
     expect(after.get("sample")).toMatchObject({ imageUrl: photo("similar-3") });
     expect(await repairProductImages(t.db)).toMatchObject({ wrongImages: 0 });
+  });
+});
+
+describe("repairStoreListings", () => {
+  let t: Awaited<ReturnType<typeof createTestDb>>;
+  let n = 0;
+  beforeEach(async () => {
+    t = await createTestDb();
+  });
+  afterEach(async () => {
+    await t.close();
+  });
+
+  const OLD = new Date("2026-09-01T00:00:00Z");
+  async function product(slug: string) {
+    const [p] = await t.db
+      .insert(products)
+      .values({ slug, title: slug, landingKey: `handle:${slug}`, firstSeenAt: NOW })
+      .returning();
+    return p.id;
+  }
+  const item = (
+    productId: string | null,
+    provider: string,
+    kind: "ad" | "store_product",
+    page: string,
+    seenAt = NOW,
+  ) =>
+    t.db.insert(sourceItems).values({
+      source: kind === "ad" ? "meta_ads" : "shopify",
+      provider,
+      externalId: `i-${n++}`,
+      kind,
+      productId,
+      url: kind === "ad" ? null : page,
+      raw: kind === "ad" ? { landing_url: page } : {},
+      firstSeenAt: seenAt,
+      lastSeenAt: seenAt,
+    });
+  const attempt = (productId: string) =>
+    t.db.insert(collectionAttempts).values({
+      provider: "shopify_catalog_lookup",
+      productId,
+      attemptedAt: NOW,
+      outcome: "found",
+    });
+  const page = (store: string, handle: string, prefix = "") =>
+    `https://${store}.example${prefix}/products/${handle}`;
+
+  it("re-enables the lookup for products whose own listing became a search row", async () => {
+    // Own listing overwritten: the page survives only as a search row (attached elsewhere).
+    const lost = await product("lost");
+    const other = await product("other");
+    await item(lost, "ad_library_web", "ad", page("a", "lost", "/collections/x"));
+    await item(other, "shopify_catalog", "store_product", page("a", "lost") + "?variant=1");
+    await attempt(lost);
+    // One page lost, another still fresh: counted, but only due once that row ages out.
+    const partial = await product("partial");
+    await item(partial, "ad_library_web", "ad", page("b", "one"));
+    await item(partial, "ad_library_web", "ad", page("b", "two"));
+    await item(partial, "shopify_catalog", "store_product", page("b", "one"));
+    await item(partial, "shopify_catalog_lookup", "store_product", page("b", "two"));
+    await attempt(partial);
+    // Own listing intact next to a search row for the same page: fine.
+    const intact = await product("intact");
+    await item(intact, "ad_library_web", "ad", page("c", "intact"));
+    await item(intact, "shopify_catalog", "store_product", page("c", "intact"));
+    await item(intact, "shopify_catalog_lookup", "store_product", page("c", "intact"), OLD);
+    await attempt(intact);
+    // Same handle on a different store is a different page.
+    const elsewhere = await product("elsewhere");
+    await item(elsewhere, "ad_library_web", "ad", page("d", "elsewhere"));
+    await item(null, "shopify_catalog", "store_product", page("e", "elsewhere"));
+    // Sample products are left alone.
+    const sample = await product("sample");
+    await item(sample, "ad_library_web", "ad", page("f", "sample"));
+    await item(sample, "shopify_catalog", "store_product", page("f", "sample"));
+    await item(sample, "fixture", "store_product", page("f", "x"));
+    await attempt(sample);
+
+    expect(await repairStoreListings(t.db, { now: NOW })).toEqual({
+      affected: 2,
+      withoutOwnListing: 1,
+      stillFresh: 1,
+      attemptsCleared: 0,
+    });
+    expect(await t.db.select().from(collectionAttempts)).toHaveLength(4);
+
+    expect(await repairStoreListings(t.db, { apply: true, now: NOW })).toMatchObject({
+      attemptsCleared: 2,
+    });
+    const left = (await t.db.select().from(collectionAttempts)).map((a) => a.productId).sort();
+    expect(left).toEqual([intact, sample].sort());
+    expect(await t.db.select().from(sourceItems)).toHaveLength(14);
   });
 });
