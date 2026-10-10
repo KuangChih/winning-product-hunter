@@ -2,7 +2,7 @@ import type { Source } from "@/ingestion/types";
 import type { FxRates } from "@/lib/fx";
 import { MARKETS, marketWeight } from "@/lib/markets";
 import { marketRetailPrice } from "@/lib/retail-price";
-import { median, theilSenSlope } from "./stats";
+import { median, robustZ, theilSenSlope } from "./stats";
 
 const DAY = 86_400_000;
 
@@ -35,6 +35,13 @@ export interface ProductFeatures {
    * creative (advertisers duplicate creatives that work).
    */
   newAdActivity14d: number | null;
+  /**
+   * Robust z-score of today's number of observed ads against the previous days (needs at
+   * least `MOMENTUM_MIN_BASELINE_DAYS` days of history); null until then.
+   */
+  adMomentum: number | null;
+  /** Days of ad history behind `adMomentum`. */
+  adHistoryDays: number;
   /** 0–1: how many target markets have active ads, weighted by market tier. */
   marketReach: number | null;
   /** Distinct stores selling it (Shopify Global Catalog sellers). */
@@ -64,6 +71,10 @@ function latest(snapshots: ItemInput["snapshots"], metric: string): number | nul
   }
   return best?.value ?? null;
 }
+
+/** Momentum needs at least this many earlier days of ad observations as a baseline. */
+export const MOMENTUM_MIN_BASELINE_DAYS = 4;
+const MOMENTUM_MAX_BASELINE_DAYS = 14;
 
 /** Sum of tier weights of the five priority markets: full reach = active ads in all five. */
 const FULL_REACH = MARKETS.filter((m) => m.tier === 1).reduce(
@@ -116,6 +127,22 @@ export function extractFeatures(
     newAdActivity14d = newAds + newAdvertisers + 0.5 * duplicatedCreatives;
   }
 
+  // Momentum: ads seen per collection day (from their daily snapshots), latest day vs baseline.
+  const adsPerDay = new Map<string, Set<number>>();
+  ads.forEach((a, idx) => {
+    for (const s of a.snapshots) {
+      const day = s.observedAt.toISOString().slice(0, 10);
+      adsPerDay.set(day, (adsPerDay.get(day) ?? new Set()).add(idx));
+    }
+  });
+  const daily = [...adsPerDay.entries()]
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([, s]) => s.size);
+  const adMomentum =
+    daily.length > MOMENTUM_MIN_BASELINE_DAYS
+      ? robustZ(daily[daily.length - 1], daily.slice(-1 - MOMENTUM_MAX_BASELINE_DAYS, -1))
+      : null;
+
   let marketReach: number | null = null;
   if (ads.length > 0) {
     const countries = new Set(active.flatMap((a) => a.countries));
@@ -159,6 +186,8 @@ export function extractFeatures(
     activeAds: active.length,
     activeAdvertisers: new Set(active.map((a) => a.advertiserId).filter(Boolean)).size,
     newAdActivity14d,
+    adMomentum,
+    adHistoryDays: daily.length,
     marketReach,
     sellingStores,
     retailUsdCents: retail?.medianCents ?? null,

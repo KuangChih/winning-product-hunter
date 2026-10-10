@@ -29,6 +29,7 @@ Loop 遇到只有你能做的事（申請 API key、建立帳號、付費、法�
 
 1. [ ] **CJ Dropshipping**（免費）：建立帳號 → 安裝「API」app → Add API → `CJ_API_KEY`
    - 成果：每個產品的供應成本、各國運費與運送天數（算毛利），以及 Trending 標記與 90 天銷量（需求訊號）。
+   - **目前最卡關的就是這把金鑰**：真實產品已經有廣告主的實際售價（例：Instant Posture Corrector 64.90 USD），只差供貨成本就能算出毛利，毛利是評分 7 項之一。
 2. [x] ~~Shopify 開發者帳號 + agent profile~~：Global Catalog 實測不需要帳號或金鑰即可使用（2026-10-10），已串接。部署到 Vercel 後我會改用我們自己的 agent profile。
    - 成果：各國的零售價中位數（算毛利）、有幾家店在賣（飽和度）、店家網域。
 3. [ ] **Google Cloud 專案 + OAuth client**（免費）：後面三個 Google 服務共用
@@ -54,6 +55,11 @@ Loop 遇到只有你能做的事（申請 API key、建立帳號、付費、法�
 4. 完成後，Shopify 商品會自動同步到 Merchant Center。到 [merchants.google.com](https://merchants.google.com) 確認商品已核准。
 5. 在 Merchant Center 找 **Best sellers**（市場洞察）報表，確認你的帳號看得到。Google 沒有公開資格門檻；第三方資料說可能需要有在跑 Shopping 廣告，看不到的話請告訴我。
 6. 看得到之後再做 API 串接（我會帶你做）：在同一個 Google Cloud 專案啟用 **Merchant API**，用 Merchant Center 管理員帳號完成一次性的開發者註冊（`registerGcp`）。
+
+- [ ] **TikTok 資料要怎麼取得？**（見 `docs/research/tiktok-creative-center.md`）公開的 Creative Center 需要頁面簽章、且沒有商品網址，自建蒐集器價值低。選項：
+  - A. 只申請官方 TikTok Commercial Content API（免費，僅 UK + EU，需審核）——下方第 8 項
+  - B. 另外付費使用 Apify 的 TikTok actor 取得美國資料（約 $1.5–5 / 1,000 筆；可換到美國 TikTok 熱門廣告與 TikTok Shop 商品銷量，用來補「社群互動速度」這項目前完全沒資料的評分）
+  - 建議：先 A；等真實資料累積兩週、確認評分缺口後再評估 B
 
 ## 暫不需要（之後視成果再決定）
 

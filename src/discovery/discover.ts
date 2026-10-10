@@ -105,11 +105,16 @@ export async function runDiscovery(
   const keys = groups.map((g) => g.landing.key);
   const existing = keys.length
     ? await db
-        .select({ id: products.id, landingKey: products.landingKey })
+        .select({
+          id: products.id,
+          landingKey: products.landingKey,
+          mergedInto: products.mergedInto,
+        })
         .from(products)
         .where(inArray(products.landingKey, keys))
     : [];
-  const idByKey = new Map(existing.map((p) => [p.landingKey!, p.id]));
+  // A merged duplicate's landing key keeps pointing at the product it was merged into.
+  const idByKey = new Map(existing.map((p) => [p.landingKey!, p.mergedInto ?? p.id]));
 
   const usedSlugs = new Set(
     (await db.select({ slug: products.slug }).from(products)).map((p) => p.slug),

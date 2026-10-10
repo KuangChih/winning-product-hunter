@@ -1,7 +1,7 @@
-import type { ProductFeatures } from "./features";
+import { MOMENTUM_MIN_BASELINE_DAYS, type ProductFeatures } from "./features";
 import { clamp, percentileRanks } from "./stats";
 
-export const SCORING_VERSION = "v1";
+export const SCORING_VERSION = "v1.1";
 
 /** Weights and parameters from docs/research/scoring.md. Tunable after back-testing. */
 export const SCORING_CONFIG = {
@@ -9,7 +9,7 @@ export const SCORING_CONFIG = {
     longevity: 0.15,
     scaling: 0.15,
     marketReach: 0.1,
-    engagementVelocity: 0.15,
+    momentum: 0.15,
     demandTrend: 0.15,
     marketplace: 0.15,
     margin: 0.15,
@@ -102,6 +102,7 @@ function marginSubScore(f: ProductFeatures, weight: number): SubScore {
 export function scoreProducts(features: ProductFeatures[]): ProductScore[] {
   const w = SCORING_CONFIG.weights;
   const scaling = rankNullable(features.map((f) => f.newAdActivity14d));
+  const momentum = rankNullable(features.map((f) => f.adMomentum));
   const trend = rankNullable(features.map((f) => f.trendSlope));
   const market = rankNullable(
     features.map((f) => (f.marketplaceOrders === null ? null : Math.log1p(f.marketplaceOrders))),
@@ -131,11 +132,14 @@ export function scoreProducts(features: ProductFeatures[]): ProductScore[] {
         raw: f.marketReach,
         basis: "Share of the five priority markets (US, CA, UK, AU, NZ) with active ads.",
       },
-      engagementVelocity: {
-        value: null,
-        weight: w.engagementVelocity,
-        raw: null,
-        basis: "No social engagement data yet (TikTok source not connected).",
+      momentum: {
+        value: momentum[i],
+        weight: w.momentum,
+        raw: f.adMomentum === null ? null : Math.round(f.adMomentum * 100) / 100,
+        basis:
+          f.adMomentum === null
+            ? `Needs ${MOMENTUM_MIN_BASELINE_DAYS + 1}+ days of daily ad history (have ${f.adHistoryDays}).`
+            : "Today's observed ads vs the previous days (robust z-score), ranked.",
       },
       demandTrend: {
         value: trend[i],

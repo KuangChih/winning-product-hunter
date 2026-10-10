@@ -2,7 +2,8 @@ import type { FetchContext, SourceAdapter } from "./types";
 
 export interface ProductQuery {
   productId: string;
-  query: string;
+  /** One search query, or several (e.g. landing page URLs) for lookup-style adapters. */
+  query: string | string[];
 }
 
 /**
@@ -18,7 +19,8 @@ export function forProducts(adapter: SourceAdapter, products: ProductQuery[]): S
       let emitted = 0;
       for (const p of products) {
         if (ctx.signal?.aborted || emitted >= ctx.limit) return;
-        const sub = { ...ctx, queries: [p.query], limit: ctx.limit - emitted };
+        const queries = Array.isArray(p.query) ? p.query : [p.query];
+        const sub = { ...ctx, queries, limit: ctx.limit - emitted };
         for await (const item of adapter.fetch(sub)) {
           emitted++;
           yield { ...item, productId: p.productId };

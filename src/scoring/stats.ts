@@ -36,3 +36,20 @@ export function percentileRanks(values: number[]): number[] {
 }
 
 export const clamp = (x: number, lo = 0, hi = 1) => Math.min(hi, Math.max(lo, x));
+
+/** Median absolute deviation scaled to match the standard deviation of normal data. */
+export function mad(values: number[]): number {
+  const m = median(values);
+  return 1.4826 * median(values.map((v) => Math.abs(v - m)));
+}
+
+/**
+ * Robust z-score of `latest` against a baseline (median / MAD), so a single past spike does not
+ * hide a new one. When the baseline is flat (MAD = 0) a scale of 10% of the median (at least 1)
+ * is used instead, so a jump from a flat line still registers.
+ */
+export function robustZ(latest: number, baseline: number[]): number {
+  const m = median(baseline);
+  const scale = mad(baseline) || Math.max(1, 0.1 * Math.abs(m));
+  return (latest - m) / scale;
+}

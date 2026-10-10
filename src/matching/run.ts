@@ -13,7 +13,8 @@ export interface MatchResult {
 export async function runMatching(db: AnyDatabase): Promise<MatchResult> {
   const existing = await db
     .select({ id: products.id, slug: products.slug, title: products.title })
-    .from(products);
+    .from(products)
+    .where(isNull(products.mergedInto));
   const items = await db
     .select({
       id: sourceItems.id,

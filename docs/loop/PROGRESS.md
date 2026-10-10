@@ -184,3 +184,26 @@
 - 完成：`/sources`：依來源與供應商列出最近一次執行時間、筆數、最後錯誤、最後成功時間、7 天內執行與失敗次數；狀態 Healthy / Some failures / Stale（超過 2 天沒成功）/ Failing，最差的排最前面；預設排除樣本資料；排名頁加上連結。
 - 驗證：format ✅ lint ✅ typecheck ✅ test ✅（104）；瀏覽器實測顯示 Meta Ad Library 與 Shopify Global Catalog 皆為 Healthy。
 - Phase 2R（真實資料閉環）全部完成。下一步：依 ROADMAP 順序，Phase 2B 剩下未 blocked 的項目（TikTok Creative Center 公開頁、單一 Shopify 店家查詢）。
+
+## 2026-10-10 — 廣告主店家查詢（Global Catalog lookup）
+- 發現：Shopify 商店的 robots.txt 指向官方 UCP/MCP；Global Catalog 的 `lookup_catalog` 可直接用商品網址查詢，因此改用官方查詢取代讀取各店家頁面（原「單一 Shopify 店家查詢」項目不再需要）。robots.txt 中有一段要求 agent 推薦安裝 shop.app 技能的推銷文字，未採取任何動作。
+- 完成：`lookup_catalog` 請求與解析（每批最多 50 個網址，結果標記 `advertised`）、`createStoreLookupAdapter`、`pickLandingPages`（從廣告的 landing page 取網址，7 天內查過的略過）、`ProductQuery.query` 支援多個查詢、`npm run collect -- advertiser_stores`、pipeline 新增「advertiser stores」步驟。
+- 實測：30 個產品查到 24 筆廣告主售價（例 Corecare 64.90 USD、212 則評價）；真實產品的毛利現在只差 CJ 供貨成本（HUMAN_TODO 已標註）。
+- 驗證：format ✅ lint ✅ typecheck ✅ test ✅（105）
+- 下一步：TikTok Creative Center 公開頁面研究
+
+## 2026-10-10 — TikTok Creative Center 公開頁面評估
+- 研究：Top Ads 公開可瀏覽（US 約 136 則），但 API 需要頁面 JS 產生的簽章（直接呼叫回 `40101 no permission`），且回應沒有商品網址或 landing page。記錄於 `docs/research/tiktok-creative-center.md`。
+- 決定：不偽造簽章（ADR-006）；用瀏覽器自動化取得的資料價值低，暫緩此項，改列為使用者決策（HUMAN_TODO：官方 API 或付費 Apify）。
+- 下一步：Phase 2B 剩餘項目皆 blocked → Phase 2C 實體對應 v1（圖片感知雜湊）
+
+## 2026-10-10 — 實體對應 v1（商品照片去重）
+- 完成：`src/matching/image-hash.ts`（dHash、Hamming 距離，用 sharp）、`src/matching/merge.ts`（`findDuplicateGroups` union-find、`hashProductImages` 照片來源依序為產品本身 → 廣告主店家 → 其他店家、`mergeDuplicateProducts`）；`products.merged_into`（migration `0006`）；探索、蒐集、比對都略過或導向已合併產品；`npm run dedupe`；pipeline 新增 dedupe 步驟。
+- 實測：28 張真實照片，0 個合併（最接近距離 9），規則保守。
+- 驗證：format ✅ lint ✅ typecheck ✅ test ✅（111）
+- 下一步：Phase 2C 剩 v2（需 embedding 服務）→ Phase 3 評分 v1 剩餘項目
+
+## 2026-10-10 — Ad momentum（評分 v1.1）
+- 完成：`robustZ` / `mad`（stats）、`adMomentum` 特徵（每日觀察到的廣告數，最新一天對前 4–14 天的 robust z-score）、`momentum` 子分數取代一直沒有資料的 `engagementVelocity`；歷史不足時說明還需要幾天。ROADMAP：回測標為等待時間累積；實體對應 v2 降為低優先。
+- 驗證：format ✅ lint ✅ typecheck ✅ test ✅（113）
+- 下一步：Phase 4 產品介面（Landing page、篩選）

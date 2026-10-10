@@ -1,0 +1,173 @@
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "result": {
+    "structuredContent": {
+      "ucp": {
+        "version": "2026-08-25",
+        "status": "success"
+      },
+      "products": [
+        {
+          "id": "gid://shopify/p/1ZymMDjKtha2y1vEkvFFJl",
+          "title": "Instant Posture Corrector",
+          "media": [
+            {
+              "type": "image",
+              "url": "https://cdn.shopify.com/s/files/1/0912/1542/9957/files/INSTANT_POSTURE_CORRECTOR_1.png",
+              "alt_text": "Instant Posture Corrector"
+            }
+          ],
+          "rating": {
+            "value": 4.8,
+            "scale_min": 1,
+            "scale_max": 5,
+            "count": 212
+          },
+          "variants": [
+            {
+              "id": "gid://shopify/ProductVariant/54208664994117",
+              "title": "Instant Posture Corrector",
+              "url": "https://corecareshop.com/products/instant-posture-corrector?variant=54208664994117&_gsid=nKu3CsUFcrHz&utm_source=shopify&utm_medium=catalog",
+              "price": {
+                "amount": 6490,
+                "currency": "USD"
+              },
+              "list_price": {
+                "amount": 9750,
+                "currency": "USD"
+              },
+              "availability": {
+                "available": true
+              },
+              "options": [
+                {
+                  "name": "Color",
+                  "label": "Black"
+                },
+                {
+                  "name": "Size",
+                  "label": "xs"
+                }
+              ],
+              "seller": {
+                "id": "gid://shopify/Shop/91215429957",
+                "name": "Corecare",
+                "url": "https://corecareshop.com",
+                "domain": "8dsi1q-2q.myshopify.com"
+              },
+              "rating": {
+                "value": 3.5,
+                "scale_min": 1,
+                "scale_max": 5,
+                "count": 2121
+              },
+              "condition": [
+                "new"
+              ],
+              "eligible": {
+                "native_checkout": false
+              },
+              "inputs": [
+                {
+                  "id": "https://corecareshop.com/products/instant-posture-corrector",
+                  "match": "featured"
+                }
+              ]
+            }
+          ],
+          "price_range": {
+            "min": {
+              "amount": 6490,
+              "currency": "USD"
+            },
+            "max": {
+              "amount": 6490,
+              "currency": "USD"
+            }
+          }
+        },
+        {
+          "id": "gid://shopify/p/78pGQMq1wiRZOBq0TgRRQF",
+          "title": "Smart-Webbing Brace",
+          "media": [
+            {
+              "type": "image",
+              "url": "https://cdn.shopify.com/s/files/1/0779/8053/3076/files/18_3ec6a931-269a-4f9c-ae41-19d249678bca.png",
+              "alt_text": "Smart-Webbing Brace"
+            }
+          ],
+          "rating": {
+            "value": 4.5,
+            "scale_min": 1,
+            "scale_max": 5,
+            "count": 691
+          },
+          "variants": [
+            {
+              "id": "gid://shopify/ProductVariant/47095072162132",
+              "title": "Smart-Webbing Brace",
+              "url": "https://axzenia.com/products/instant-posture-corrector?variant=47095072162132&_gsid=nKu3CsUFcrHz&utm_source=shopify&utm_medium=catalog",
+              "price": {
+                "amount": 7499,
+                "currency": "USD"
+              },
+              "list_price": {
+                "amount": 12500,
+                "currency": "USD"
+              },
+              "availability": {
+                "available": true
+              },
+              "options": [
+                {
+                  "name": "Color",
+                  "label": "Black"
+                },
+                {
+                  "name": "Size",
+                  "label": "S"
+                }
+              ],
+              "seller": {
+                "id": "gid://shopify/Shop/77980533076",
+                "name": "Axzenia",
+                "url": "https://axzenia.com",
+                "domain": "8ef7e0-2.myshopify.com"
+              },
+              "rating": {
+                "value": 3.9,
+                "scale_min": 1,
+                "scale_max": 5,
+                "count": 260
+              },
+              "condition": [
+                "new"
+              ],
+              "eligible": {
+                "native_checkout": false
+              },
+              "inputs": [
+                {
+                  "id": "https://axzenia.com/products/instant-posture-corrector",
+                  "match": "featured"
+                }
+              ]
+            }
+          ],
+          "price_range": {
+            "min": {
+              "amount": 7499,
+              "currency": "USD"
+            },
+            "max": {
+              "amount": 7499,
+              "currency": "USD"
+            }
+          }
+        }
+      ],
+      "messages": []
+    }
+  }
+}

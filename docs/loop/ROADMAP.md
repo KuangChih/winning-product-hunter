@@ -44,17 +44,18 @@
   - [x] 零售價跨幣別：ECB 每日匯率（`npm run fx`、`fx_rates` 表）+ `marketRetailPrice`（換算成各市場當地幣別後取中位數）
 - [ ] [blocked: human — 需要 `CJ_API_KEY`] CJ Dropshipping API v2 adapter：Trending 商品、90 天銷量（soldOut / orderCount）、各國運費與運送時間、各倉庫存 → 供應成本與需求訊號
 - [x] Meta Ad Library 公開網站蒐集器（ADR-006）：一般 HTTP GET 解析內嵌 JSON（不需瀏覽器），每頁曝光最高的廣告、開始日、是否刊登中、同創意廣告數、landing page、各國刊登中廣告數；5 秒間隔、每次最多 50 頁、被擋即停止；`npm run collect -- meta_ad_library`（見 `docs/research/meta-ad-library-web.md`）
-  - [ ] 用廣告的 landing page 網域找出 Shopify 店家（接到「單一 Shopify 店家查詢」項目）
+  - [x] 用廣告的 landing page 找出廣告主店家：Shopify Global Catalog `lookup_catalog` 直接接受商品網址（官方、不需爬店家頁面），取得廣告主自己的售價、評分與評論數；`npm run collect -- advertiser_stores`，並加入 pipeline
 - [ ] [blocked: human — 需要 `META_ACCESS_TOKEN`] Meta Ad Library API adapter（UK + EU，官方 API）：廣告持續天數、創意變體、廣告主、landing page 網域
 - [ ] [blocked: human — 需要 Pinterest 開發者 app] Pinterest Trends API adapter（US、CA、GB、AU+NZ）：搜尋趨勢與成長
 - [ ] [blocked: human — 需要 Merchant Center] Google Merchant API Best sellers adapter：每週/每月熱銷排名、relative_demand 與變化（11 國）；需 Merchant Center 達到資格門檻
 - [ ] [blocked: human — 需要 developer token] Google Ads API Keyword Planner adapter：關鍵字月搜尋量與趨勢（需 developer token Basic access）
-- [ ] TikTok Creative Center 公開頁面蒐集器（Top Ads 等不需登入的部分，依國家篩選，ADR-006）
+- [ ] [blocked: 決策] TikTok Creative Center 公開頁面蒐集器：API 需頁面簽章（不偽造），公開資料又缺少商品識別，暫緩；見 `docs/research/tiktok-creative-center.md` 與 HUMAN_TODO 的選項
 - [ ] [blocked: human — 需要 TikTok API 核准] TikTok Commercial Content API adapter（UK + EU）：廣告與觸及
-- [ ] 單一 Shopify 店家查詢（合規版）：robots.txt → `/meta.json`（國家、可出貨國家）→ 商品 `.js`；每店每天最多一次、遇 403/429/430 退避、不用 proxy；不追蹤庫存、訂單編號、best-selling 排序與 cart
+- [x] ~~單一 Shopify 店家查詢（合規版）~~：改用官方 Global Catalog lookup（上一項），不再讀取各店家的 `.js`/`.json`。店家所在國家（`/meta.json`）之後有需要再評估。原規劃：robots.txt → `/meta.json`（國家、可出貨國家）→ 商品 `.js`；每店每天最多一次、遇 403/429/430 退避、不用 proxy；不追蹤庫存、訂單編號、best-selling 排序與 cart
 
 ## Phase 2C — 資料品質
-- [ ] 實體對應 v1：加入圖片感知雜湊 + 向量相似度與標註測試集；embedding 欄位需 pgvector migration（PGlite 0.5 未內建 vector，測試需另找方式或以 Neon 分支測）
+- [x] 實體對應 v1：商品照片 dHash（`sharp`）+ 標題重疊判斷重複產品；合併時搬移證據、刪除重複產品的分數並標記 `merged_into`（之後探索到同代號會導向存活產品）；`npm run dedupe`，並加入 pipeline
+- [ ] [低優先，移到 Phase 4 之後] 實體對應 v2：向量相似度（CLIP 類 embedding，可用 transformers.js 在 GitHub Actions 本地計算，不需付費服務）+ 人工標註配對集校正門檻；v1 實測目前沒有重複，價值待資料量增加後再評估
 - [ ] 評分 v2：margin 扣除 CJ 運費（到岸毛利）、demandTrend 改用 Pinterest / Google Best sellers（皆需金鑰）
 
 ## Phase 2（已完成部分，保留紀錄）
@@ -62,8 +63,8 @@
 - [x] 第一批 fixture 資料集（Meta EU 廣告、Google Trends、AliExpress）+ 解析器 + CLI job `npm run ingest -- <source|all> --fixture`（AliExpress 將於 Phase 2B 移除）
 
 ## Phase 3 — 評分引擎
-- [ ] 評分 v1：engagementVelocity（robust z-score）、飽和度細化
-- [ ] 回測：用歷史資料驗證分數是否能提前抓到後來真的爆的產品，結果寫進 `docs/research/scoring.md`
+- [x] Ad momentum（v1.1）：每日觀察到的廣告數，以 median/MAD robust z-score 比較最新一天與過去 4–14 天；歷史不足時不計分（取代原本沒有資料的 engagementVelocity；TikTok 互動數據接上後另加一項）
+- [ ] [blocked: 時間 — 需每日 pipeline 累積 4–8 週真實歷史] 回測：用歷史資料驗證分數是否能提前抓到後來真的爆的產品，結果寫進 `docs/research/scoring.md`
 
 ## Phase 4 — 產品介面
 - [ ] Landing page

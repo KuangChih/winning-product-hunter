@@ -9,7 +9,10 @@ import { getDb } from "@/db/client";
 import { keywordsForDay } from "@/discovery/keywords";
 import { createRateLimiter, fetchWithRetry } from "@/ingestion/http";
 import { createAdLibraryWebAdapter } from "@/ingestion/sources/meta-ad-library-web";
-import { createShopifyCatalogAdapter } from "@/ingestion/sources/shopify-catalog";
+import {
+  createShopifyCatalogAdapter,
+  createStoreLookupAdapter,
+} from "@/ingestion/sources/shopify-catalog";
 import { ECB_DAILY_URL, parseEcbDaily } from "@/lib/fx";
 import { MARKETS } from "@/lib/markets";
 import { runPipeline } from "@/pipeline/run-pipeline";
@@ -41,6 +44,11 @@ async function main() {
       wait: createRateLimiter(1500),
     }),
     collectProducts: numberFlag(argv, "collect", 20),
+    advertiserLookupAdapter: createStoreLookupAdapter({
+      country: "US",
+      profile: process.env.SHOPIFY_UCP_AGENT_PROFILE || undefined,
+      wait: createRateLimiter(1500),
+    }),
   });
 
   for (const r of results) console.log(`${r.ok ? "ok  " : "FAIL"} ${r.step}: ${r.detail}`);

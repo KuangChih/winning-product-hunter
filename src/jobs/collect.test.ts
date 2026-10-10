@@ -22,7 +22,9 @@ describe("parseCollectArgs", () => {
       parseCollectArgs(["shopify_catalog", "--products=3", "--countries=us,de", "--dry-run"]),
     ).toMatchObject({ products: 3, countries: ["US", "DE"], dryRun: true });
     expect(parseCollectArgs(["meta_ad_library"]).source).toBe("meta_ad_library");
-    expect(() => parseCollectArgs(["meta_ads"])).toThrow(/shopify_catalog, meta_ad_library/);
+    expect(() => parseCollectArgs(["meta_ads"])).toThrow(
+      /shopify_catalog, meta_ad_library, advertiser_stores/,
+    );
   });
 });
 

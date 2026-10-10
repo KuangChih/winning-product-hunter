@@ -4,7 +4,7 @@ const SUB_SCORE_LABELS: Record<SubScoreName, string> = {
   longevity: "Ad longevity",
   scaling: "Scaling activity",
   marketReach: "Market reach",
-  engagementVelocity: "Engagement velocity",
+  momentum: "Ad momentum",
   demandTrend: "Search demand trend",
   marketplace: "Marketplace orders",
   margin: "Profit margin",

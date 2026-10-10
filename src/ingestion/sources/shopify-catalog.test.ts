@@ -113,3 +113,31 @@ describe("Shopify Catalog adapter", () => {
     });
   });
 });
+
+describe("Global Catalog lookup of advertisers' product pages (recorded real response)", () => {
+  it("resolves landing URLs to the advertiser's own price, rating and reviews", async () => {
+    const lookup = (await import("./__recordings__/shopify-catalog-lookup.json")).default;
+    const { parseCatalogLookup, buildLookupRequest } = await import("./shopify-catalog");
+    const items = parseCatalogLookup(lookup as unknown as CatalogSearchResponse, "US");
+
+    expect(items).toHaveLength(2);
+    const core = items.find((i) => i.advertiserName === "Corecare")!;
+    expect(core).toMatchObject({
+      kind: "store_product",
+      priceCents: 6490,
+      currency: "USD",
+      countries: ["US"],
+      raw: expect.objectContaining({ advertised: true }),
+    });
+    expect(core.metrics).toContainEqual({ metric: "rating_count", value: 212 });
+
+    const body = buildLookupRequest({
+      urls: Array.from({ length: 60 }, (_, i) => `https://s.com/products/p${i}`),
+      country: "GB",
+      profile: "https://p",
+    });
+    expect(body.params.name).toBe("lookup_catalog");
+    expect(body.params.arguments.catalog.ids).toHaveLength(50);
+    expect(body.params.arguments.catalog.context).toEqual({ address_country: "GB" });
+  });
+});

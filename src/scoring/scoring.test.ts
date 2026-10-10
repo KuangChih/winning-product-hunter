@@ -10,12 +10,18 @@ import { extractFeatures, type ItemInput } from "./features";
 import { runScoring } from "./run";
 import { scoreProducts } from "./score";
 import type { ProductFeatures } from "./features";
-import { percentileRanks, theilSenSlope } from "./stats";
+import { percentileRanks, robustZ, theilSenSlope } from "./stats";
 
 const NOW = new Date("2026-10-09T00:00:00Z");
 const daysAgo = (d: number) => new Date(NOW.getTime() - d * 86_400_000);
 
 describe("stats", () => {
+  it("robustZ ignores a past spike and handles a flat baseline", () => {
+    // Median 3, MAD 1 × 1.4826; the 50 spike barely moves the baseline.
+    expect(robustZ(10, [1, 2, 3, 4, 50])).toBeCloseTo((10 - 3) / 1.4826, 5);
+    expect(robustZ(5, [2, 2, 2, 2])).toBe(3);
+  });
+
   it("theilSenSlope ignores a single outlier", () => {
     const pts = [0, 1, 2, 3, 4, 5].map((x) => ({ x, y: 2 * x }));
     pts[3].y = 100;
@@ -89,6 +95,26 @@ describe("extractFeatures", () => {
     expect(f.marketReach).toBeCloseTo(0.4);
   });
 
+  it("measures ad momentum from daily ad observations once there is enough history", () => {
+    const seenOn = (days: number[]) =>
+      days.map((d) => ({ metric: "creative_variants", value: 1, observedAt: daysAgo(d) }));
+    // Two ads seen on each of the last 6 days; three more ads appear only today.
+    const steady = [
+      ad(60, { snapshots: seenOn([5, 4, 3, 2, 1, 0]) }),
+      ad(60, { snapshots: seenOn([5, 4, 3, 2, 1, 0]) }),
+    ];
+    const newToday = [0, 0, 0].map(() => ad(1, { snapshots: seenOn([0]) }));
+
+    const f = extractFeatures([...steady, ...newToday], NOW, NOW);
+    expect(f.adHistoryDays).toBe(6);
+    // Baseline 2/day (flat → scale max(1, 0.2) = 1), today 5 → z = 3.
+    expect(f.adMomentum).toBe(3);
+
+    const short = extractFeatures([ad(60, { snapshots: seenOn([2, 1, 0]) })], NOW, NOW);
+    expect(short.adMomentum).toBeNull();
+    expect(short.adHistoryDays).toBe(3);
+  });
+
   it("derives selling stores and a USD retail median from store products", () => {
     const store = (seller: string, cents: number, currency: string): ItemInput => ({
       source: "shopify",
@@ -125,6 +151,8 @@ describe("scoreProducts", () => {
     trendSlope: 0,
     marketplaceOrders: 100,
     supplierPriceCents: 500,
+    adMomentum: null,
+    adHistoryDays: 0,
     marketReach: 0.4,
     sellingStores: null,
     retailUsdCents: null,

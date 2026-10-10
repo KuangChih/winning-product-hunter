@@ -83,6 +83,31 @@ export function buildSearchRequest(opts: {
   };
 }
 
+function productToItem(p: CatalogProduct, country: string, extraRaw: object = {}): FetchedItem {
+  const variants = p.variants ?? [];
+  const sellers = new Set(variants.map((v) => v.seller?.domain).filter(Boolean));
+  const firstSeller = variants.find((v) => v.seller)?.seller;
+  const metrics: FetchedItem["metrics"] = [{ metric: "selling_stores", value: sellers.size }];
+  if (p.rating) {
+    metrics.push({ metric: "rating", value: p.rating.value });
+    metrics.push({ metric: "rating_count", value: p.rating.count });
+  }
+  return {
+    externalId: `${p.id}|${country}`,
+    kind: "store_product",
+    title: p.title,
+    url: p.url ?? variants[0]?.url,
+    imageUrl: p.media?.find((m) => m.type === "image")?.url,
+    countries: [country],
+    advertiserId: firstSeller?.domain,
+    advertiserName: firstSeller?.name,
+    priceCents: p.price_range?.min.amount,
+    currency: p.price_range?.min.currency,
+    metrics,
+    raw: { ...p, ...extraRaw },
+  };
+}
+
 /**
  * Parses one search page for one ship-to country. Each product becomes a `store_product` item
  * (per country, so prices in local currency stay separate), plus one keyword-level item whose
@@ -98,30 +123,7 @@ export function parseCatalogSearch(
   const content = res.result?.structuredContent;
   if (!content) throw new ShopifyCatalogError("missing structuredContent");
 
-  const items: FetchedItem[] = (content.products ?? []).map((p) => {
-    const variants = p.variants ?? [];
-    const sellers = new Set(variants.map((v) => v.seller?.domain).filter(Boolean));
-    const firstSeller = variants.find((v) => v.seller)?.seller;
-    const metrics: FetchedItem["metrics"] = [{ metric: "selling_stores", value: sellers.size }];
-    if (p.rating) {
-      metrics.push({ metric: "rating", value: p.rating.value });
-      metrics.push({ metric: "rating_count", value: p.rating.count });
-    }
-    return {
-      externalId: `${p.id}|${country}`,
-      kind: "store_product" as const,
-      title: p.title,
-      url: p.url ?? variants[0]?.url,
-      imageUrl: p.media?.find((m) => m.type === "image")?.url,
-      countries: [country],
-      advertiserId: firstSeller?.domain,
-      advertiserName: firstSeller?.name,
-      priceCents: p.price_range?.min.amount,
-      currency: p.price_range?.min.currency,
-      metrics,
-      raw: p,
-    };
-  });
+  const items: FetchedItem[] = (content.products ?? []).map((p) => productToItem(p, country));
 
   const total = content.pagination?.total_count;
   if (typeof total === "number") {
@@ -177,6 +179,79 @@ export function createShopifyCatalogAdapter(opts: ShopifyCatalogOptions): Source
             emitted++;
             yield item;
           }
+        }
+      }
+    },
+  };
+}
+
+/**
+ * `lookup_catalog` resolves up to 50 Shopify product URLs (e.g. ad landing pages) to their
+ * current catalog data: the advertiser's own retail price, rating and review count.
+ */
+export function buildLookupRequest(opts: { urls: string[]; country: string; profile: string }) {
+  return {
+    jsonrpc: "2.0" as const,
+    id: 1,
+    method: "tools/call",
+    params: {
+      name: "lookup_catalog",
+      arguments: {
+        meta: { "ucp-agent": { profile: opts.profile } },
+        catalog: { ids: opts.urls.slice(0, 50), context: { address_country: opts.country } },
+      },
+    },
+  };
+}
+
+/** Lookup results become `store_product` items flagged as the advertiser's own listing. */
+export function parseCatalogLookup(res: CatalogSearchResponse, country: string): FetchedItem[] {
+  if (res.error) throw new ShopifyCatalogError(res.error.message);
+  if (res.result?.isError) throw new ShopifyCatalogError("tool returned an error");
+  const content = res.result?.structuredContent;
+  if (!content) throw new ShopifyCatalogError("missing structuredContent");
+  return (content.products ?? []).map((p) => productToItem(p, country, { advertised: true }));
+}
+
+export interface StoreLookupOptions {
+  /** Buyer context for prices and availability. */
+  country: string;
+  profile?: string;
+  wait?: () => Promise<void>;
+  retry?: RetryOptions;
+}
+
+/** Each fetch query is a product URL; URLs are batched into lookups of up to 50. */
+export function createStoreLookupAdapter(opts: StoreLookupOptions): SourceAdapter {
+  const profile = opts.profile ?? DEFAULT_AGENT_PROFILE;
+  return {
+    source: "shopify",
+    provider: "shopify_catalog_lookup",
+    async *fetch(ctx: FetchContext) {
+      let emitted = 0;
+      for (let i = 0; i < ctx.queries.length; i += 50) {
+        if (ctx.signal?.aborted || emitted >= ctx.limit) return;
+        await opts.wait?.();
+        const res = await fetchWithRetry(
+          SHOPIFY_CATALOG_ENDPOINT,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json", Accept: "application/json" },
+            body: JSON.stringify(
+              buildLookupRequest({
+                urls: ctx.queries.slice(i, i + 50),
+                country: opts.country,
+                profile,
+              }),
+            ),
+            signal: ctx.signal,
+          },
+          opts.retry,
+        );
+        for (const item of parseCatalogLookup(await res.json(), opts.country)) {
+          if (emitted >= ctx.limit) return;
+          emitted++;
+          yield item;
         }
       }
     },

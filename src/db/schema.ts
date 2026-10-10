@@ -64,6 +64,12 @@ export const products = pgTable(
     landingKey: text("landing_key"),
     /** A representative product page URL. */
     canonicalUrl: text("canonical_url"),
+    /**
+     * Set when this product was found to be a duplicate of another (e.g. same photo under a
+     * different handle). Its evidence moves to that product; the row stays so its landing key
+     * keeps resolving to the surviving product.
+     */
+    mergedInto: uuid("merged_into"),
     /** Perceptual hash of the primary image, hex encoded (entity resolution stage 1). */
     imageHash: text("image_hash"),
     firstSeenAt: timestamp("first_seen_at", { withTimezone: true }).notNull(),

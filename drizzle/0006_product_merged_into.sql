@@ -1,0 +1,1 @@
+ALTER TABLE "products" ADD COLUMN "merged_into" uuid;

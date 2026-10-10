@@ -43,6 +43,13 @@
       "when": 1791608707310,
       "tag": "0005_product_landing_key",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1791611514527,
+      "tag": "0006_product_merged_into",
+      "breakpoints": true
     }
   ]
 }
