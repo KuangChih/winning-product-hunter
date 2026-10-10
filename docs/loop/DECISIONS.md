@@ -88,3 +88,11 @@
   - 技術債：排名查詢會載入全部產品再篩選（目前規模可接受，Phase 6 加 index/分頁）；`vite-tsconfig-paths` 可改用 Vite 內建設定；沒有全站導覽；e2e 只有 4 個。
 - 決定：新增 Phase 4A，優先做「站台密碼保護」（`SITE_PASSWORD`；未設定時開放，方便本機開發），再做全站導覽與詳情頁補強。多使用者帳號與付費（Phase 5）延後到要對外營運時。
 - 後果：部署前使用者需在 Vercel 設定 `SITE_PASSWORD`（寫入 HUMAN_TODO / DEPLOY.md）。
+
+## ADR-009：Watchlist 先做單一清單（2026-10-10，狀態：採用）
+- 背景：網站目前只有使用者本人使用（ADR-008 的站台密碼），還沒有帳號系統。
+- 選項：(A) 等 Phase 5 帳號系統完成再做收藏；(B) 先做全站共用的單一收藏清單；(C) 存在瀏覽器 localStorage。
+- 決定：B。`watchlist` 資料表以 `product_id` 為主鍵；加入時記下當時分數；dedupe 合併重複產品時，收藏移到存活產品。
+- 理由：個人使用不需要多使用者；存在資料庫才能讓每日排程之後寄送分數變動通知，localStorage 做不到。
+- 後果：Phase 5 加入帳號時，`watchlist` 要加 `user_id` 並改成複合主鍵，既有資料歸給第一個帳號。
+

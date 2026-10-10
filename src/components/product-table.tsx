@@ -58,7 +58,8 @@ export function SampleDataBadge({ className }: { className?: string }) {
 export function ProductTable({ products }: { products: RankedProduct[] }) {
   return (
     <div className="overflow-x-auto rounded-lg border">
-      <table className="w-full text-sm">
+      {/* Scroll sideways on small screens instead of squeezing every column into tall rows. */}
+      <table className="w-full min-w-[60rem] text-sm">
         <thead className="bg-muted/50 text-muted-foreground text-left text-xs uppercase">
           <tr>
             <th className="px-3 py-2 font-medium">#</th>
@@ -74,7 +75,7 @@ export function ProductTable({ products }: { products: RankedProduct[] }) {
           {products.map((p, i) => (
             <tr key={p.id} className="hover:bg-muted/30 border-t">
               <td className="text-muted-foreground px-3 py-3 tabular-nums">{i + 1}</td>
-              <td className="px-3 py-3">
+              <td className="min-w-48 px-3 py-3">
                 <div className="flex flex-wrap items-center gap-2">
                   <Link
                     href={`/products/${p.slug}`}
@@ -89,10 +90,10 @@ export function ProductTable({ products }: { products: RankedProduct[] }) {
                 <ScoreBar score={p.score} />
               </td>
               <td className="px-3 py-3">{CONFIDENCE_TEXT[confidenceLabel(p.confidence)]}</td>
-              <td className="px-3 py-3">
+              <td className="min-w-44 px-3 py-3">
                 <MarketList markets={p.markets} />
               </td>
-              <td className="px-3 py-3">
+              <td className="min-w-48 px-3 py-3">
                 <ul className="flex flex-wrap gap-1">
                   {p.sources.map((s) => (
                     <li key={s} className="bg-secondary rounded px-1.5 py-0.5 text-xs">

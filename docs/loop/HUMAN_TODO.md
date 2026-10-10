@@ -23,6 +23,7 @@ Loop 遇到只有你能做的事（申請 API key、建立帳號、付費、法�
 - [x] 要蒐集 Meta / TikTok 公開廣告網站（2026-10-10 決定，界線見 ADR-006）
 - [x] 使用者有 Shopify 商店，認定個人研究使用不違反條款（2026-10-10）
 - [ ] 申請 Google Merchant Center（步驟見下方「Google Merchant Center 申請步驟」）
+- [ ] **收藏產品的分數變動要不要寄 Email 通知？**（選填，不急）網站上的 Watchlist 頁已會標出分數變動 5 分以上的產品。若要每天自動寄信，需要寄信服務：建議 [Resend](https://resend.com)（免費方案每月 3,000 封，個人使用完全足夠，$0）。要的話請註冊後把 `RESEND_API_KEY` 和收件信箱 `ALERT_EMAIL_TO` 加進 `.env.local` 與 GitHub Secrets。**換到的成果**：每日排程跑完後，收藏的產品分數大幅變動時自動收到 Email，不用自己上網站看。
 
 ## 申請帳號與金鑰（依優先順序）
 

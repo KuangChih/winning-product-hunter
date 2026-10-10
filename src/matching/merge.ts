@@ -1,6 +1,6 @@
 import { and, eq, inArray, isNull } from "drizzle-orm";
 import type { AnyDatabase } from "@/db/client";
-import { productScores, products, sourceItems } from "@/db/schema";
+import { productScores, products, sourceItems, watchlist } from "@/db/schema";
 import { fetchWithRetry, type RetryOptions } from "@/ingestion/http";
 import { dHash, hammingDistance } from "./image-hash";
 import { jaccard, titleTokens } from "./normalize";
@@ -143,6 +143,20 @@ export async function mergeDuplicateProducts(db: AnyDatabase): Promise<{ merged:
       .set({ productId: survivor })
       .where(inArray(sourceItems.productId, duplicates));
     await db.delete(productScores).where(inArray(productScores.productId, duplicates));
+    // Keep following a merged product: the earliest watch moves to the survivor.
+    const [watched] = await db
+      .select()
+      .from(watchlist)
+      .where(inArray(watchlist.productId, duplicates))
+      .orderBy(watchlist.addedAt)
+      .limit(1);
+    if (watched) {
+      await db
+        .insert(watchlist)
+        .values({ ...watched, productId: survivor })
+        .onConflictDoNothing();
+      await db.delete(watchlist).where(inArray(watchlist.productId, duplicates));
+    }
     await db.update(products).set({ mergedInto: survivor }).where(inArray(products.id, duplicates));
     merged += duplicates.length;
   }

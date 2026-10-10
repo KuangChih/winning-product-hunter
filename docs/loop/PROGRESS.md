@@ -230,3 +230,36 @@
 - 修正：`npm run typecheck` 改為 `next typegen && tsc --noEmit`，CI 全新環境沒有路由型別時也能通過。
 - 驗證：format ✅ lint ✅ typecheck ✅ test ✅（124）build ✅；瀏覽器實測：未登入導向登入頁並保留原網址、錯誤密碼顯示提示、正確密碼回到原頁面。
 - 下一步：全站導覽列
+
+## 2026-10-10 — 全站導覽列與頁尾
+- 完成：`SiteHeader`（logo + 導覽）、`SiteNav`（客戶端，用 `usePathname` 標示目前區塊，包在 Suspense 中；fallback 為沒有標示的連結，維持預渲染）、`SiteFooter`（說明訊號是公開資料的估計值）；登入頁不顯示導覽；移除排名頁與資料來源頁各自的連結。本機示範資料庫以 v1.1 重新評分。
+- 修正：初版在 layout 直接使用 `usePathname` 觸發「blocking-prerender-client-hook」錯誤 → 改為 Suspense 包住，已寫入 CLAUDE.md 已知陷阱。
+- 驗證：format ✅ lint ✅ typecheck ✅ test ✅（128）；瀏覽器實測詳情頁導覽標示正確、無錯誤、Ad momentum 顯示「需要 5+ 天資料（目前 1 天）」。
+- 下一步：產品詳情頁補強（毛利區塊、頁面標題、已合併產品導向）
+
+## 2026-10-10 — 產品詳情頁補強
+- 完成：`estimateMargin`（`src/lib/margin.ts`，與評分的 margin 訊號同一套輸入：美國市場店家售價中位數 vs 最便宜的供應商報價，換匯用 ECB，沒有匯率時不混幣別）與「Margin estimate」區塊（售價、供貨價、運費前毛利；資料不足時明確說明缺什麼）；`generateMetadata` 以產品名稱當頁面標題；已被 dedupe 合併的產品網址自動 `redirect` 到存活產品（最多追 5 層）。
+- 修正：`generateMetadata` 沒先 `await connection()` 會觸發「blocking-prerender-current-time」，已補上並寫入 CLAUDE.md 已知陷阱。
+- 驗證：format ✅ lint ✅ typecheck ✅ test ✅（135）build ✅ e2e ✅（4，含標題與毛利區塊）；瀏覽器實測 Ear Cleaner：標題「Ear Cleaner · Winning Product Hunter」、美國售價中位數 $30.72（67 個店家報價）、提示需要 CJ 供貨價。
+- 下一步：Phase 4 廣告資料庫瀏覽頁
+
+## 2026-10-10 — 廣告資料庫瀏覽頁
+- 完成：`/ads` 頁面與 `getAds`（`src/data/ads.ts`）：在資料庫端完成篩選、排序與分頁（每頁 50 筆）；搜尋廣告文字或廣告主（每個字都要符合，`%`、`_` 當一般字元）、市場（GIN index 的 countries）、平台、投放中 / 已停止、排序（投放最久 / 最新 / 最近看到）；預設只顯示真實資料，可切換含樣本資料；每則廣告連到原始廣告與對應的產品頁。導覽列新增「Ads」。
+- 驗證：format ✅ lint ✅ typecheck ✅ test ✅（141）build ✅ e2e ✅（5）；瀏覽器實測示範資料庫 351 則真實廣告、US + 最新排序第 2 頁顯示「68 ads · showing 51–68 / Page 2 of 2」。
+- 下一步：收藏 / watchlist / 分數變動通知
+
+## 2026-10-10 — Watchlist（ADR-009）
+- 完成：`watchlist` 資料表（migration 0007）與 `src/data/watchlist.ts`（加入時記下分數、列表含最新與前一次分數、`scoreAlerts` 變動 ≥5 分）；詳情頁 Watch / Watching 按鈕（Server Action + `refresh()`，不需 JS 也能用）；`/watchlist` 頁（目前分數、與上次更新及加入時的差距、分數變動提醒區塊）；導覽列新增 Watchlist；dedupe 合併時收藏移到存活產品。
+- 驗證：format ✅ lint ✅ typecheck ✅ test ✅（144）build ✅ e2e ✅（6，含加入 / 移除收藏流程）；瀏覽器實測 Ear Cleaner 加入後在 Watchlist 顯示分數 67，移除後顯示空狀態。示範資料庫已套用 migration。
+- 待使用者：Email 通知需要 `RESEND_API_KEY`（選填，已寫入 HUMAN_TODO）。
+- 下一步：RWD、深色模式、無障礙、i18n
+
+## 2026-10-10 — 手機版版面（RWD）
+- 完成：375px 實測各頁並修正：導覽列在手機上換到第二行並縮小間距（4 個連結全部可見）；排名、分數拆解、資料來源、收藏的表格設定最小寬度，改在容器內橫向捲動（原本欄位被擠成一字一行、每列高約 90px）；廣告卡片在手機上改直排。桌面版不變。
+- 驗證：format ✅ lint ✅ typecheck ✅ test ✅（144）build ✅ e2e ✅（11，新增 5 頁手機寬度檢查：頁面不可橫向捲動、導覽連結都在畫面內）；瀏覽器實測手機與桌面寬度。
+- 下一步：深色模式
+
+## 2026-10-10 — 深色模式
+- 完成：`src/lib/theme.ts`（偏好解析、循環切換、`<head>` 初始化 script）與 `ThemeToggle`（`useSyncExternalStore` 讀 localStorage，伺服器端一律渲染「system」避免 hydration 不一致；系統設定改變時即時跟著變）；`color-scheme` 讓原生表單與捲軸也變深色。沒有新增套件。
+- 驗證：format ✅ lint ✅ typecheck ✅ test ✅（149）build ✅ e2e ✅（13，新增：跟隨系統深色、選擇淺色後重新整理仍維持）；瀏覽器實測深色模式下排名、詳情、資料來源頁，console 無 hydration 錯誤。
+- 下一步：回顧輪 40

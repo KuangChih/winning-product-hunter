@@ -50,6 +50,13 @@
       "when": 1791611514527,
       "tag": "0006_product_merged_into",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1791614605521,
+      "tag": "0007_watchlist",
+      "breakpoints": true
     }
   ]
 }

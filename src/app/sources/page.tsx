@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import { connection } from "next/server";
 import { Suspense } from "react";
 import { getSourceHealth, type HealthStatus } from "@/data/source-health";
@@ -55,7 +54,7 @@ async function HealthTable() {
   }
   return (
     <div className="overflow-x-auto rounded-lg border">
-      <table className="w-full text-sm">
+      <table className="w-full min-w-[48rem] text-sm">
         <thead className="bg-muted/50 text-muted-foreground text-left text-xs uppercase">
           <tr>
             <th className="px-3 py-2 font-medium">Source</th>
@@ -110,13 +109,7 @@ async function HealthTable() {
 export default function SourcesPage() {
   return (
     <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-10">
-      <Link
-        href="/products"
-        className="text-muted-foreground text-sm underline-offset-4 hover:underline"
-      >
-        ← Winning products
-      </Link>
-      <h1 className="mt-4 text-3xl font-semibold tracking-tight">Data sources</h1>
+      <h1 className="text-3xl font-semibold tracking-tight">Data sources</h1>
       <p className="text-muted-foreground mt-2 max-w-2xl">
         Health of each data collection run over the last 7 days. A blocked or failing source shows
         its last error here; other sources keep running.

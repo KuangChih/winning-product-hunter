@@ -45,12 +45,42 @@ export interface ProductDetail {
   fxRates: FxRates | null;
 }
 
+/** Title for the page metadata, without loading the evidence. */
+export async function getProductTitle(db: AnyDatabase, slug: string): Promise<string | null> {
+  const [row] = await db
+    .select({ title: products.title })
+    .from(products)
+    .where(eq(products.slug, slug))
+    .limit(1);
+  return row?.title ?? null;
+}
+
+/** A product merged into another as a duplicate: its page should point at the survivor. */
+export interface MergedProduct {
+  redirectTo: string;
+}
+
+/** Longest merge chain we follow; dedupe points losers straight at survivors, so 1 is typical. */
+const MAX_MERGE_HOPS = 5;
+
 export async function getProductDetail(
   db: AnyDatabase,
   slug: string,
-): Promise<ProductDetail | null> {
-  const [product] = await db.select().from(products).where(eq(products.slug, slug)).limit(1);
+): Promise<ProductDetail | MergedProduct | null> {
+  let [product] = await db.select().from(products).where(eq(products.slug, slug)).limit(1);
   if (!product) return null;
+  if (product.mergedInto) {
+    for (let hop = 0; product.mergedInto && hop < MAX_MERGE_HOPS; hop++) {
+      const [next] = await db
+        .select()
+        .from(products)
+        .where(eq(products.id, product.mergedInto))
+        .limit(1);
+      if (!next) return null;
+      product = next;
+    }
+    return product.mergedInto ? null : { redirectTo: product.slug };
+  }
 
   const [scores, items] = await Promise.all([
     db

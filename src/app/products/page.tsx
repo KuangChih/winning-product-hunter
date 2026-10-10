@@ -101,15 +101,7 @@ async function RankedProducts({
 export default function ProductsPage({ searchParams }: PageProps<"/products">) {
   return (
     <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-10">
-      <div className="flex flex-wrap items-baseline justify-between gap-2">
-        <h1 className="text-3xl font-semibold tracking-tight">Winning products</h1>
-        <Link
-          href="/sources"
-          className="text-muted-foreground text-sm underline-offset-4 hover:underline"
-        >
-          Data sources
-        </Link>
-      </div>
+      <h1 className="text-3xl font-semibold tracking-tight">Winning products</h1>
       <p className="text-muted-foreground mt-2 max-w-2xl">
         Ranked by Winning Score: ad longevity, scaling activity, search demand and marketplace
         orders, boosted when sources agree and penalized when the market is crowded.

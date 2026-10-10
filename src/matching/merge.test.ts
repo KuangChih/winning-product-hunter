@@ -2,7 +2,7 @@
 import { eq, isNull } from "drizzle-orm";
 import sharp from "sharp";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { productScores, products, sourceItems } from "@/db/schema";
+import { productScores, products, sourceItems, watchlist } from "@/db/schema";
 import { createTestDb } from "@/db/testing/pglite";
 import { runDiscovery } from "@/discovery/discover";
 import { runIngestion } from "@/ingestion/run";
@@ -140,6 +140,7 @@ describe("hashProductImages + mergeDuplicateProducts", () => {
       hashed: 3,
       failed: 0,
     });
+    await t.db.insert(watchlist).values({ productId: b.id, scoreAtAdd: 42 });
     expect(await mergeDuplicateProducts(t.db)).toEqual({ merged: 1 });
 
     // b's ad moved to a; b is marked merged and its scores are gone.
@@ -151,6 +152,10 @@ describe("hashProductImages + mergeDuplicateProducts", () => {
       await t.db.select().from(productScores).where(eq(productScores.productId, b.id)),
     ).toEqual([]);
     expect(await t.db.select().from(products).where(isNull(products.mergedInto))).toHaveLength(2);
+    // Watching b now means watching a.
+    expect(await t.db.select().from(watchlist)).toEqual([
+      expect.objectContaining({ productId: a.id, scoreAtAdd: 42 }),
+    ]);
 
     // Discovering b's handle again attaches to the survivor instead of recreating b.
     const adapter: SourceAdapter = {

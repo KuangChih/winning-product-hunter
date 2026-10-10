@@ -22,7 +22,7 @@ export function ScoreBreakdown({ breakdown }: { breakdown: Breakdown }) {
   return (
     <div className="space-y-4">
       <div className="overflow-x-auto rounded-lg border">
-        <table className="w-full text-sm">
+        <table className="w-full min-w-[40rem] text-sm">
           <thead className="bg-muted/50 text-muted-foreground text-left text-xs uppercase">
             <tr>
               <th className="px-3 py-2 font-medium">Signal</th>
@@ -43,7 +43,7 @@ export function ScoreBreakdown({ breakdown }: { breakdown: Breakdown }) {
                   )}
                 </td>
                 <td className="text-muted-foreground px-3 py-3 tabular-nums">{pct(s.weight)}%</td>
-                <td className="text-muted-foreground px-3 py-3">{s.basis}</td>
+                <td className="text-muted-foreground min-w-64 px-3 py-3">{s.basis}</td>
               </tr>
             ))}
           </tbody>

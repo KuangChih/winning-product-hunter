@@ -167,6 +167,19 @@ export const productScores = pgTable(
   ],
 );
 
+/**
+ * Products the user follows. Single list while the site is personal (ADR-008); a user_id joins
+ * the key when multi-user accounts arrive (Phase 5).
+ */
+export const watchlist = pgTable("watchlist", {
+  productId: uuid("product_id")
+    .primaryKey()
+    .references(() => products.id, { onDelete: "cascade" }),
+  /** Winning Score when the product was added, to show the change since then. */
+  scoreAtAdd: real("score_at_add"),
+  addedAt: timestamp("added_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
 /** One run of an ingestion job, for the source health dashboard. */
 export const ingestionRuns = pgTable(
   "ingestion_runs",

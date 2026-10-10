@@ -10,8 +10,12 @@ test("a ranked product opens its detail page with score breakdown and evidence",
   ).toBeVisible();
   test.skip(!(await table.isVisible()), "No scored products in this environment");
 
-  await table.getByRole("link").first().click();
+  const link = table.getByRole("link").first();
+  const name = (await link.textContent())!.trim();
+  await link.click();
   await expect(page.getByRole("heading", { name: "Why this score" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Margin estimate" })).toBeVisible();
+  await expect(page).toHaveTitle(`${name} · Winning Product Hunter`);
   await expect(page.getByRole("heading", { name: "Evidence" })).toBeVisible();
   await expect(page.getByRole("link", { name: "← All winning products" })).toBeVisible();
 });
