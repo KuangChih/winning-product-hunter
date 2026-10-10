@@ -23,7 +23,9 @@
     "seed": "tsx src/jobs/seed.ts",
     "vercel-build": "tsx src/jobs/migrate.ts --if-configured && next build",
     "collect": "tsx src/jobs/collect.ts",
-    "fx": "tsx src/jobs/fx.ts"
+    "fx": "tsx src/jobs/fx.ts",
+    "discover": "tsx src/jobs/discover.ts",
+    "pipeline": "tsx src/jobs/pipeline.ts"
   },
   "dependencies": {
     "@base-ui/react": "^1.9.0",

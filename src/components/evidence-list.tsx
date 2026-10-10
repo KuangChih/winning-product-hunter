@@ -64,9 +64,8 @@ function AdRow({ ad, now }: { ad: EvidenceItem; now: Date }) {
 
 /** Source label; the public Ad Library website covers all countries, the API only the EU/UK. */
 function evidenceLabel(e: EvidenceItem) {
-  return e.source === "meta_ads" && e.provider === "ad_library_web"
-    ? "Meta Ad Library"
-    : sourceLabel(e.source);
+  if (e.source !== "meta_ads") return sourceLabel(e.source);
+  return e.provider === "ad_library_web" ? "Meta Ad Library" : "Meta Ads (EU API)";
 }
 
 const MAX_ADS_SHOWN = 20;

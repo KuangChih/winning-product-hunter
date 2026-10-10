@@ -1,0 +1,52 @@
+# Daily real-data pipeline (ADR-007): ECB rates → discover products → collect Shopify evidence →
+# match → score. Accumulates the history that back-testing needs (4–8 weeks).
+#
+# Requires the repository secret DATABASE_URL (the Neon database the site reads from).
+# Optional secret SHOPIFY_UCP_AGENT_PROFILE (our own UCP agent profile URL once deployed).
+name: Daily pipeline
+
+on:
+  schedule:
+    # 06:00 UTC every day: after the ECB publishes (~16:00 CET the previous day).
+    - cron: "0 6 * * *"
+  workflow_dispatch:
+    inputs:
+      keywords:
+        description: "Discovery keywords to sweep (max 10 = 50 Ad Library pages)"
+        default: "10"
+      collect:
+        description: "Products to collect Shopify Catalog evidence for"
+        default: "20"
+
+concurrency:
+  group: daily-pipeline
+  cancel-in-progress: false
+
+jobs:
+  pipeline:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    env:
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      SHOPIFY_UCP_AGENT_PROFILE: ${{ secrets.SHOPIFY_UCP_AGENT_PROFILE }}
+    steps:
+      - name: Check configuration
+        if: env.DATABASE_URL == ''
+        run: |
+          echo "::error::Repository secret DATABASE_URL is not set (see docs/DEPLOY.md)."
+          exit 1
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Apply migrations
+        run: npm run db:migrate
+      - name: Run pipeline
+        # Exits non-zero if any step failed (e.g. a source blocked us); GitHub then emails the
+        # repository owner. Partial results are still saved and listed in ingestion_runs.
+        run: >-
+          npm run pipeline --
+          --keywords=${{ github.event.inputs.keywords || '10' }}
+          --collect=${{ github.event.inputs.collect || '20' }}

@@ -3,6 +3,7 @@ import type { ScoreBreakdown as Breakdown, SubScoreName } from "@/scoring/score"
 const SUB_SCORE_LABELS: Record<SubScoreName, string> = {
   longevity: "Ad longevity",
   scaling: "Scaling activity",
+  marketReach: "Market reach",
   engagementVelocity: "Engagement velocity",
   demandTrend: "Search demand trend",
   marketplace: "Marketplace orders",
@@ -59,7 +60,10 @@ export function ScoreBreakdown({ breakdown }: { breakdown: Breakdown }) {
           <dt className="text-muted-foreground">Saturation penalty</dt>
           <dd className="font-medium tabular-nums">
             −{pct(breakdown.saturation.penalty)}% ({breakdown.saturation.activeAdvertisers} active
-            advertisers, {breakdown.saturation.ageDays} days old)
+            advertisers
+            {typeof breakdown.saturation.sellingStores === "number" &&
+              `, ${breakdown.saturation.sellingStores} stores selling it`}
+            , {breakdown.saturation.ageDays} days old)
           </dd>
         </div>
         <div className="rounded-lg border p-3">

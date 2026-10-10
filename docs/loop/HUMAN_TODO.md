@@ -7,6 +7,13 @@ Loop 遇到只有你能做的事（申請 API key、建立帳號、付費、法�
 
 - [ ] 建立 Vercel 專案並連結 GitHub repo（loop 不會 push 或部署，步驟見 `docs/DEPLOY.md`）
 - [ ] 在 Vercel 加入 Neon 資料庫（會自動設定 `DATABASE_URL`）
+- [ ] **啟用每日自動蒐集**（最重要：越早開始，越早能驗證評分）
+  1. push 到 GitHub：`git push -u origin main`
+  2. GitHub repo → Settings → Secrets and variables → Actions → New repository secret：名稱 `DATABASE_URL`，值為 Neon 的連線字串（與 Vercel 上的相同）
+  3. 到 Actions 分頁的「Daily pipeline」按 **Run workflow** 先手動跑一次確認
+  - 成果：之後每天 06:00 UTC 自動探索新產品、補 Shopify 證據並重新評分，開始累積回測需要的歷史資料
+  - 費用：私有 repo 每月有 2,000 分鐘免費額度，這個排程每次約 10–15 分鐘，每月約 300–450 分鐘，在免費額度內
+  - 注意：GitHub 的伺服器是機房 IP，Meta 比較可能擋；被擋時該步驟會失敗並寄信通知你，其他步驟照跑
 
 ## 需要你決定
 

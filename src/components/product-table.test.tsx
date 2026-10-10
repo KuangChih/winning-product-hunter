@@ -37,7 +37,7 @@ describe("ProductTable", () => {
     );
     expect(first.getByText("73")).toBeInTheDocument();
     expect(first.getByText("Medium")).toBeInTheDocument();
-    expect(first.getByText("Meta Ads (EU)")).toBeInTheDocument();
+    expect(first.getByText("Meta Ads")).toBeInTheDocument();
     expect(first.getByText("Sample data")).toBeInTheDocument();
     expect(first.getByTitle("United States")).toHaveTextContent("US");
     expect(first.getByTitle("Germany")).toHaveTextContent("DE");

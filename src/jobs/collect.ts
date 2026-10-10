@@ -9,9 +9,9 @@
  * - meta_ad_library: public Meta Ad Library website (ADR-006: slow, capped, stops when blocked)
  */
 import "@/lib/load-env";
-import { desc } from "drizzle-orm";
+import { and, desc, eq, gte, isNotNull } from "drizzle-orm";
 import { getDb } from "@/db/client";
-import { productScores, products } from "@/db/schema";
+import { productScores, products, sourceItems } from "@/db/schema";
 import { forProducts, type ProductQuery } from "@/ingestion/collect-for-products";
 import { createRateLimiter } from "@/ingestion/http";
 import { runIngestion } from "@/ingestion/run";
@@ -69,10 +69,29 @@ export function parseCollectArgs(argv: string[]): CollectArgs {
   return args;
 }
 
-/** Products to collect for: highest latest score first, then unscored products. */
-export async function pickProducts(db: AnyDatabase, limit: number): Promise<ProductQuery[]> {
-  const [all, scores] = await Promise.all([
-    db.select({ id: products.id, title: products.title }).from(products),
+export interface PickOptions {
+  /** Skip products that already have evidence from this provider seen within `freshDays`. */
+  provider?: string;
+  freshDays?: number;
+  now?: Date;
+}
+
+/**
+ * Products to collect for: discovered (real) products before sample ones, then highest latest
+ * score first. Products with fresh evidence from the same provider are skipped so daily runs
+ * spread across the catalog instead of re-querying the same products.
+ */
+export async function pickProducts(
+  db: AnyDatabase,
+  limit: number,
+  opts: PickOptions = {},
+): Promise<ProductQuery[]> {
+  const now = opts.now ?? new Date();
+  const freshSince = new Date(now.getTime() - (opts.freshDays ?? 7) * 86_400_000);
+  const [all, scores, fresh] = await Promise.all([
+    db
+      .select({ id: products.id, title: products.title, landingKey: products.landingKey })
+      .from(products),
     db
       .selectDistinctOn([productScores.productId], {
         productId: productScores.productId,
@@ -80,20 +99,46 @@ export async function pickProducts(db: AnyDatabase, limit: number): Promise<Prod
       })
       .from(productScores)
       .orderBy(productScores.productId, desc(productScores.computedAt)),
+    opts.provider
+      ? db
+          .selectDistinct({ productId: sourceItems.productId })
+          .from(sourceItems)
+          .where(
+            and(
+              eq(sourceItems.provider, opts.provider),
+              gte(sourceItems.lastSeenAt, freshSince),
+              isNotNull(sourceItems.productId),
+            ),
+          )
+      : Promise.resolve([]),
   ]);
   const scoreOf = new Map(scores.map((s) => [s.productId, s.score]));
+  const skip = new Set(fresh.map((f) => f.productId));
   return all
-    .sort((a, b) => (scoreOf.get(b.id) ?? -1) - (scoreOf.get(a.id) ?? -1))
+    .filter((p) => !skip.has(p.id))
+    .sort(
+      (a, b) =>
+        Number(!!b.landingKey) - Number(!!a.landingKey) ||
+        (scoreOf.get(b.id) ?? -1) - (scoreOf.get(a.id) ?? -1),
+    )
     .slice(0, limit)
     .map((p) => ({ productId: p.id, query: p.title }));
 }
 
+/** Provider name each collect source writes, used to skip freshly collected products. */
+export const PROVIDER_OF: Record<(typeof COLLECT_SOURCES)[number], string> = {
+  shopify_catalog: "shopify_catalog",
+  meta_ad_library: "ad_library_web",
+};
+
 async function main() {
   const args = parseCollectArgs(process.argv.slice(2));
   const db = await getDb();
-  const targets = await pickProducts(db, args.products);
+  const targets = await pickProducts(db, args.products, {
+    provider: PROVIDER_OF[args.source as (typeof COLLECT_SOURCES)[number]],
+  });
   if (targets.length === 0) {
-    console.log("No products yet. Run `npm run seed` or ingest + match first.");
+    console.log("Nothing to collect: no products, or all were collected recently.");
     return;
   }
 

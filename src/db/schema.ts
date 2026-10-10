@@ -57,6 +57,13 @@ export const products = pgTable(
     title: text("title").notNull(),
     category: text("category"),
     imageUrl: text("image_url"),
+    /**
+     * Product key from ad landing pages (see src/discovery/landing.ts), set for products found
+     * by discovery so repeated sweeps update the same product instead of creating duplicates.
+     */
+    landingKey: text("landing_key"),
+    /** A representative product page URL. */
+    canonicalUrl: text("canonical_url"),
     /** Perceptual hash of the primary image, hex encoded (entity resolution stage 1). */
     imageHash: text("image_hash"),
     firstSeenAt: timestamp("first_seen_at", { withTimezone: true }).notNull(),
@@ -64,6 +71,7 @@ export const products = pgTable(
   },
   (t) => [
     uniqueIndex("products_slug_idx").on(t.slug),
+    uniqueIndex("products_landing_key_idx").on(t.landingKey),
     index("products_image_hash_idx").on(t.imageHash),
   ],
 );

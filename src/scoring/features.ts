@@ -1,4 +1,7 @@
 import type { Source } from "@/ingestion/types";
+import type { FxRates } from "@/lib/fx";
+import { MARKETS, marketWeight } from "@/lib/markets";
+import { marketRetailPrice } from "@/lib/retail-price";
 import { median, theilSenSlope } from "./stats";
 
 const DAY = 86_400_000;
@@ -11,6 +14,9 @@ export interface ItemInput {
   startedAt: Date | null;
   endedAt: Date | null;
   priceCents: number | null;
+  currency: string | null;
+  /** ISO countries the item applies to. */
+  countries: string[];
   /** Snapshots for this item, any order. */
   snapshots: Array<{ metric: string; value: number; observedAt: Date }>;
 }
@@ -24,8 +30,17 @@ export interface ProductFeatures {
   longevity: number | null;
   activeAds: number;
   activeAdvertisers: number;
-  /** New ads + new advertisers in the last 14 days. */
+  /**
+   * New ads + new advertisers in the last 14 days, plus half a point per extra ad sharing a
+   * creative (advertisers duplicate creatives that work).
+   */
   newAdActivity14d: number | null;
+  /** 0–1: how many target markets have active ads, weighted by market tier. */
+  marketReach: number | null;
+  /** Distinct stores selling it (Shopify Global Catalog sellers). */
+  sellingStores: number | null;
+  /** Median retail price across stores, in USD cents (converted with ECB rates). */
+  retailUsdCents: number | null;
   /** Theil-Sen slope of search interest per week, relative to the series median. */
   trendSlope: number | null;
   /** Latest recent-orders count on the marketplace. */
@@ -50,7 +65,18 @@ function latest(snapshots: ItemInput["snapshots"], metric: string): number | nul
   return best?.value ?? null;
 }
 
-export function extractFeatures(items: ItemInput[], firstSeenAt: Date, now: Date): ProductFeatures {
+/** Sum of tier weights of the five priority markets: full reach = active ads in all five. */
+const FULL_REACH = MARKETS.filter((m) => m.tier === 1).reduce(
+  (s, m) => s + marketWeight(m.code),
+  0,
+);
+
+export function extractFeatures(
+  items: ItemInput[],
+  firstSeenAt: Date,
+  now: Date,
+  fx: FxRates | null = null,
+): ProductFeatures {
   const ads = items.filter((i) => i.kind === "ad" && i.startedAt);
   const active = ads.filter((a) => !a.endedAt || a.endedAt > now);
 
@@ -83,8 +109,31 @@ export function extractFeatures(items: ItemInput[], firstSeenAt: Date, now: Date
       );
     }
     const newAdvertisers = [...firstAdByAdvertiser.values()].filter((t) => t >= cutoff).length;
-    newAdActivity14d = newAds + newAdvertisers;
+    const duplicatedCreatives = active.reduce((sum, a) => {
+      const variants = latest(a.snapshots, "creative_variants") ?? 1;
+      return sum + Math.max(0, variants - 1);
+    }, 0);
+    newAdActivity14d = newAds + newAdvertisers + 0.5 * duplicatedCreatives;
   }
+
+  let marketReach: number | null = null;
+  if (ads.length > 0) {
+    const countries = new Set(active.flatMap((a) => a.countries));
+    const reach = [...countries].reduce((s, c) => s + marketWeight(c), 0);
+    marketReach = Math.min(1, reach / FULL_REACH);
+  }
+
+  const storeProducts = items.filter((i) => i.kind === "store_product");
+  const sellingStores = storeProducts.length
+    ? new Set(storeProducts.map((s) => s.advertiserId).filter(Boolean)).size
+    : null;
+  const retail = marketRetailPrice(
+    storeProducts.flatMap((s) =>
+      s.priceCents === null ? [] : [{ priceCents: s.priceCents, currency: s.currency }],
+    ),
+    "US",
+    fx,
+  );
 
   let trendSlope: number | null = null;
   const trendPoints = items
@@ -110,6 +159,9 @@ export function extractFeatures(items: ItemInput[], firstSeenAt: Date, now: Date
     activeAds: active.length,
     activeAdvertisers: new Set(active.map((a) => a.advertiserId).filter(Boolean)).size,
     newAdActivity14d,
+    marketReach,
+    sellingStores,
+    retailUsdCents: retail?.medianCents ?? null,
     trendSlope,
     marketplaceOrders: orders.length ? Math.max(...orders) : null,
     supplierPriceCents: prices.length ? Math.min(...prices) : null,

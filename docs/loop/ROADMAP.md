@@ -24,6 +24,16 @@
 - [x] 產品詳情頁 v0：分數拆解 + 證據清單（廣告連結、趨勢序列、供應商價格）
 - [x] `npm run seed`：一次跑 ingest(fixture) → match → score，方便本機與 preview 環境展示
 
+## Phase 2R — 真實資料閉環（回顧輪 20 決定最優先，ADR-007）
+目前真實資料只能「替既有的樣本產品補證據」，系統還不會自己發現新產品，評分也還沒用到真實訊號。先補齊這個閉環。
+- [x] 產品探索（discovery）v1：用 Meta Ad Library 公開網站對英語系五國做「廣泛關鍵字掃描」（品類詞清單，例如 pet、posture、kitchen gadget…），依曝光排序取第一頁；廣告依 landing page 網址分組成候選產品（同一網址 = 同一商品），建立 `products`（provider 為真實來源，不是 fixture）— `npm run discover`，只接受明確的商品頁網址（Shopify `/products/<handle>` 等），跨店同 handle 合併
+  - [x] 探索到的產品自動接著跑 `collect`（Shopify Catalog 零售價與店家數）：`pickProducts` 優先挑探索到的真實產品，並略過 7 天內已蒐集過的產品
+- [x] 評分 v1（真實訊號）：longevity / scaling 改用真實廣告（含 `creative_variants`、各國 `active_ads`，英語系五國加權）、飽和度加入 Shopify 同類商品數與販售店家數；缺資料的子分數照舊不計分
+- [x] `npm run pipeline`（fx → discover → collect → match → score）只跑真實來源；某一步失敗其他步驟照跑，最後回報
+- [x] 排名頁預設只顯示真實資料（`?sample=1` 可切換顯示樣本資料）
+- [x] 每日排程：`.github/workflows/daily-pipeline.yml`（每天 06:00 UTC，可手動執行）；需要使用者 push 並設定 `DATABASE_URL` secret 才會實際執行（已寫進 HUMAN_TODO）
+- [x] 資料來源健康度頁面 `/sources`：每個真實來源最近一次執行、筆數、錯誤、7 天內執行與失敗次數；狀態分 Healthy / Some failures / Stale / Failing
+
 ## Phase 2B — 第一手真實資料（ADR-005，產品詳情頁之後最優先）
 目標：盡早開始每天累積英語系五國（US、CA、UK、AU、NZ）的真實資料，回測需要至少 4–8 週歷史。
 每個 live adapter 都先以 mock fetch 寫測試；沒有金鑰時在 HUMAN_TODO 標示並跳過，改做下一個。
@@ -42,12 +52,10 @@
 - [ ] TikTok Creative Center 公開頁面蒐集器（Top Ads 等不需登入的部分，依國家篩選，ADR-006）
 - [ ] [blocked: human — 需要 TikTok API 核准] TikTok Commercial Content API adapter（UK + EU）：廣告與觸及
 - [ ] 單一 Shopify 店家查詢（合規版）：robots.txt → `/meta.json`（國家、可出貨國家）→ 商品 `.js`；每店每天最多一次、遇 403/429/430 退避、不用 proxy；不追蹤庫存、訂單編號、best-selling 排序與 cart
-- [ ] 每日排程：GitHub Actions 依序跑 fx → ingest（所有已設定金鑰的來源）→ collect（Shopify Catalog）→ match → score，含失敗通知
-- [ ] 資料來源健康度頁面：每個來源最近一次執行、筆數、錯誤
 
 ## Phase 2C — 資料品質
 - [ ] 實體對應 v1：加入圖片感知雜湊 + 向量相似度與標註測試集；embedding 欄位需 pgvector migration（PGlite 0.5 未內建 vector，測試需另找方式或以 Neon 分支測）
-- [ ] 評分改用真實來源：margin（Shopify 零售價 − CJ 成本 − 運費）、demandTrend 改用 Pinterest / Google Best sellers、scaling 以國家加權（英語系五國優先）
+- [ ] 評分 v2：margin 扣除 CJ 運費（到岸毛利）、demandTrend 改用 Pinterest / Google Best sellers（皆需金鑰）
 
 ## Phase 2（已完成部分，保留紀錄）
 - [x] 統一的 `SourceAdapter` 介面 + fixture 模式 + 重試/限流/錯誤紀錄（`src/ingestion`）

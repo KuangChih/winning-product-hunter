@@ -143,3 +143,44 @@
 - 實測：5 產品 × 5 國 = 25 個請求，443 筆真實資料，未被擋。
 - 驗證：format ✅ lint ✅ typecheck ✅ test ✅（84）；瀏覽器實測詳情頁。
 - 下一步：Pinterest Trends（需金鑰，blocked）→ Google Merchant（blocked）→ Keyword Planner（blocked）→ Meta API（blocked）→ TikTok Creative Center 公開頁面研究
+
+## 2026-10-10 — 回顧輪 20
+- 現況：真實來源 3 個（Shopify Global Catalog、Meta Ad Library 公開網站、ECB 匯率），其餘 7 項等金鑰。測試 84 個、e2e 4 個全綠。
+- 缺口：(1) 沒有產品探索，真實資料只能替樣本產品補證據；(2) 評分未使用真實訊號；(3) 沒有每日排程，無法累積回測所需歷史。
+- 決定：ADR-007，新增 Phase 2R（探索 → 真實評分 → 真實/樣本分離 → 每日排程 → 健康度頁）放最前面；TikTok 公開頁與 Shopify 單一店家查詢順延。
+- 技術債：`vite-tsconfig-paths` 已可改用 Vite 內建的 `resolve.tsconfigPaths`（測試時有警告），排入之後處理。
+- 下一步：產品探索 v1
+
+## 2026-10-10 — 產品探索 v1（第一次自己發現真實產品）
+- 完成：`src/discovery/`：`landingKey`（Shopify `/products/<handle>` 為主，跨店同 handle 視為同一商品；只接受明確商品頁格式，排除首頁、分類頁、advertorial、listicle）、`groupAdsByLanding` + `isPromising`（≥2 支廣告、或同創意 ≥2、或投放 ≥14 天）、`runDiscovery`（建立或更新產品、廣告直接掛到產品、被擋時保留已抓資料並記錄失敗）；品類關鍵字清單每天輪替；`products.landing_key` / `canonical_url`（migration `0005`）；`npm run discover`。
+- 實測：2 個關鍵字 × 5 國 = 298 支真實廣告 → 23 個真實產品（第一次調整前有 37 個，混入會員方案頁、listicle、模板標題，已修正規則）。排名頁出現沒有樣本標籤的真實產品。
+- 修正：Meta 來源標籤改為「Meta Ads」（API 為「Meta Ads (EU API)」、公開網站為「Meta Ad Library」）。
+- 驗證：format ✅ lint ✅ typecheck ✅ test ✅（94）；瀏覽器實測排名頁與探索產品詳情頁。
+- 下一步：評分 v1 改用真實訊號（目前真實產品只有單一來源，信心度 Low）
+
+## 2026-10-10 — 真實資料 pipeline
+- 完成：`src/pipeline/run-pipeline.ts` + `npm run pipeline`：ECB 匯率 → 產品探索（Meta Ad Library）→ Shopify Catalog 蒐集 → 比對 → 評分；某一步失敗其他步驟照跑，最後以非零代碼結束。`pickProducts` 優先挑探索到的真實產品，略過 7 天內已由同一來源蒐集過的產品，讓每天的蒐集分散到不同產品。
+- 實測（本機示範資料庫，2 個關鍵字）：fx 30 個匯率；discover 299 支廣告 → 29 個新產品；collect 20 個產品 2,100 筆；score 57 個產品。全部成功。
+- 驗證：format ✅ lint ✅ typecheck ✅ test ✅（97）build ✅ e2e ✅
+- 下一步：評分 v1（真實訊號）
+
+## 2026-10-10 — 評分 v1（真實訊號）
+- 完成：`SCORING_VERSION = "v1"`：新增 marketReach（五個主要市場的廣告涵蓋，依層級加權）；scaling 加入重複使用的創意；margin 首次計算（Shopify 店家售價中位數換算 USD vs CJ 供貨價，運費前）；飽和度加入 Shopify 販售店家數；scoring 讀取最新 ECB 匯率。詳情頁顯示 Market reach 與販售店家數。
+- 結果：本機示範資料庫 57 個產品，真實探索到的產品（Ear Cleaner 69.2、Noxa 頸部按摩器 61.0）與樣本產品並列排名；margin 依據顯示為「median store price 39.00 USD vs supplier 8.42 USD」。
+- 驗證：format ✅ lint ✅ typecheck ✅ test ✅（101）；瀏覽器實測詳情頁。
+- 下一步：排名頁預設只顯示真實資料
+
+## 2026-10-10 — 排名頁預設只顯示真實資料
+- 完成：`getRankedProducts` 新增 `includeSample`（預設 false），在取前 N 名之前先排除有任何 fixture 證據的產品；排名頁新增「Real data only / Include sample data」切換（`?sample=1`）；沒有真實產品時提示執行 `npm run pipeline`。
+- 驗證：format ✅ lint ✅ typecheck ✅ test ✅（102）；瀏覽器實測：預設只顯示 Ear Cleaner、Noxa 頸部按摩器等真實產品，切換後出現 5 個樣本產品。
+- 下一步：每日排程（GitHub Actions）
+
+## 2026-10-10 — 每日排程（GitHub Actions）
+- 完成：`.github/workflows/daily-pipeline.yml`：每天 06:00 UTC 跑 `db:migrate` + `pipeline`，可手動執行並調整關鍵字數與蒐集產品數；沒有 `DATABASE_URL` secret 時明確報錯；同一時間只跑一個。HUMAN_TODO 與 DEPLOY.md 加上啟用步驟。
+- 驗證：Prettier 與 action-validator 檢查通過；workflow 尚未在 GitHub 上實際執行（需使用者 push 與設定 secret）。
+- 下一步：資料來源健康度頁面
+
+## 2026-10-10 — 資料來源健康度頁面（Phase 2R 完成）
+- 完成：`/sources`：依來源與供應商列出最近一次執行時間、筆數、最後錯誤、最後成功時間、7 天內執行與失敗次數；狀態 Healthy / Some failures / Stale（超過 2 天沒成功）/ Failing，最差的排最前面；預設排除樣本資料；排名頁加上連結。
+- 驗證：format ✅ lint ✅ typecheck ✅ test ✅（104）；瀏覽器實測顯示 Meta Ad Library 與 Shopify Global Catalog 皆為 Healthy。
+- Phase 2R（真實資料閉環）全部完成。下一步：依 ROADMAP 順序，Phase 2B 剩下未 blocked 的項目（TikTok Creative Center 公開頁、單一 Shopify 店家查詢）。

@@ -1,18 +1,21 @@
 import type { ProductFeatures } from "./features";
 import { clamp, percentileRanks } from "./stats";
 
-export const SCORING_VERSION = "v0";
+export const SCORING_VERSION = "v1";
 
 /** Weights and parameters from docs/research/scoring.md. Tunable after back-testing. */
 export const SCORING_CONFIG = {
   weights: {
-    longevity: 0.2,
-    scaling: 0.2,
+    longevity: 0.15,
+    scaling: 0.15,
+    marketReach: 0.1,
     engagementVelocity: 0.15,
     demandTrend: 0.15,
     marketplace: 0.15,
     margin: 0.15,
   },
+  /** Gross margin (before shipping) that earns a full margin score. */
+  fullMargin: 0.6,
   corroborationPerSource: 0.1,
   corroborationMax: 1.3,
   saturationMaxPenalty: 0.5,
@@ -43,7 +46,13 @@ export interface ScoreBreakdown {
   subScores: Record<SubScoreName, SubScore>;
   base: number;
   corroboration: number;
-  saturation: { value: number; penalty: number; activeAdvertisers: number; ageDays: number };
+  saturation: {
+    value: number;
+    penalty: number;
+    activeAdvertisers: number;
+    ageDays: number;
+    sellingStores?: number | null;
+  };
   sources: string[];
   capped: boolean;
 }
@@ -64,6 +73,28 @@ function rankNullable(values: Array<number | null>): Array<number | null> {
   return out;
 }
 
+/** Gross margin before shipping: (retail − supplier cost) / retail, from Shopify and CJ. */
+function marginSubScore(f: ProductFeatures, weight: number): SubScore {
+  if (f.retailUsdCents === null || f.supplierPriceCents === null || f.retailUsdCents <= 0) {
+    return {
+      value: null,
+      weight,
+      raw: null,
+      basis:
+        f.retailUsdCents === null
+          ? "Needs retail prices from stores (Shopify Global Catalog)."
+          : "Needs a supplier cost (CJ Dropshipping).",
+    };
+  }
+  const margin = (f.retailUsdCents - f.supplierPriceCents) / f.retailUsdCents;
+  return {
+    value: clamp(margin / SCORING_CONFIG.fullMargin),
+    weight,
+    raw: Math.round(margin * 1000) / 1000,
+    basis: `Gross margin before shipping: median store price ${(f.retailUsdCents / 100).toFixed(2)} USD vs supplier ${(f.supplierPriceCents / 100).toFixed(2)} USD.`,
+  };
+}
+
 /**
  * Scores a batch of products. Relative signals (scaling, trend, marketplace, saturation) are
  * percentile ranks within the batch, so scores compare products against each other.
@@ -77,6 +108,7 @@ export function scoreProducts(features: ProductFeatures[]): ProductScore[] {
   );
   const advertisers = percentileRanks(features.map((f) => f.activeAdvertisers));
   const ages = percentileRanks(features.map((f) => f.ageDays));
+  const stores = rankNullable(features.map((f) => f.sellingStores));
 
   return features.map((f, i) => {
     const subScores: Record<SubScoreName, SubScore> = {
@@ -90,7 +122,14 @@ export function scoreProducts(features: ProductFeatures[]): ProductScore[] {
         value: scaling[i],
         weight: w.scaling,
         raw: f.newAdActivity14d,
-        basis: "New ads + new advertisers in the last 14 days, ranked against other products.",
+        basis:
+          "New ads + new advertisers in the last 14 days, plus reused creatives, ranked against other products.",
+      },
+      marketReach: {
+        value: f.marketReach,
+        weight: w.marketReach,
+        raw: f.marketReach,
+        basis: "Share of the five priority markets (US, CA, UK, AU, NZ) with active ads.",
       },
       engagementVelocity: {
         value: null,
@@ -110,12 +149,7 @@ export function scoreProducts(features: ProductFeatures[]): ProductScore[] {
         raw: f.marketplaceOrders,
         basis: "Units sold by the supplier (CJ) in the last 90 days, ranked.",
       },
-      margin: {
-        value: null,
-        weight: w.margin,
-        raw: f.supplierPriceCents,
-        basis: "Needs a retail price to compare with the supplier price; not available yet.",
-      },
+      margin: marginSubScore(f, w.margin),
     };
 
     let weighted = 0;
@@ -131,7 +165,9 @@ export function scoreProducts(features: ProductFeatures[]): ProductScore[] {
       SCORING_CONFIG.corroborationMax,
       1 + SCORING_CONFIG.corroborationPerSource * Math.max(0, f.sources.length - 1),
     );
-    const sat = (advertisers[i] + ages[i]) / 2;
+    // Crowdedness: active advertisers, product age and (when known) how many stores sell it.
+    const satParts = [advertisers[i], ages[i], stores[i]].filter((v): v is number => v !== null);
+    const sat = satParts.reduce((a, b) => a + b, 0) / satParts.length;
     const penalty = SCORING_CONFIG.saturationMaxPenalty * sat;
 
     let score = clamp(100 * base * corroboration * (1 - penalty), 0, 100);
@@ -155,6 +191,7 @@ export function scoreProducts(features: ProductFeatures[]): ProductScore[] {
           penalty,
           activeAdvertisers: f.activeAdvertisers,
           ageDays: Math.round(f.ageDays),
+          sellingStores: f.sellingStores,
         },
         sources: f.sources,
         capped,

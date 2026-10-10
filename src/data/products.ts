@@ -1,4 +1,4 @@
-import { desc, inArray, sql } from "drizzle-orm";
+import { desc, eq, inArray, sql } from "drizzle-orm";
 import type { AnyDatabase } from "@/db/client";
 import { productScores, products, sourceItems } from "@/db/schema";
 import { sortByMarketPriority } from "@/lib/markets";
@@ -21,8 +21,17 @@ export interface RankedProduct {
   isSample: boolean;
 }
 
+export interface RankingOptions {
+  limit?: number;
+  /** Include products with any sample (fixture) evidence. Off by default. */
+  includeSample?: boolean;
+}
+
 /** Products ranked by their most recent Winning Score, highest first. */
-export async function getRankedProducts(db: AnyDatabase, limit = 50): Promise<RankedProduct[]> {
+export async function getRankedProducts(
+  db: AnyDatabase,
+  { limit = 50, includeSample = false }: RankingOptions = {},
+): Promise<RankedProduct[]> {
   const latest = await db
     .selectDistinctOn([productScores.productId], {
       productId: productScores.productId,
@@ -35,7 +44,22 @@ export async function getRankedProducts(db: AnyDatabase, limit = 50): Promise<Ra
     .orderBy(productScores.productId, desc(productScores.computedAt));
   if (latest.length === 0) return [];
 
-  const top = latest.sort((a, b) => b.score - a.score).slice(0, limit);
+  // Products with any fixture evidence are sample data; filter before taking the top N.
+  const sampleIds = includeSample
+    ? new Set<string>()
+    : new Set(
+        (
+          await db
+            .selectDistinct({ productId: sourceItems.productId })
+            .from(sourceItems)
+            .where(eq(sourceItems.provider, "fixture"))
+        ).map((r) => r.productId),
+      );
+  const top = latest
+    .filter((s) => !sampleIds.has(s.productId))
+    .sort((a, b) => b.score - a.score)
+    .slice(0, limit);
+  if (top.length === 0) return [];
   const ids = top.map((s) => s.productId);
 
   const [productRows, evidence] = await Promise.all([

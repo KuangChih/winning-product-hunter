@@ -1,6 +1,7 @@
 import { inArray, isNotNull } from "drizzle-orm";
 import type { AnyDatabase } from "@/db/client";
 import { productScores, products, signalSnapshots, sourceItems } from "@/db/schema";
+import { getLatestFxRates } from "@/data/fx";
 import { extractFeatures, type ItemInput } from "./features";
 import { SCORING_VERSION, scoreProducts } from "./score";
 
@@ -25,6 +26,7 @@ export async function runScoring(db: AnyDatabase, now: Date = new Date()) {
     snapsByItem.set(s.sourceItemId, list);
   }
 
+  const fx = await getLatestFxRates(db);
   const productIds = [...new Set(items.map((i) => i.productId!))];
   const productRows = await db.select().from(products).where(inArray(products.id, productIds));
 
@@ -40,10 +42,13 @@ export async function runScoring(db: AnyDatabase, now: Date = new Date()) {
           startedAt: i.startedAt,
           endedAt: i.endedAt,
           priceCents: i.priceCents,
+          currency: i.currency,
+          countries: i.countries,
           snapshots: snapsByItem.get(i.id) ?? [],
         })),
       p.firstSeenAt,
       now,
+      fx,
     ),
   );
   const scores = scoreProducts(features);

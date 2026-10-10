@@ -37,6 +37,8 @@ describe("extractFeatures", () => {
     startedAt: daysAgo(startDaysAgo),
     endedAt: null,
     priceCents: null,
+    currency: null,
+    countries: ["US"],
     snapshots: [],
     ...extra,
   });
@@ -70,6 +72,48 @@ describe("extractFeatures", () => {
     expect(f.activeAdvertisers).toBe(2);
     expect(Math.round(f.ageDays)).toBe(60);
   });
+
+  it("adds reused creatives to scaling and measures reach across priority markets", () => {
+    const variants = (n: number) => [{ metric: "creative_variants", value: n, observedAt: NOW }];
+    const f = extractFeatures(
+      [
+        ad(60, { countries: ["US"], snapshots: variants(5) }),
+        ad(60, { countries: ["GB"] }),
+        ad(60, { countries: ["DE"], endedAt: daysAgo(1) }),
+      ],
+      NOW,
+      NOW,
+    );
+    expect(f.newAdActivity14d).toBe(2); // (5 - 1) duplicated creatives × 0.5
+    // Active ads in US and GB: 2 of the 5 priority markets; the stopped DE ad does not count.
+    expect(f.marketReach).toBeCloseTo(0.4);
+  });
+
+  it("derives selling stores and a USD retail median from store products", () => {
+    const store = (seller: string, cents: number, currency: string): ItemInput => ({
+      source: "shopify",
+      kind: "store_product",
+      advertiserId: seller,
+      format: null,
+      startedAt: null,
+      endedAt: null,
+      priceCents: cents,
+      currency,
+      countries: ["GB"],
+      snapshots: [],
+    });
+    const fx = { date: "2026-10-09", perEur: { EUR: 1, USD: 1.2, GBP: 0.8 } };
+    const f = extractFeatures(
+      [store("a.com", 2000, "USD"), store("b.com", 2000, "GBP"), store("a.com", 4000, "USD")],
+      NOW,
+      NOW,
+      fx,
+    );
+    expect(f.sellingStores).toBe(2);
+    // 2000 GBP → 3000 USD; median of [2000, 3000, 4000].
+    expect(f.retailUsdCents).toBe(3000);
+    expect(f.longevity).toBeNull();
+  });
 });
 
 describe("scoreProducts", () => {
@@ -81,6 +125,9 @@ describe("scoreProducts", () => {
     trendSlope: 0,
     marketplaceOrders: 100,
     supplierPriceCents: 500,
+    marketReach: 0.4,
+    sellingStores: null,
+    retailUsdCents: null,
     ageDays: 30,
     sources: ["cj", "google_trends", "meta_ads"],
   };
@@ -90,6 +137,26 @@ describe("scoreProducts", () => {
     expect(withGap.breakdown.subScores.demandTrend.value).toBeNull();
     expect(withGap.score).toBeGreaterThan(0);
     expect(withGap.confidence).toBeLessThan(scoreProducts([base])[0].confidence);
+  });
+
+  it("scores gross margin from store retail price and supplier cost", () => {
+    const [s] = scoreProducts([{ ...base, retailUsdCents: 2000, supplierPriceCents: 500 }]);
+    // (20 − 5) / 20 = 75% margin ≥ 60% → full score.
+    expect(s.breakdown.subScores.margin).toMatchObject({ value: 1, raw: 0.75 });
+
+    const [half] = scoreProducts([{ ...base, retailUsdCents: 1000, supplierPriceCents: 700 }]);
+    expect(half.breakdown.subScores.margin.value).toBeCloseTo(0.5);
+
+    const [none] = scoreProducts([{ ...base, retailUsdCents: null }]);
+    expect(none.breakdown.subScores.margin.value).toBeNull();
+  });
+
+  it("counts selling stores toward saturation only when known", () => {
+    const [a, b] = scoreProducts([
+      { ...base, sellingStores: 2 },
+      { ...base, sellingStores: 40 },
+    ]);
+    expect(b.breakdown.saturation.penalty).toBeGreaterThan(a.breakdown.saturation.penalty);
   });
 
   it("caps single-source products at 70", () => {

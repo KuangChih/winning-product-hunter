@@ -90,8 +90,17 @@ npm run seed
 | 頁面顯示「No scored products yet」 | 資料表是空的，執行 `npm run seed`（樣本資料）。 |
 | Build log 出現 `DATABASE_URL is not set; skipping migrations.` | 該環境沒有設定資料庫，migration 被略過。 |
 
+## 8. 每日自動蒐集（GitHub Actions）
+
+`.github/workflows/daily-pipeline.yml` 每天 06:00 UTC 執行 `npm run db:migrate` 與 `npm run pipeline`（ECB 匯率 → 產品探索 → Shopify Catalog 蒐集 → 比對 → 評分）。
+
+1. GitHub repo → **Settings → Secrets and variables → Actions** → 新增 secret `DATABASE_URL`（與 Vercel Production 相同的 Neon 連線字串）。
+2. 選用：部署後新增 `SHOPIFY_UCP_AGENT_PROFILE`（自己的 UCP agent profile 網址）。
+3. **Actions → Daily pipeline → Run workflow** 可手動執行，並可調整關鍵字數與蒐集產品數。
+
+任何一步失敗（例如來源被擋）時 workflow 會標示失敗並寄信通知 repo 擁有者；其他步驟仍會執行，已取得的資料會保留。
+
 ## 尚未完成（之後的 roadmap 項目）
 
-- 用 GitHub Actions 排程定期執行 ingest → match → score（需在 GitHub Secrets 設定 `DATABASE_URL` 與各 API 金鑰）。
 - 接上 live API 取代樣本資料。
 - 帳號系統、付費功能、隱私權政策與服務條款頁。
