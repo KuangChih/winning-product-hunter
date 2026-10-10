@@ -19,6 +19,8 @@ export interface FetchedItem {
   url?: string;
   imageUrl?: string;
   region?: string;
+  /** ISO countries; defaults to the countries implied by `region`. */
+  countries?: string[];
   advertiserId?: string;
   advertiserName?: string;
   format?: string;

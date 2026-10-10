@@ -1,6 +1,7 @@
 import { desc, inArray, sql } from "drizzle-orm";
 import type { AnyDatabase } from "@/db/client";
 import { productScores, products, sourceItems } from "@/db/schema";
+import { sortByMarketPriority } from "@/lib/markets";
 import type { ScoreBreakdown } from "@/scoring/score";
 
 export interface RankedProduct {
@@ -14,6 +15,8 @@ export interface RankedProduct {
   computedAt: Date;
   breakdown: ScoreBreakdown;
   sources: string[];
+  /** ISO countries the evidence covers, target markets first. */
+  markets: string[];
   /** True when every piece of evidence comes from fixtures (sample data). */
   isSample: boolean;
 }
@@ -42,8 +45,12 @@ export async function getRankedProducts(db: AnyDatabase, limit = 50): Promise<Ra
         productId: sourceItems.productId,
         sources: sql<string[]>`array_agg(distinct ${sourceItems.source}::text)`,
         nonFixture: sql<number>`count(*) filter (where ${sourceItems.provider} <> 'fixture')`,
+        countries: sql<
+          string[]
+        >`coalesce(array_agg(distinct c) filter (where c is not null), '{}')`,
       })
       .from(sourceItems)
+      .leftJoin(sql`lateral unnest(${sourceItems.countries}) as c`, sql`true`)
       .where(inArray(sourceItems.productId, ids))
       .groupBy(sourceItems.productId),
   ]);
@@ -66,6 +73,7 @@ export async function getRankedProducts(db: AnyDatabase, limit = 50): Promise<Ra
         computedAt: s.computedAt,
         breakdown: s.breakdown as ScoreBreakdown,
         sources: [...(e?.sources ?? [])].sort(),
+        markets: sortByMarketPriority(e?.countries ?? []),
         isSample: Number(e?.nonFixture ?? 0) === 0,
       },
     ];

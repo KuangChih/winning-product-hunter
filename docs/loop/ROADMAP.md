@@ -21,13 +21,13 @@
 - [x] 正規化 + 實體對應 v0：標題正規化、token 相似度把 source items 歸到 products；trend 關鍵字以 token 包含關係連到產品（圖片雜湊待有真實圖片時加入）；CLI `npm run match`
 - [x] 評分 v0：依 `docs/research/scoring.md` 實作可解釋子分數（longevity、scaling、demandTrend、marketplace、margin），寫入 product_scores；CLI `npm run score`
 - [x] 產品探索頁 v0：讀 DB 列出最新分數排名，標示「樣本資料」；無 DATABASE_URL 時顯示設定說明
-- [ ] 產品詳情頁 v0：分數拆解 + 證據清單（廣告連結、趨勢序列、供應商價格）
+- [x] 產品詳情頁 v0：分數拆解 + 證據清單（廣告連結、趨勢序列、供應商價格）
 - [x] `npm run seed`：一次跑 ingest(fixture) → match → score，方便本機與 preview 環境展示
 
 ## Phase 2B — 第一手真實資料（ADR-005，產品詳情頁之後最優先）
 目標：盡早開始每天累積英語系五國（US、CA、UK、AU、NZ）的真實資料，回測需要至少 4–8 週歷史。
 每個 live adapter 都先以 mock fetch 寫測試；沒有金鑰時在 HUMAN_TODO 標示並跳過，改做下一個。
-- [ ] 資料模型：訊號與 source item 帶「國家」維度（ISO 3166-1），支援目標市場清單設定（英語系五國優先、歐洲第二波）
+- [x] 資料模型：訊號與 source item 帶「國家」維度（ISO 3166-1），支援目標市場清單設定（英語系五國優先、歐洲第二波）
 - [ ] 移除 AliExpress：fixture、解析器與來源 enum 改為 CJ Dropshipping 樣本（依 `docs/research/suppliers.md` 的真實回應格式）
 - [ ] Shopify Global Catalog adapter（MCP，agent profile 認證）：依 ships_to 國家查詢商品 → 零售價中位數、販售店家數、店家網域；需先確認 early access 權限與使用條款
 - [ ] CJ Dropshipping API v2 adapter：Trending 商品、90 天銷量（soldOut / orderCount）、各國運費與運送時間、各倉庫存 → 供應成本與需求訊號

@@ -48,6 +48,9 @@ describe("runIngestion", () => {
     expect(await t.db.select().from(signalSnapshots)).toHaveLength(2);
     const [run] = await t.db.select().from(ingestionRuns);
     expect(run).toMatchObject({ status: "succeeded", itemsFetched: 2, provider: "fixture" });
+    // Region "EU" expands to our EU target markets.
+    const [first] = await t.db.select().from(sourceItems);
+    expect(first.countries).toEqual(["DE", "FR", "SE", "BE", "ES"]);
     expect(run.finishedAt).not.toBeNull();
   });
 
@@ -70,6 +73,16 @@ describe("runIngestion", () => {
     expect(item.lastSeenAt.toISOString()).toBe("2026-10-08T00:00:00.000Z");
     const values = (await t.db.select().from(signalSnapshots)).map((s) => s.value).sort();
     expect(values).toEqual([1000, 4000]);
+  });
+
+  it("prefers explicit countries over the region and normalizes them", async () => {
+    const adapter = createFixtureAdapter("meta_ads", [
+      { ...ad("1", "Posture corrector", 1), region: "US", countries: ["nz", "UK", "us"] },
+    ]);
+    await runIngestion(t.db, adapter, { queries: [], limit: 10 });
+
+    const [item] = await t.db.select().from(sourceItems);
+    expect(item.countries).toEqual(["US", "GB", "NZ"]);
   });
 
   it("applies query filter and limit", async () => {

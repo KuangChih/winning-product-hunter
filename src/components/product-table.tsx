@@ -1,5 +1,6 @@
 import Link from "next/link";
 import type { RankedProduct } from "@/data/products";
+import { marketName, marketTier } from "@/lib/markets";
 import { sourceLabel } from "@/lib/sources";
 import { confidenceLabel } from "@/scoring/score";
 import { cn } from "@/lib/utils";
@@ -16,6 +17,27 @@ function ScoreBar({ score }: { score: number }) {
         <div className="bg-primary h-full rounded-full" style={{ width: `${score}%` }} />
       </div>
     </div>
+  );
+}
+
+/** Countries with evidence; priority (tier 1) markets are emphasized. */
+export function MarketList({ markets }: { markets: string[] }) {
+  if (markets.length === 0) return <span className="text-muted-foreground text-xs">—</span>;
+  return (
+    <ul className="flex flex-wrap gap-1">
+      {markets.map((m) => (
+        <li
+          key={m}
+          title={marketName(m)}
+          className={cn(
+            "rounded px-1.5 py-0.5 font-mono text-xs",
+            marketTier(m) === 1 ? "bg-primary text-primary-foreground" : "bg-secondary",
+          )}
+        >
+          {m}
+        </li>
+      ))}
+    </ul>
   );
 }
 
@@ -43,6 +65,7 @@ export function ProductTable({ products }: { products: RankedProduct[] }) {
             <th className="px-3 py-2 font-medium">Product</th>
             <th className="px-3 py-2 font-medium">Winning Score</th>
             <th className="px-3 py-2 font-medium">Confidence</th>
+            <th className="px-3 py-2 font-medium">Markets</th>
             <th className="px-3 py-2 font-medium">Evidence</th>
             <th className="px-3 py-2 font-medium">Active advertisers</th>
           </tr>
@@ -66,6 +89,9 @@ export function ProductTable({ products }: { products: RankedProduct[] }) {
                 <ScoreBar score={p.score} />
               </td>
               <td className="px-3 py-3">{CONFIDENCE_TEXT[confidenceLabel(p.confidence)]}</td>
+              <td className="px-3 py-3">
+                <MarketList markets={p.markets} />
+              </td>
               <td className="px-3 py-3">
                 <ul className="flex flex-wrap gap-1">
                   {p.sources.map((s) => (

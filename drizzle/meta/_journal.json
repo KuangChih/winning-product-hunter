@@ -8,6 +8,20 @@
       "when": 1791551680074,
       "tag": "0000_init",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1791570612562,
+      "tag": "0001_unique_snapshot_series",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1791606238970,
+      "tag": "0002_source_item_countries",
+      "breakpoints": true
     }
   ]
 }

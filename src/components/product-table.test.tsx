@@ -13,6 +13,7 @@ const product = (over: Partial<RankedProduct>): RankedProduct => ({
   confidence: 0.7,
   computedAt: new Date(),
   sources: ["aliexpress", "meta_ads"],
+  markets: ["US", "DE"],
   isSample: true,
   breakdown: {
     saturation: { activeAdvertisers: 2 },
@@ -38,6 +39,8 @@ describe("ProductTable", () => {
     expect(first.getByText("Medium")).toBeInTheDocument();
     expect(first.getByText("Meta Ads (EU)")).toBeInTheDocument();
     expect(first.getByText("Sample data")).toBeInTheDocument();
+    expect(first.getByTitle("United States")).toHaveTextContent("US");
+    expect(first.getByTitle("Germany")).toHaveTextContent("DE");
     expect(within(rows[1]).queryByText("Sample data")).toBeNull();
   });
 });

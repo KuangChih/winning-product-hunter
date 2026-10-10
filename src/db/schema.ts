@@ -1,3 +1,4 @@
+import { sql } from "drizzle-orm";
 import {
   bigserial,
   doublePrecision,
@@ -81,8 +82,13 @@ export const sourceItems = pgTable(
     title: text("title"),
     url: text("url"),
     imageUrl: text("image_url"),
-    /** ISO 3166-1 alpha-2 country, or a region code such as "EU". */
+    /** Region as reported by the source: ISO 3166-1 alpha-2 country or a code such as "EU". */
     region: text("region"),
+    /** ISO 3166-1 alpha-2 countries this item applies to (see src/lib/markets.ts). */
+    countries: text("countries")
+      .array()
+      .notNull()
+      .default(sql`'{}'::text[]`),
     advertiserId: text("advertiser_id"),
     advertiserName: text("advertiser_name"),
     /** Creative format for ads: "video", "image", "carousel". */
@@ -101,6 +107,7 @@ export const sourceItems = pgTable(
   (t) => [
     uniqueIndex("source_items_source_external_idx").on(t.source, t.externalId),
     index("source_items_product_idx").on(t.productId),
+    index("source_items_countries_idx").using("gin", t.countries),
   ],
 );
 
@@ -119,7 +126,8 @@ export const signalSnapshots = pgTable(
     value: doublePrecision("value").notNull(),
     observedAt: timestamp("observed_at", { withTimezone: true }).notNull(),
   },
-  (t) => [index("signal_snapshots_series_idx").on(t.sourceItemId, t.metric, t.observedAt)],
+  // One value per item, metric and instant: re-fetching a historical series must not duplicate it.
+  (t) => [uniqueIndex("signal_snapshots_series_idx").on(t.sourceItemId, t.metric, t.observedAt)],
 );
 
 /** A computed Winning Score with its full breakdown so the UI can explain it. */

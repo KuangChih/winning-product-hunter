@@ -105,3 +105,15 @@
 - 修正：CLI jobs 與 drizzle.config 改用 `@next/env` 讀取 `.env*`（含 `.env.local`），與 Next.js 一致；移除 dotenv。
 - 新增：`npm run seed`（ingest 所有 fixture → match → score）、`docs/DEPLOY.md`。
 - 驗證：format ✅ lint ✅ typecheck ✅ test ✅（48）build ✅；本機 `vercel-build` 成功套用 migration；`db:migrate`、`seed` 都能從 `.env.local` 讀到設定；未設定時 migration 會略過；瀏覽器檢查 `/products` 正常。
+
+## 2026-10-10 — 產品詳情頁 v0
+- 完成：`/products/[slug]`（Suspense + `connection()`）：分數、信心度、分數歷史 sparkline、分數拆解表（固定順序，缺資料顯示 No data）、佐證加成 / 飽和懲罰 / 單一來源上限、證據清單（廣告：廣告主、格式、開始日、投放天數、是否仍在投放、連結；搜尋趨勢 sparkline；供應商價格與訂單數）；找不到產品顯示 404 畫面；`getProductDetail` 資料層。
+- 修正（瀏覽器實測發現）：重複抓取歷史序列（Google Trends）會重複寫入 snapshot → `signal_snapshots` 改為 (item, metric, observed_at) 唯一索引 + `onConflictDoNothing`；migration `0001` 先刪除既有重複資料再建索引（已在本機示範資料庫的複本上驗證）。
+- 注意：串流頁面中的 `notFound()` 回傳 200 + 404 畫面（Next 串流行為），e2e 改檢查畫面。
+- 驗證：format ✅ lint ✅ typecheck ✅ test ✅（53）build ✅ e2e ✅（4）；瀏覽器實測詳情頁。
+- 下一步：Phase 2B 資料模型加入國家維度
+
+## 2026-10-10 — 國家維度資料模型
+- 完成：`src/lib/markets.ts`（目標市場清單：英語系五國 tier 1、歐洲六國 tier 2；`toCountries` 把 UK/EU/EEA 等代碼正規化成 ISO 國家；市場權重與排序）；`source_items.countries`（text[] + GIN 索引），ingestion 自動由 `countries` 或 `region` 推導；migration `0002` 會依既有 `region` 回填；排名頁新增 Markets 欄（tier 1 市場深色標示）。
+- 驗證：format ✅ lint ✅ typecheck ✅ test ✅（57）build ✅ e2e ✅；回填在本機示範資料庫複本上驗證（EU→5 國、US→US）；瀏覽器實測排名頁與詳情頁（趨勢已正確顯示 11 週）。
+- 下一步：移除 AliExpress，改用 CJ Dropshipping 樣本資料

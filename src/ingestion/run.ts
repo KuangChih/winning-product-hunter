@@ -1,6 +1,7 @@
 import { eq } from "drizzle-orm";
 import type { AnyDatabase } from "@/db/client";
 import { ingestionRuns, signalSnapshots, sourceItems } from "@/db/schema";
+import { sortByMarketPriority, toCountries } from "@/lib/markets";
 import type { FetchContext, SourceAdapter } from "./types";
 
 export interface IngestionResult {
@@ -39,6 +40,7 @@ export async function runIngestion(
         url: item.url,
         imageUrl: item.imageUrl,
         region: item.region,
+        countries: sortByMarketPriority((item.countries ?? [item.region]).flatMap(toCountries)),
         advertiserId: item.advertiserId,
         advertiserName: item.advertiserName,
         format: item.format,
@@ -59,14 +61,17 @@ export async function runIngestion(
         .returning({ id: sourceItems.id });
 
       if (item.metrics.length > 0) {
-        await db.insert(signalSnapshots).values(
-          item.metrics.map((m) => ({
-            sourceItemId: stored.id,
-            metric: m.metric,
-            value: m.value,
-            observedAt: m.observedAt ?? observedAt,
-          })),
-        );
+        await db
+          .insert(signalSnapshots)
+          .values(
+            item.metrics.map((m) => ({
+              sourceItemId: stored.id,
+              metric: m.metric,
+              value: m.value,
+              observedAt: m.observedAt ?? observedAt,
+            })),
+          )
+          .onConflictDoNothing();
       }
       itemsFetched++;
     }
