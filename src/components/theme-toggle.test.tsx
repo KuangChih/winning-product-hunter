@@ -7,6 +7,7 @@ import {
   THEME_INIT_SCRIPT,
   THEME_STORAGE_KEY,
 } from "@/lib/theme";
+import { getDictionary } from "@/i18n/dictionaries";
 import { ThemeToggle } from "./theme-toggle";
 
 function mockSystemDark(dark: boolean) {
@@ -67,7 +68,7 @@ describe("ThemeToggle", () => {
   });
 
   it("cycles the preference, stores it and updates the page", () => {
-    render(<ThemeToggle />);
+    render(<ThemeToggle labels={getDictionary("en").theme} />);
     const button = () => screen.getByRole("button");
     expect(button()).toHaveAccessibleName(/^System theme/);
 
@@ -84,5 +85,12 @@ describe("ThemeToggle", () => {
     expect(localStorage.getItem(THEME_STORAGE_KEY)).toBeNull();
     expect(button()).toHaveAccessibleName(/^System theme/);
     expect(document.documentElement.classList.contains("dark")).toBe(false);
+  });
+
+  it("labels the button in Traditional Chinese", () => {
+    render(<ThemeToggle labels={getDictionary("zh-TW").theme} />);
+    expect(screen.getByRole("button")).toHaveAccessibleName(
+      "目前：跟隨系統主題。按下切換為淺色主題",
+    );
   });
 });

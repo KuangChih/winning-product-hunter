@@ -53,7 +53,8 @@ for (const colorScheme of ["light", "dark"] as const) {
 
 test("keyboard users can skip straight to the content", async ({ page }) => {
   await page.goto("/products");
-  await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
+  // Wait for the streamed content, so there is something focusable inside main.
+  await expect(page.getByRole("searchbox")).toBeVisible();
   await page.keyboard.press("Tab");
   const skip = page.getByRole("link", { name: "Skip to content" });
   await expect(skip).toBeFocused();

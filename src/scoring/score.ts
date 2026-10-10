@@ -37,9 +37,23 @@ export interface SubScore {
   weight: number;
   /** The un-normalized input, shown to users as evidence. */
   raw: number | null;
-  /** Plain-language note on how the value was derived. */
+  /** Plain-language note on how the value was derived (English; kept for older scores). */
   basis: string;
+  /** The same note as a translatable code and its numbers (scores computed since v1.1+i18n). */
+  explain?: { key: ExplainKey; params?: Record<string, string | number> };
 }
+
+export type ExplainKey =
+  | "longevity"
+  | "scaling"
+  | "marketReach"
+  | "momentum"
+  | "momentumNeedsHistory"
+  | "demandTrend"
+  | "marketplace"
+  | "margin"
+  | "marginNeedsRetail"
+  | "marginNeedsSupplier";
 
 export interface ScoreBreakdown {
   version: string;
@@ -84,6 +98,7 @@ function marginSubScore(f: ProductFeatures, weight: number): SubScore {
         f.retailUsdCents === null
           ? "Needs retail prices from stores (Shopify Global Catalog)."
           : "Needs a supplier cost (CJ Dropshipping).",
+      explain: { key: f.retailUsdCents === null ? "marginNeedsRetail" : "marginNeedsSupplier" },
     };
   }
   const margin = (f.retailUsdCents - f.supplierPriceCents) / f.retailUsdCents;
@@ -92,6 +107,13 @@ function marginSubScore(f: ProductFeatures, weight: number): SubScore {
     weight,
     raw: Math.round(margin * 1000) / 1000,
     basis: `Gross margin before shipping: median store price ${(f.retailUsdCents / 100).toFixed(2)} USD vs supplier ${(f.supplierPriceCents / 100).toFixed(2)} USD.`,
+    explain: {
+      key: "margin",
+      params: {
+        retail: (f.retailUsdCents / 100).toFixed(2),
+        supplier: (f.supplierPriceCents / 100).toFixed(2),
+      },
+    },
   };
 }
 
@@ -118,6 +140,7 @@ export function scoreProducts(features: ProductFeatures[]): ProductScore[] {
         weight: w.longevity,
         raw: f.longevity,
         basis: "Average survival of the 3 longest-running ads (stopped ads count half).",
+        explain: { key: "longevity" },
       },
       scaling: {
         value: scaling[i],
@@ -125,12 +148,14 @@ export function scoreProducts(features: ProductFeatures[]): ProductScore[] {
         raw: f.newAdActivity14d,
         basis:
           "New ads + new advertisers in the last 14 days, plus reused creatives, ranked against other products.",
+        explain: { key: "scaling" },
       },
       marketReach: {
         value: f.marketReach,
         weight: w.marketReach,
         raw: f.marketReach,
         basis: "Share of the five priority markets (US, CA, UK, AU, NZ) with active ads.",
+        explain: { key: "marketReach" },
       },
       momentum: {
         value: momentum[i],
@@ -140,18 +165,27 @@ export function scoreProducts(features: ProductFeatures[]): ProductScore[] {
           f.adMomentum === null
             ? `Needs ${MOMENTUM_MIN_BASELINE_DAYS + 1}+ days of daily ad history (have ${f.adHistoryDays}).`
             : "Today's observed ads vs the previous days (robust z-score), ranked.",
+        explain:
+          f.adMomentum === null
+            ? {
+                key: "momentumNeedsHistory",
+                params: { need: MOMENTUM_MIN_BASELINE_DAYS + 1, have: f.adHistoryDays },
+              }
+            : { key: "momentum" },
       },
       demandTrend: {
         value: trend[i],
         weight: w.demandTrend,
         raw: f.trendSlope,
         basis: "Search interest slope per week relative to its median, ranked.",
+        explain: { key: "demandTrend" },
       },
       marketplace: {
         value: market[i],
         weight: w.marketplace,
         raw: f.marketplaceOrders,
         basis: "Units sold by the supplier (CJ) in the last 90 days, ranked.",
+        explain: { key: "marketplace" },
       },
       margin: marginSubScore(f, w.margin),
     };

@@ -40,7 +40,7 @@ describe("estimateMargin", () => {
   it("explains what is missing instead of guessing", () => {
     const noSupplier = estimateMargin([store(2000)], RATES);
     expect(noSupplier.grossMargin).toBeNull();
-    expect(noSupplier.missing).toEqual(["a supplier cost (CJ Dropshipping listing)"]);
+    expect(noSupplier.missing).toEqual(["supplier"]);
 
     const nothing = estimateMargin(
       [{ kind: "ad", source: "meta_ads", priceCents: null, currency: null }],

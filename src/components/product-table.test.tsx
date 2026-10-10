@@ -26,6 +26,7 @@ describe("ProductTable", () => {
     render(
       <ProductTable
         products={[product({}), product({ id: "2", slug: "real", title: "Real", isSample: false })]}
+        locale="en"
       />,
     );
 
@@ -42,5 +43,15 @@ describe("ProductTable", () => {
     expect(first.getByTitle("United States")).toHaveTextContent("US");
     expect(first.getByTitle("Germany")).toHaveTextContent("DE");
     expect(within(rows[1]).queryByText("Sample data")).toBeNull();
+  });
+
+  it("translates headers, confidence, badge and country names", () => {
+    render(<ProductTable products={[product({})]} locale="zh-TW" />);
+    expect(screen.getByRole("columnheader", { name: "可信度" })).toBeInTheDocument();
+    const row = within(screen.getAllByRole("row")[1]);
+    expect(row.getByText("中")).toBeInTheDocument();
+    expect(row.getByText("樣本資料")).toBeInTheDocument();
+    expect(row.getByTitle("美國")).toHaveTextContent("US");
+    expect(row.getByTitle("德國")).toHaveTextContent("DE");
   });
 });

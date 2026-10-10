@@ -2,25 +2,30 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import type { Dictionary } from "@/i18n/dictionaries";
+import { splitLocale } from "@/i18n/locales";
 import { cn } from "@/lib/utils";
 
 export const NAV_LINKS = [
-  { href: "/products", label: "Winning products" },
-  { href: "/ads", label: "Ads" },
-  { href: "/watchlist", label: "Watchlist" },
-  { href: "/sources", label: "Data sources" },
+  { href: "/products", key: "products" },
+  { href: "/ads", key: "ads" },
+  { href: "/watchlist", key: "watchlist" },
+  { href: "/sources", key: "sources" },
 ] as const;
 
-/** True when `pathname` is the link's page or one of its sub-pages. */
+export type NavLabels = Dictionary["nav"];
+
+/** True when `pathname` (with or without a locale prefix) is the link's page or a sub-page. */
 export function isActive(pathname: string, href: string) {
-  return pathname === href || pathname.startsWith(`${href}/`);
+  const path = splitLocale(pathname).path;
+  return path === href || path.startsWith(`${href}/`);
 }
 
 /** Links without an active state: the prerendered fallback before the pathname is known. */
-export function NavLinks({ pathname }: { pathname: string | null }) {
+export function NavLinks({ pathname, labels }: { pathname: string | null; labels: NavLabels }) {
   return (
     <nav
-      aria-label="Main"
+      aria-label={labels.label}
       className="-mx-2.5 max-w-full overflow-x-auto overflow-y-hidden sm:-mx-1"
     >
       <ul className="flex items-center gap-0.5 p-1 text-sm whitespace-nowrap sm:gap-1">
@@ -38,7 +43,7 @@ export function NavLinks({ pathname }: { pathname: string | null }) {
                     : "text-muted-foreground hover:text-foreground",
                 )}
               >
-                {link.label}
+                {labels[link.key]}
               </Link>
             </li>
           );
@@ -49,9 +54,9 @@ export function NavLinks({ pathname }: { pathname: string | null }) {
 }
 
 /** Navigation with the current section highlighted (needs the pathname, so it streams). */
-export function SiteNav() {
+export function SiteNav({ labels }: { labels: NavLabels }) {
   const pathname = usePathname() ?? "/";
   // The login page is outside the site; links would only bounce back to it.
-  if (pathname === "/login") return null;
-  return <NavLinks pathname={pathname} />;
+  if (splitLocale(pathname).path === "/login") return null;
+  return <NavLinks pathname={pathname} labels={labels} />;
 }

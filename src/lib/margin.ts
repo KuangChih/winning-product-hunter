@@ -8,6 +8,8 @@ export interface MarginInput {
   currency: string | null;
 }
 
+export type MissingMarginInput = "retail" | "supplier";
+
 export interface MarginEstimate {
   /** Median US retail price across stores selling it, in USD cents. */
   retailUsdCents: number | null;
@@ -20,8 +22,8 @@ export interface MarginEstimate {
   grossProfitUsdCents: number | null;
   /** Gross margin as a fraction of retail (e.g. 0.62). */
   grossMargin: number | null;
-  /** What is missing for a full estimate, in plain words. */
-  missing: string[];
+  /** Inputs missing for a full estimate (the UI words them). */
+  missing: MissingMarginInput[];
 }
 
 /**
@@ -46,13 +48,9 @@ export function estimateMargin(items: MarginInput[], rates: FxRates | null): Mar
   const supplier = supplierPrices.length ? Math.min(...supplierPrices) : null;
 
   const retailUsdCents = retail?.medianCents ?? null;
-  const missing: string[] = [];
-  if (retailUsdCents === null) {
-    missing.push("a retail price from stores selling it (Shopify Global Catalog)");
-  }
-  if (supplier === null) {
-    missing.push("a supplier cost (CJ Dropshipping listing)");
-  }
+  const missing: MissingMarginInput[] = [];
+  if (retailUsdCents === null) missing.push("retail");
+  if (supplier === null) missing.push("supplier");
 
   const complete = retailUsdCents !== null && supplier !== null && retailUsdCents > 0;
   const profit = complete ? retailUsdCents - supplier : null;

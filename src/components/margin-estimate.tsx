@@ -1,3 +1,5 @@
+import type { Dictionary } from "@/i18n/dictionaries";
+import { fill } from "@/i18n/format";
 import type { MarginEstimate as Estimate } from "@/lib/margin";
 
 const usd = (cents: number) =>
@@ -14,41 +16,46 @@ function Figure({ label, value, note }: { label: string; value: string; note?: s
 }
 
 /** Retail vs supplier cost before shipping, with what is missing spelled out. */
-export function MarginEstimate({ estimate }: { estimate: Estimate }) {
+export function MarginEstimate({ estimate, t }: { estimate: Estimate; t: Dictionary["margin"] }) {
   const e = estimate;
+  const missing = e.missing.map((m) => (m === "retail" ? t.missingRetail : t.missingSupplier));
   return (
     <div className="space-y-3">
       <div className="grid gap-3 sm:grid-cols-3">
         <Figure
-          label="Retail price (US)"
+          label={t.retail}
           value={e.retailUsdCents === null ? "—" : usd(e.retailUsdCents)}
           note={
             e.retailUsdCents === null
               ? undefined
-              : `Median of ${e.retailOffers} store ${e.retailOffers === 1 ? "offer" : "offers"}`
+              : e.retailOffers === 1
+                ? t.retailNoteOne
+                : fill(t.retailNote, { n: e.retailOffers })
           }
         />
         <Figure
-          label="Supplier cost"
+          label={t.supplier}
           value={e.supplierUsdCents === null ? "—" : usd(e.supplierUsdCents)}
           note={
             e.supplierUsdCents === null
               ? undefined
-              : `Cheapest of ${e.supplierListings} ${e.supplierListings === 1 ? "listing" : "listings"}`
+              : e.supplierListings === 1
+                ? t.supplierNoteOne
+                : fill(t.supplierNote, { n: e.supplierListings })
           }
         />
         <Figure
-          label="Gross margin"
+          label={t.grossMargin}
           value={e.grossMargin === null ? "—" : `${Math.round(e.grossMargin * 100)}%`}
           note={
-            e.grossProfitUsdCents === null ? undefined : `${usd(e.grossProfitUsdCents)} per unit`
+            e.grossProfitUsdCents === null
+              ? undefined
+              : fill(t.perUnit, { amount: usd(e.grossProfitUsdCents) })
           }
         />
       </div>
       <p className="text-muted-foreground text-xs">
-        {e.missing.length > 0
-          ? `Not enough data for a margin yet: needs ${e.missing.join(" and ")}.`
-          : "Before shipping, ad spend, payment fees and returns."}
+        {missing.length > 0 ? fill(t.missing, { items: missing.join(t.missingJoin) }) : t.caveat}
       </p>
     </div>
   );

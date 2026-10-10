@@ -284,3 +284,46 @@
 - 完成：加入 `@axe-core/playwright`（dev，免費），e2e 掃描首頁、排名、廣告、收藏、資料來源、登入、產品詳情 × 淺色 / 深色，WCAG 2.1 A/AA 規則 0 違規。axe 抓不到的部分手動用鍵盤實測後修正：焦點框原本是 1px 半透明灰色幾乎看不到 → 改成 2px 前景色；新增「Skip to content」連結（所有頁面 `<main id="main">`）；導覽列連結原本是 inline，padding 超出高度讓桌面版出現垂直捲軸 → 改成 block 並在捲動容器內留空間給焦點框。
 - 驗證：format ✅ lint ✅ typecheck ✅ test ✅（157）build ✅ e2e ✅（31，新增 14 個 axe 掃描與 1 個鍵盤跳過導覽測試）；瀏覽器鍵盤實測。
 - 下一步：i18n（繁中 / 英文）
+
+## 2026-10-10 — i18n 路由基礎（ADR-011）
+- 完成：頁面移到 `src/app/[lang]`（`generateStaticParams` 產生 en / zh-TW，各自預渲染）；proxy 先做密碼檢查、再依 `locale` cookie 把沒有前綴的網址改寫到對應語言（網址不變，`/zh-TW/...` 也可直接開）；`src/i18n`（語言清單、路徑工具、字典、`getLocale` 用 `next/root-params`）；語言切換按鈕；導覽列、頁尾、Skip link、`<html lang>` 已翻譯。其他頁面的翻譯拆成後續子項目。
+- 修正：Skip link e2e 在串流內容尚未出現時按 Tab 會失敗 → 先等搜尋框出現。
+- 驗證：format ✅ lint ✅ typecheck ✅ test ✅（165，含字典 key 完整性與 proxy 改寫）build ✅（每頁 en / zh-TW 兩個預渲染外殼）e2e ✅（33，新增語言切換與 `/zh-TW` 前綴網址）；瀏覽器檢查 `/zh-TW/products` 導覽為中文、`lang="zh-TW"`、伺服器無錯誤。
+- 下一步：翻譯首頁
+
+## 2026-10-10 — 翻譯首頁
+- 完成：首頁所有文字（主標語、按鈕、四個特色、運作步驟、資料來源、前三名區塊的空狀態與載入中）移到字典，`Landing` 由伺服器端傳入字串；繁中版本使用台灣用語，產品名與來源專有名詞保留英文。
+- 修正：單元測試在 20 核心機器上預設一個檔案一個 worker，數十個 PGlite 同時啟動互相拖慢，4–7 個測試剛好 20 秒逾時 → `maxWorkers: "50%"`，全部通過且從約 50 秒降到約 24 秒；寫入 CLAUDE.md 已知陷阱。
+- 驗證：format ✅ lint ✅ typecheck ✅ test ✅（166）build ✅ e2e ✅（34，新增中文首頁）；瀏覽器檢查 `/zh-TW` 全文為中文、前三名真實產品正常、伺服器無錯誤（截圖逾時，改用頁面文字確認）。
+- 下一步：翻譯排名頁與產品詳情頁
+
+## 2026-10-10 — 翻譯排名頁
+- 完成：字典新增 `common`（載入中、樣本資料標籤、可信度、資料庫未設定 / 未建立提示）與 `ranking`；`src/i18n/format.tsx`：`countryName`（`Intl.DisplayNames`，GB → 英國）、`fill`（`{n}` 佔位）、`RichText`（字典裡用反引號標示的程式名稱顯示為 `<code>`）。排名頁標題、說明、篩選表單、排序選項、表格欄位、可信度、樣本資料標籤、各種空狀態與 metadata 標題都依語言顯示；首頁前三名的國家名稱也跟著語言。
+- 驗證：format ✅ lint ✅ typecheck ✅ test ✅（168，新增中文表格與篩選表單）build ✅ e2e ✅（35，新增中文排名頁）；瀏覽器檢查 `/zh-TW/products?market=GB`：34 個產品、欄位與可信度為中文、市場選單顯示「英國」，伺服器無錯誤。
+- 下一步：翻譯產品詳情頁
+
+## 2026-10-10 — 翻譯產品詳情頁主體
+- 完成：字典新增 `detail`、`breakdown`、`margin`；詳情頁標題列（Winning Score、可信度、更新日期、分數歷史）、分數拆解（訊號名稱、欄位、沒有資料、跨來源加成、飽和度、單一來源上限）、毛利估算、收藏按鈕、返回連結與 metadata 標題都依語言顯示。`estimateMargin` 改回傳缺少項目的代碼（retail / supplier），由介面組成句子。分數說明：英文顯示評分時存下的說明（含即時數字），中文顯示固定的計算方式說明，結構化改進列入 ROADMAP。
+- 驗證：format ✅ lint ✅ typecheck ✅ test ✅（171，新增分數拆解中英文、毛利中文）build ✅ e2e ✅（36，新增中文詳情頁）；瀏覽器檢查 `/zh-TW/products/ear-cleaner` 各區塊為中文、毛利提示「需要供應商報價」，伺服器無錯誤。
+- 下一步：翻譯證據清單與來源名稱
+
+## 2026-10-10 — 翻譯證據清單與來源名稱
+- 完成：字典新增 `evidence`；證據清單的廣告列（來源、國家、影片 / 圖片 / 輪播、同素材廣告數、開始日、天數、投放中 / 已停止）、搜尋需求、販售店家（國家名、售價中位數、ECB 換算說明、Shopify 目錄相符數）、供應商報價都依語言顯示。`sourceLabel` 加上語言參數，只翻譯描述性名稱（「Shopify 店家」「TikTok Ads（歐盟）」），品牌名保留；排名頁的證據來源欄也跟著翻譯。
+- 驗證：format ✅ lint ✅ typecheck ✅ test ✅（172，新增中文證據清單）build ✅ e2e ✅（37，新增中文證據區塊）；瀏覽器檢查 Ear Cleaner 中文頁：「廣告（5）」「販售的店家（67）」、加拿大「4 筆依 2026-10-09 的 ECB 匯率換算」，伺服器無錯誤。
+- 下一步：翻譯廣告、收藏、資料來源、登入頁
+- 補充：實測時 dev server log 出現一次 `SyntaxError: Unexpected end of JSON input`（page `/en`，回 500）。重現確認只在 dev server 冷啟動時、第一批同時進來的請求才會發生，之後的請求都是 200；production（`next start`）同時打 6 個冷請求都 200、無錯誤 → 判定為 dev 首次編譯的競態，記入 CLAUDE.md 已知陷阱。
+
+## 2026-10-10 — 翻譯廣告頁與收藏頁
+- 完成：字典新增 `ads`、`watchlist`；廣告頁的篩選表單、廣告卡片（沿用 `evidence` 的格式 / 天數 / 狀態字串，兩處用詞一致）、總數、分頁、樣本標籤、各種空狀態與 metadata 標題；收藏頁的欄位、尚未評分、分數變動提醒（`AlertText` 把有顏色的變動數字放進翻譯句子中）、空狀態、收藏按鈕與 metadata 標題。廣告瀏覽元件首次加上單元測試。
+- 驗證：format ✅ lint ✅ typecheck ✅ test ✅（175）build ✅ e2e ✅（38，新增中文廣告與收藏頁）；瀏覽器檢查 `/zh-TW/ads?market=US`：「68 則廣告 · 顯示第 1–50 則」「第 1 頁，共 2 頁」，伺服器無錯誤。
+- 下一步：翻譯資料來源頁、登入頁、主題切換按鈕
+
+## 2026-10-10 — 翻譯資料來源頁、登入頁、主題按鈕（介面中文化完成）
+- 完成：字典新增 `sources`、`login`、`theme`、`site.description`；資料來源頁（欄位、狀態、來源與提供者名稱、失敗次數、空狀態、metadata）、登入頁（說明、密碼欄、錯誤與鎖定訊息、按鈕、metadata）、主題切換按鈕的無障礙標籤、全站 metadata 描述都依語言顯示。順便修正：廣告主商店的提供者原本直接顯示代碼 `shopify_catalog_lookup`，現在有中英文名稱。全專案 grep 已無寫死的英文介面文字。
+- 驗證：format ✅ lint ✅ typecheck ✅ test ✅（176）build ✅ e2e ✅（39，新增中文資料來源與登入頁）；瀏覽器檢查 `/zh-TW/sources`：欄位、狀態「正常」、「Shopify 店家 / Global Catalog（廣告主商店）」、主題按鈕標籤皆為中文，伺服器無錯誤。
+- 剩下的 i18n 子項目：數字與日期依語言格式化、分數說明結構化。
+
+## 2026-10-10 — 分數說明結構化（i18n 完成）
+- 完成：每個子分數除了英文 `basis` 之外，另存 `explain: { key, params }`（例如 `momentumNeedsHistory { need: 5, have: 1 }`、`margin { retail, supplier }`）；字典新增 `breakdown.explain` 中英文樣板，介面依語言填入該分數自己的數字。舊分數沒有 `explain` 時沿用原本的行為。分數數值不變，不需升版本；示範資料庫已重新評分。數字與日期格式化評估後不需要（ISO 日期、千分位、標示幣別兩地通用），項目關閉。i18n 全部完成。
+- 驗證：format ✅ lint ✅ typecheck ✅ test ✅（178，新增「英文樣板填入參數必須和 basis 完全相同」的一致性測試與中文即時數字測試）build ✅ e2e ✅（39）；瀏覽器檢查 Ear Cleaner 中文頁：廣告動能顯示「需要至少 5 天的每日廣告紀錄（目前 1 天）」，伺服器無錯誤。
+- 下一步：Phase 4 的 RWD/深色/無障礙/i18n 已全部完成；接著看 ROADMAP 下一個未封鎖項目

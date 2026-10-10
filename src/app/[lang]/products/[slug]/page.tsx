@@ -12,17 +12,19 @@ import { WatchButton } from "@/components/watch-button";
 import { getProductDetail, getProductTitle } from "@/data/product-detail";
 import { isWatched } from "@/data/watchlist";
 import { getDb, isDatabaseConfigured, isMissingTableError } from "@/db/client";
+import { getDictionary } from "@/i18n/dictionaries";
+import { fill } from "@/i18n/format";
+import type { Locale } from "@/i18n/locales";
+import { getLocale } from "@/i18n/server";
 import { estimateMargin } from "@/lib/margin";
 import { confidenceLabel } from "@/scoring/score";
-
-const CONFIDENCE_TEXT = { low: "Low", medium: "Medium", high: "High" } as const;
-const SITE_NAME = "Winning Product Hunter";
 
 // The page body already streams per request, so this metadata streams with it.
 export async function generateMetadata({
   params,
-}: PageProps<"/products/[slug]">): Promise<Metadata> {
+}: PageProps<"/[lang]/products/[slug]">): Promise<Metadata> {
   const { slug } = await params;
+  const t = getDictionary(await getLocale());
   await connection();
   let title: string | null = null;
   if (isDatabaseConfigured()) {
@@ -32,10 +34,18 @@ export async function generateMetadata({
       if (!isMissingTableError(err)) throw err;
     }
   }
-  return { title: title ? `${title} · ${SITE_NAME}` : `Product not found · ${SITE_NAME}` };
+  return { title: `${title ?? t.detail.notFoundTitle} · ${t.site.name}` };
 }
 
-async function ProductDetailView({ params }: { params: Promise<{ slug: string }> }) {
+async function ProductDetailView({
+  params,
+  locale,
+}: {
+  params: Promise<{ slug: string }>;
+  locale: Locale;
+}) {
+  const dict = getDictionary(locale);
+  const t = dict.detail;
   const { slug } = await params;
   await connection();
   if (!isDatabaseConfigured()) notFound();
@@ -59,71 +69,78 @@ async function ProductDetailView({ params }: { params: Promise<{ slug: string }>
       <header className="space-y-3">
         <div className="flex flex-wrap items-center gap-2">
           <h1 className="text-3xl font-semibold tracking-tight">{product.title}</h1>
-          {product.isSample && <SampleDataBadge />}
+          {product.isSample && <SampleDataBadge t={dict.common} />}
           <div className="ml-auto">
-            <WatchButton productId={product.id} watched={watched} />
+            <WatchButton productId={product.id} watched={watched} labels={t} />
           </div>
         </div>
         {product.score ? (
           <div className="flex flex-wrap items-end gap-6">
             <div>
-              <div className="text-muted-foreground text-xs uppercase">Winning Score</div>
+              <div className="text-muted-foreground text-xs uppercase">{t.winningScore}</div>
               <div className="text-5xl font-semibold tabular-nums">
                 {product.score.score.toFixed(0)}
               </div>
             </div>
             <div className="text-sm">
               <div>
-                Confidence:{" "}
+                {t.confidence}{" "}
                 <span className="font-medium">
-                  {CONFIDENCE_TEXT[confidenceLabel(product.score.confidence)]}
+                  {dict.common.confidence[confidenceLabel(product.score.confidence)]}
                 </span>
               </div>
               <div className="text-muted-foreground">
-                Updated {product.score.computedAt.toISOString().slice(0, 10)}
+                {fill(t.updated, { date: product.score.computedAt.toISOString().slice(0, 10) })}
               </div>
             </div>
-            <Sparkline
-              values={product.scoreHistory.map((s) => s.score)}
-              label="Winning Score history"
-            />
+            <Sparkline values={product.scoreHistory.map((s) => s.score)} label={t.scoreHistory} />
           </div>
         ) : (
-          <p className="text-muted-foreground text-sm">This product has not been scored yet.</p>
+          <p className="text-muted-foreground text-sm">{t.notScored}</p>
         )}
       </header>
 
       {product.score && (
         <section className="space-y-3">
-          <h2 className="text-xl font-semibold">Why this score</h2>
-          <ScoreBreakdown breakdown={product.score.breakdown} />
+          <h2 className="text-xl font-semibold">{t.whyHeading}</h2>
+          <ScoreBreakdown breakdown={product.score.breakdown} locale={locale} />
         </section>
       )}
 
       <section className="space-y-3">
-        <h2 className="text-xl font-semibold">Margin estimate</h2>
-        <MarginEstimate estimate={estimateMargin(product.evidence, product.fxRates)} />
+        <h2 className="text-xl font-semibold">{t.marginHeading}</h2>
+        <MarginEstimate
+          estimate={estimateMargin(product.evidence, product.fxRates)}
+          t={dict.margin}
+        />
       </section>
 
       <section className="space-y-3">
-        <h2 className="text-xl font-semibold">Evidence</h2>
-        <EvidenceList evidence={product.evidence} now={now} fxRates={product.fxRates} />
+        <h2 className="text-xl font-semibold">{t.evidenceHeading}</h2>
+        <EvidenceList
+          evidence={product.evidence}
+          now={now}
+          fxRates={product.fxRates}
+          locale={locale}
+        />
       </section>
     </>
   );
 }
 
-export default function ProductPage({ params }: PageProps<"/products/[slug]">) {
+export default async function ProductPage({ params }: PageProps<"/[lang]/products/[slug]">) {
+  const locale = await getLocale();
+  const t = getDictionary(locale).detail;
   return (
     <main id="main" className="mx-auto w-full max-w-5xl flex-1 space-y-10 px-4 py-10">
       <Link
         href="/products"
         className="text-muted-foreground text-sm underline-offset-4 hover:underline"
       >
-        ← All winning products
+        {t.backToRankings}
       </Link>
-      <Suspense fallback={<p className="text-muted-foreground text-sm">Loading product…</p>}>
-        <ProductDetailView params={params} />
+      <Suspense fallback={<p className="text-muted-foreground text-sm">{t.loading}</p>}>
+        <ProductDetailView params={params} locale={locale} />
       </Suspense>
     </main>
   );

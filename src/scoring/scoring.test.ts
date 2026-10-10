@@ -2,6 +2,8 @@
 import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { productScores, products } from "@/db/schema";
+import { getDictionary } from "@/i18n/dictionaries";
+import { fill } from "@/i18n/format";
 import { createTestDb } from "@/db/testing/pglite";
 import { fixtureAdapters } from "@/ingestion/fixtures";
 import { runIngestion } from "@/ingestion/run";
@@ -193,6 +195,26 @@ describe("scoreProducts", () => {
     ]);
     expect(s.score).toBeLessThanOrEqual(70);
     expect(s.confidenceLabel).toBe("low");
+  });
+
+  it("stores a translatable explanation that matches the English sentence", () => {
+    const en = getDictionary("en").breakdown.explain;
+    const variants = scoreProducts([
+      base,
+      { ...base, retailUsdCents: 2000 },
+      { ...base, supplierPriceCents: null },
+      { ...base, adMomentum: 1.5, adHistoryDays: 9 },
+    ]);
+    for (const p of variants) {
+      for (const sub of Object.values(p.breakdown.subScores)) {
+        expect(sub.explain).toBeDefined();
+        expect(fill(en[sub.explain!.key], sub.explain!.params ?? {})).toBe(sub.basis);
+      }
+    }
+    expect(variants[0].breakdown.subScores.momentum.explain).toEqual({
+      key: "momentumNeedsHistory",
+      params: { need: 5, have: 0 },
+    });
   });
 });
 

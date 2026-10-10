@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useSyncExternalStore } from "react";
+import type { Dictionary } from "@/i18n/dictionaries";
+import { fill } from "@/i18n/format";
 import {
   isDarkTheme,
   nextThemePreference,
@@ -29,14 +31,12 @@ function subscribe(onChange: () => void) {
   };
 }
 
-const LABELS: Record<ThemePreference, { icon: string; text: string }> = {
-  system: { icon: "◐", text: "System theme" },
-  light: { icon: "☀", text: "Light theme" },
-  dark: { icon: "☾", text: "Dark theme" },
-};
+const ICONS: Record<ThemePreference, string> = { system: "◐", light: "☀", dark: "☾" };
+
+export type ThemeLabels = Dictionary["theme"];
 
 /** Cycles system → light → dark. The server renders "system"; the stored choice applies after. */
-export function ThemeToggle() {
+export function ThemeToggle({ labels }: { labels: ThemeLabels }) {
   const preference = useSyncExternalStore(subscribe, readPreference, () => "system" as const);
 
   useEffect(() => {
@@ -49,7 +49,8 @@ export function ThemeToggle() {
   }, [preference]);
 
   const next = nextThemePreference(preference);
-  const label = LABELS[preference];
+  // Lowercased for "Switch to light theme"; no effect on languages without letter case.
+  const names = { current: labels[preference], next: labels[next].toLowerCase() };
   return (
     <button
       type="button"
@@ -62,11 +63,11 @@ export function ThemeToggle() {
         }
         window.dispatchEvent(new Event(CHANGE_EVENT));
       }}
-      title={`${label.text} (switch to ${LABELS[next].text.toLowerCase()})`}
-      aria-label={`${label.text}. Switch to ${LABELS[next].text.toLowerCase()}`}
+      title={fill(labels.switchTitle, names)}
+      aria-label={fill(labels.switchLabel, names)}
       className="text-muted-foreground hover:text-foreground hover:bg-secondary size-8 rounded-md text-base"
     >
-      <span aria-hidden>{label.icon}</span>
+      <span aria-hidden>{ICONS[preference]}</span>
     </button>
   );
 }

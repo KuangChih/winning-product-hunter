@@ -95,13 +95,16 @@
 - CLI job 開頭 `import "@/lib/load-env"`，才會跟 Next.js 一樣讀到 `.env.local`。
 - PGlite 必須列在 `next.config.ts` 的 `serverExternalPackages`，否則 wasm 路徑會壞掉。
 - CSS 或設定改了但畫面沒變：先刪 `.next` 再重啟 dev server；瀏覽器分頁若連著已關閉的 dev server，要重新開頁面。
-- 串流頁面（Suspense）用 `get_page_text` 可能只讀到 fallback（例如「Loading…」），內容其實已經渲染；以截圖或 `find` 確認，不要誤判成卡住。
+- 串流頁面（Suspense）用 `get_page_text` 可能只讀到 fallback（例如「Loading…」），內容其實已經渲染；以截圖或 `find` 確認，不要誤判成卡住。瀏覽器視窗在背景時 `innerText` 也可能只有 fallback，改用 `textContent` 或 `find`。
 - 修改 `src/db/schema.ts` 後要 `npm run db:generate` 並 commit `drizzle/`；Vercel 部署時 `vercel-build` 會自動套用 migration。
 - 長時間執行的指令加 `timeout`，避免整輪卡住。
+- 單元測試出現大量剛好 20 秒的 timeout（PGlite 測試）：多半是同時啟動太多 PGlite，不是程式錯誤；`vitest.config.mts` 已設 `maxWorkers: "50%"`，不要拿掉。
 - Cache Components 開啟時，客戶端元件用到 `usePathname` / `useSearchParams` 等 URL 資料必須包在 `<Suspense>` 裡（給一個不依賴 URL 的 fallback），否則動態路由會報「blocking-prerender-client-hook」。
 - `generateMetadata` 讀資料庫前也要先 `await connection()`（跟頁面本體一樣），否則 dev log 會出現「blocking-prerender-current-time」（`Date.now()` while prerendering）。e2e 全綠也要看 `[WebServer]` 有沒有這類錯誤。
 - 在 Windows 用 Python 改檔時，文字模式寫入會把換行變成 CRLF：用 `io.open(..., newline="
 ")`，或改完跑 `npx prettier --write`；用 `newline=""` 讀 CRLF 檔時，比對字串要含 `
 `。能用 Edit 工具就用 Edit。
 - Proxy matcher 的單元測試：文件寫 `unstable_doesProxyMatch`，但目前版本實際匯出的是 `unstable_doesMiddlewareMatch`（`next/experimental/testing/server`）。
+- 頁面路由在 `src/app/[lang]/`（ADR-011）：新頁面放這裡、`PageProps<"/[lang]/...">`；Server Component 用 `getLocale()` / `getDictionary()`（`src/i18n`）取語言與字串，連結維持不帶語言前綴（proxy 依 cookie 改寫）；客戶端元件的字串由伺服器端以 props 傳入。
+- dev server 剛啟動時若同時收到兩個請求（例如 preview 工具的 HEAD 探測加上瀏覽器的 GET），log 可能出現一次 `SyntaxError: Unexpected end of JSON input`（page `/en`）並回 500，之後都正常；這是 dev 首次編譯的競態，`next start` 同時打 6 個冷請求都是 200。看到時重新整理一次確認即可，不要當成程式錯誤。
 - 程式碼含反斜線（regex 如 `\s`、`\d`、`\\`）時，**不要**用 bash heredoc + node 字串取代去寫檔，反斜線會被吃掉；改用 Write / Edit 工具，寫完用 grep 確認。

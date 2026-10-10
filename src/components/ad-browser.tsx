@@ -6,16 +6,13 @@ import {
   type AdListItem,
   type AdPage,
 } from "@/data/ads";
+import { type Dictionary, getDictionary } from "@/i18n/dictionaries";
+import { countryName, fill } from "@/i18n/format";
+import type { Locale } from "@/i18n/locales";
 import { MARKETS } from "@/lib/markets";
 import { sourceLabel } from "@/lib/sources";
 
 const DAY = 86_400_000;
-
-const SORT_LABELS = {
-  longest: "Longest running",
-  newest: "Newest",
-  last_seen: "Recently seen",
-} as const;
 
 const fieldClass =
   "border-input bg-background h-9 rounded-md border px-2 text-sm focus-visible:outline-2 focus-visible:outline-offset-1";
@@ -37,59 +34,60 @@ export function adsHref(state: BrowserState) {
 }
 
 /** Search and filters as a plain GET form, so every view has a shareable URL. */
-export function AdControls({ state }: { state: BrowserState }) {
+export function AdControls({ state, locale }: { state: BrowserState; locale: Locale }) {
+  const { ads: t, ranking } = getDictionary(locale);
   return (
     <form
       method="get"
       action="/ads"
       role="search"
-      aria-label="Filter ads"
+      aria-label={t.filterLabel}
       className="mb-6 flex flex-wrap items-end gap-3"
     >
       <label className="flex min-w-48 flex-1 flex-col gap-1 text-xs">
-        <span className="text-muted-foreground">Search</span>
+        <span className="text-muted-foreground">{t.search}</span>
         <input
           type="search"
           name="q"
           defaultValue={state.q ?? ""}
-          placeholder="Ad text or advertiser"
+          placeholder={t.searchPlaceholder}
           className={fieldClass}
         />
       </label>
       <label className="flex flex-col gap-1 text-xs">
-        <span className="text-muted-foreground">Market</span>
+        <span className="text-muted-foreground">{ranking.market}</span>
         <select name="market" defaultValue={state.market ?? ""} className={fieldClass}>
-          <option value="">All markets</option>
+          <option value="">{ranking.allMarkets}</option>
           {MARKETS.map((m) => (
             <option key={m.code} value={m.code}>
-              {m.name}
+              {countryName(m.code, locale)}
             </option>
           ))}
         </select>
       </label>
       <label className="flex flex-col gap-1 text-xs">
-        <span className="text-muted-foreground">Platform</span>
+        <span className="text-muted-foreground">{t.platform}</span>
         <select name="platform" defaultValue={state.platform ?? ""} className={fieldClass}>
-          <option value="">All platforms</option>
+          <option value="">{t.allPlatforms}</option>
           {AD_PLATFORMS.map((p) => (
             <option key={p} value={p}>
-              {sourceLabel(p)}
+              {sourceLabel(p, locale)}
             </option>
           ))}
         </select>
       </label>
       <label className="flex flex-col gap-1 text-xs">
-        <span className="text-muted-foreground">Status</span>
+        <span className="text-muted-foreground">{t.status}</span>
         <select name="status" defaultValue={state.status ?? ""} className={fieldClass}>
-          <option value="">Any</option>
-          <option value="active">Active</option>
-          <option value="stopped">Stopped</option>
+          <option value="">{ranking.any}</option>
+          <option value="active">{t.statusActive}</option>
+          <option value="stopped">{t.statusStopped}</option>
         </select>
       </label>
       <label className="flex flex-col gap-1 text-xs">
-        <span className="text-muted-foreground">Sort by</span>
+        <span className="text-muted-foreground">{ranking.sortBy}</span>
         <select name="sort" defaultValue={state.sort ?? "longest"} className={fieldClass}>
-          {Object.entries(SORT_LABELS).map(([value, label]) => (
+          {Object.entries(t.sorts).map(([value, label]) => (
             <option key={value} value={value}>
               {label}
             </option>
@@ -101,25 +99,26 @@ export function AdControls({ state }: { state: BrowserState }) {
         type="submit"
         className="bg-primary text-primary-foreground h-9 rounded-md px-4 text-sm font-medium"
       >
-        Apply
+        {ranking.apply}
       </button>
       <Link
         href={state.includeSample ? "/ads?sample=1" : "/ads"}
         className="text-muted-foreground h-9 content-center text-sm underline-offset-4 hover:underline"
       >
-        Reset
+        {ranking.reset}
       </Link>
     </form>
   );
 }
 
 /** Source label; the public Ad Library website covers all countries, the API only the EU/UK. */
-function platformLabel(ad: AdListItem) {
-  if (ad.source !== "meta_ads") return sourceLabel(ad.source);
-  return ad.provider === "ad_library_web" ? "Meta Ad Library" : "Meta Ads (EU API)";
+function platformLabel(ad: AdListItem, e: Dictionary["evidence"], locale: Locale) {
+  if (ad.source !== "meta_ads") return sourceLabel(ad.source, locale);
+  return ad.provider === "ad_library_web" ? e.metaWeb : e.metaApi;
 }
 
-function AdCard({ ad, now }: { ad: AdListItem; now: Date }) {
+function AdCard({ ad, now, locale }: { ad: AdListItem; now: Date; locale: Locale }) {
+  const { ads: t, evidence: e } = getDictionary(locale);
   const active = !ad.endedAt || ad.endedAt > now;
   const end = active ? now : ad.endedAt!;
   const days = ad.startedAt ? Math.round((end.getTime() - ad.startedAt.getTime()) / DAY) : null;
@@ -127,19 +126,25 @@ function AdCard({ ad, now }: { ad: AdListItem; now: Date }) {
     <li className="flex flex-col gap-2 border-t py-3 first:border-t-0 sm:flex-row sm:items-start sm:justify-between sm:gap-3">
       <div className="min-w-0 flex-1 space-y-1">
         <div className="flex flex-wrap items-baseline gap-2">
-          <span className="font-medium">{ad.advertiserName ?? "Unknown advertiser"}</span>
+          <span className="font-medium">{ad.advertiserName ?? e.unknownAdvertiser}</span>
           {ad.provider === "fixture" && (
-            <span className="rounded border px-1.5 text-[10px] uppercase">Sample</span>
+            <span className="rounded border px-1.5 text-[10px] uppercase">{t.sample}</span>
           )}
         </div>
         {ad.title && <p className="line-clamp-2 text-sm">{ad.title}</p>}
         <div className="text-muted-foreground text-xs">
-          {platformLabel(ad)}
-          {ad.countries.length ? ` · ${ad.countries.join(", ")}` : ""}
-          {ad.format ? ` · ${ad.format}` : ""}
-          {ad.startedAt ? ` · started ${ad.startedAt.toISOString().slice(0, 10)}` : ""}
-          {days !== null ? ` · ${days} days` : ""}
-          {` · ${active ? "active" : "stopped"}`}
+          {[
+            platformLabel(ad, e, locale),
+            ad.countries.length ? ad.countries.join(", ") : null,
+            ad.format ? (e.formats[ad.format] ?? ad.format) : null,
+            ad.startedAt
+              ? fill(e.started, { date: ad.startedAt.toISOString().slice(0, 10) })
+              : null,
+            days !== null ? fill(e.days, { n: days }) : null,
+            active ? e.active : e.stopped,
+          ]
+            .filter(Boolean)
+            .join(" · ")}
         </div>
       </div>
       <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm sm:flex-col sm:items-end">
@@ -150,7 +155,7 @@ function AdCard({ ad, now }: { ad: AdListItem; now: Date }) {
             rel="noopener noreferrer"
             className="underline underline-offset-4"
           >
-            View ad
+            {e.viewAd}
           </a>
         )}
         {ad.product && (
@@ -158,7 +163,7 @@ function AdCard({ ad, now }: { ad: AdListItem; now: Date }) {
             href={`/products/${ad.product.slug}`}
             className="text-muted-foreground underline-offset-4 hover:underline"
           >
-            Product: {ad.product.title}
+            {fill(t.productLink, { title: ad.product.title })}
           </Link>
         )}
       </div>
@@ -166,34 +171,45 @@ function AdCard({ ad, now }: { ad: AdListItem; now: Date }) {
   );
 }
 
-export function AdList({ page, state, now }: { page: AdPage; state: BrowserState; now: Date }) {
+export function AdList({
+  page,
+  state,
+  now,
+  locale,
+}: {
+  page: AdPage;
+  state: BrowserState;
+  now: Date;
+  locale: Locale;
+}) {
+  const t = getDictionary(locale).ads;
   const from = (page.page - 1) * AD_PAGE_SIZE + 1;
   return (
     <div className="space-y-4">
       <p className="text-muted-foreground text-sm">
-        {page.total.toLocaleString("en-US")} ads
-        {page.ads.length > 0 && ` · showing ${from}–${from + page.ads.length - 1}`}
+        {fill(t.total, { n: page.total.toLocaleString("en-US") })}
+        {page.ads.length > 0 && fill(t.showing, { from, to: from + page.ads.length - 1 })}
       </p>
       <ul className="rounded-lg border px-4">
         {page.ads.map((ad) => (
-          <AdCard key={ad.id} ad={ad} now={now} />
+          <AdCard key={ad.id} ad={ad} now={now} locale={locale} />
         ))}
       </ul>
       {page.pageCount > 1 && (
-        <nav aria-label="Pagination" className="flex items-center justify-between text-sm">
+        <nav aria-label={t.pagination} className="flex items-center justify-between text-sm">
           {page.page > 1 ? (
             <Link href={adsHref({ ...state, page: page.page - 1 })} className="underline">
-              ← Previous
+              {t.previous}
             </Link>
           ) : (
             <span />
           )}
           <span className="text-muted-foreground">
-            Page {page.page} of {page.pageCount}
+            {fill(t.pageOf, { page: page.page, count: page.pageCount })}
           </span>
           {page.page < page.pageCount ? (
             <Link href={adsHref({ ...state, page: page.page + 1 })} className="underline">
-              Next →
+              {t.next}
             </Link>
           ) : (
             <span />

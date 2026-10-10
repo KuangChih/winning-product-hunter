@@ -11,5 +11,8 @@ export default defineConfig({
     // Starting an in-memory PGlite per test can exceed 5s when many test files run in parallel.
     testTimeout: 20_000,
     hookTimeout: 20_000,
+    // One worker per file starts dozens of PGlite instances at once on many-core machines and
+    // they starve each other into timeouts; half the cores is faster and stable.
+    maxWorkers: "50%",
   },
 });

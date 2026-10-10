@@ -11,11 +11,16 @@ import {
   type WatchedProduct,
 } from "@/data/watchlist";
 import { getDb, isDatabaseConfigured, isMissingTableError } from "@/db/client";
+import { type Dictionary, getDictionary } from "@/i18n/dictionaries";
+import { fill, RichText } from "@/i18n/format";
+import type { Locale } from "@/i18n/locales";
+import { getLocale } from "@/i18n/server";
 import { cn } from "@/lib/utils";
 
-export const metadata: Metadata = {
-  title: "Watchlist · Winning Product Hunter",
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const t = getDictionary(await getLocale());
+  return { title: `${t.watchlist.title} · ${t.site.name}` };
+}
 
 function Notice({ title, children }: { title: string; children: React.ReactNode }) {
   return (
@@ -42,19 +47,40 @@ function Change({ value }: { value: number | null }) {
   );
 }
 
-function WatchTable({ items }: { items: WatchedProduct[] }) {
+/** "moved {change} to {score}…" with the colored change element in place of `{change}`. */
+function AlertText({
+  template,
+  change,
+  score,
+}: {
+  template: string;
+  change: React.ReactNode;
+  score: string;
+}) {
+  const [before, after = ""] = fill(template, { score }).split("{change}");
+  return (
+    <>
+      {before}
+      {change}
+      {after}
+    </>
+  );
+}
+
+function WatchTable({ items, dict }: { items: WatchedProduct[]; dict: Dictionary }) {
+  const t = dict.watchlist;
   return (
     <div className="overflow-x-auto rounded-lg border">
       <table className="w-full min-w-[40rem] text-sm">
         <thead className="text-muted-foreground border-b text-left text-xs uppercase">
           <tr>
-            <th className="px-3 py-2 font-medium">Product</th>
-            <th className="px-3 py-2 text-right font-medium">Score</th>
-            <th className="px-3 py-2 text-right font-medium">Last update</th>
-            <th className="px-3 py-2 text-right font-medium">Since added</th>
-            <th className="px-3 py-2 font-medium">Added</th>
+            <th className="px-3 py-2 font-medium">{t.columns.product}</th>
+            <th className="px-3 py-2 text-right font-medium">{t.columns.score}</th>
+            <th className="px-3 py-2 text-right font-medium">{t.columns.lastUpdate}</th>
+            <th className="px-3 py-2 text-right font-medium">{t.columns.sinceAdded}</th>
+            <th className="px-3 py-2 font-medium">{t.columns.added}</th>
             <th className="px-3 py-2">
-              <span className="sr-only">Actions</span>
+              <span className="sr-only">{t.columns.actions}</span>
             </th>
           </tr>
         </thead>
@@ -70,7 +96,7 @@ function WatchTable({ items }: { items: WatchedProduct[] }) {
                 </Link>
               </td>
               <td className="px-3 py-2 text-right font-semibold tabular-nums">
-                {w.score === null ? "Not scored" : w.score.toFixed(0)}
+                {w.score === null ? t.notScored : w.score.toFixed(0)}
               </td>
               <td className="px-3 py-2 text-right">
                 <Change value={scoreChange(w.score, w.previousScore)} />
@@ -82,7 +108,7 @@ function WatchTable({ items }: { items: WatchedProduct[] }) {
                 {w.addedAt.toISOString().slice(0, 10)}
               </td>
               <td className="px-3 py-2 text-right">
-                <WatchButton productId={w.productId} watched />
+                <WatchButton productId={w.productId} watched labels={dict.detail} />
               </td>
             </tr>
           ))}
@@ -92,13 +118,15 @@ function WatchTable({ items }: { items: WatchedProduct[] }) {
   );
 }
 
-async function Watchlist() {
+async function Watchlist({ locale }: { locale: Locale }) {
+  const dict = getDictionary(locale);
+  const { watchlist: t, common } = dict;
   await connection();
   if (!isDatabaseConfigured()) {
     return (
-      <Notice title="No database configured">
+      <Notice title={common.noDatabaseTitle}>
         <p>
-          Set <code>DATABASE_URL</code> in <code>.env.local</code>.
+          <RichText text={common.noDatabaseBody} />
         </p>
       </Notice>
     );
@@ -110,10 +138,9 @@ async function Watchlist() {
   } catch (err) {
     if (!isMissingTableError(err)) throw err;
     return (
-      <Notice title="Database is not set up yet">
+      <Notice title={common.notSetUpTitle}>
         <p>
-          Run <code>npm run db:migrate</code>, or redeploy: Vercel builds apply migrations
-          automatically.
+          <RichText text={common.notSetUpBody} />
         </p>
       </Notice>
     );
@@ -121,13 +148,13 @@ async function Watchlist() {
 
   if (items.length === 0) {
     return (
-      <Notice title="Nothing watched yet">
+      <Notice title={t.emptyTitle}>
         <p>
-          Open a product from the{" "}
+          {t.emptyBefore}{" "}
           <Link href="/products" className="underline underline-offset-4">
-            rankings
+            {t.emptyLink}
           </Link>{" "}
-          and press Watch to follow its score here.
+          {t.emptyAfter}
         </p>
       </Notice>
     );
@@ -142,7 +169,7 @@ async function Watchlist() {
           className="rounded-lg border border-amber-500/40 bg-amber-500/5 p-4"
         >
           <h2 id="alerts-heading" className="font-semibold">
-            Score changes
+            {t.alertsHeading}
           </h2>
           <ul className="mt-2 space-y-1 text-sm">
             {alerts.map((w) => (
@@ -150,29 +177,33 @@ async function Watchlist() {
                 <Link href={`/products/${w.slug}`} className="underline underline-offset-4">
                   {w.title}
                 </Link>{" "}
-                moved <Change value={scoreChange(w.score, w.previousScore)} /> to{" "}
-                {w.score!.toFixed(0)} in the last update.
+                <AlertText
+                  template={t.alertMoved}
+                  change={<Change value={scoreChange(w.score, w.previousScore)} />}
+                  score={w.score!.toFixed(0)}
+                />
               </li>
             ))}
           </ul>
         </section>
       )}
-      <WatchTable items={items} />
+      <WatchTable items={items} dict={dict} />
     </div>
   );
 }
 
-export default function WatchlistPage() {
+export default async function WatchlistPage() {
+  const locale = await getLocale();
+  const t = getDictionary(locale).watchlist;
   return (
     <main id="main" className="mx-auto w-full max-w-6xl flex-1 px-4 py-10">
-      <h1 className="text-3xl font-semibold tracking-tight">Watchlist</h1>
+      <h1 className="text-3xl font-semibold tracking-tight">{t.title}</h1>
       <p className="text-muted-foreground mt-2 max-w-2xl">
-        Products you follow. Moves of {ALERT_THRESHOLD}+ points since the previous daily update are
-        highlighted.
+        {fill(t.intro, { n: ALERT_THRESHOLD })}
       </p>
       <div className="mt-8">
-        <Suspense fallback={<p className="text-muted-foreground text-sm">Loading watchlist…</p>}>
-          <Watchlist />
+        <Suspense fallback={<p className="text-muted-foreground text-sm">{t.loading}</p>}>
+          <Watchlist locale={locale} />
         </Suspense>
       </div>
     </main>

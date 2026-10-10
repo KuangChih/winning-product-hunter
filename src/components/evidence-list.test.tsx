@@ -171,4 +171,53 @@ describe("EvidenceList", () => {
     render(<EvidenceList now={NOW} evidence={[]} />);
     expect(screen.getByText("No evidence collected yet.")).toBeInTheDocument();
   });
+
+  it("renders ads, stores and supplier listings in Traditional Chinese", () => {
+    render(
+      <EvidenceList
+        now={NOW}
+        locale="zh-TW"
+        evidence={[
+          {
+            ...base,
+            id: "a",
+            provider: "ad_library_web",
+            advertiserName: "Paw Store",
+            countries: ["US"],
+            format: "video",
+            startedAt: new Date("2026-09-21T00:00:00Z"),
+            url: "https://www.facebook.com/ads/library/?id=1",
+          },
+          {
+            ...base,
+            id: "s",
+            source: "shopify",
+            kind: "store_product",
+            title: "Paw Cleaner Cup",
+            countries: ["GB"],
+            priceCents: 1999,
+            currency: "GBP",
+          },
+          {
+            ...base,
+            id: "l",
+            source: "cj",
+            kind: "listing",
+            priceCents: 450,
+            currency: "USD",
+            metrics: { units_sold_90d: 1300 },
+          },
+        ]}
+      />,
+    );
+    expect(screen.getByRole("heading", { name: "廣告（1）" })).toBeInTheDocument();
+    expect(
+      screen.getByText("Meta Ad Library · US · 影片 · 2026-09-21 開始 · 18 天 · 投放中"),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "查看廣告" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "販售的店家（1）" })).toBeInTheDocument();
+    expect(screen.getByText("英國")).toBeInTheDocument();
+    expect(screen.getByText("售價中位數 19.99 GBP")).toBeInTheDocument();
+    expect(screen.getByText("價格 4.50 USD · 90 天售出 1,300 件")).toBeInTheDocument();
+  });
 });

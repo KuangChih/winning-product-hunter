@@ -5,10 +5,15 @@ import { Suspense } from "react";
 import { AdControls, AdList, adsHref } from "@/components/ad-browser";
 import { getAds, parseAdParams } from "@/data/ads";
 import { getDb, isDatabaseConfigured, isMissingTableError } from "@/db/client";
+import { getDictionary } from "@/i18n/dictionaries";
+import { RichText } from "@/i18n/format";
+import type { Locale } from "@/i18n/locales";
+import { getLocale } from "@/i18n/server";
 
-export const metadata: Metadata = {
-  title: "Ads · Winning Product Hunter",
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const t = getDictionary(await getLocale());
+  return { title: `${t.ads.title} · ${t.site.name}` };
+}
 
 function Notice({ title, children }: { title: string; children: React.ReactNode }) {
   return (
@@ -21,17 +26,19 @@ function Notice({ title, children }: { title: string; children: React.ReactNode 
 
 async function AdResults({
   searchParams,
+  locale,
 }: {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
+  locale: Locale;
 }) {
+  const { ads: t, common, ranking } = getDictionary(locale);
   const state = parseAdParams(await searchParams);
   await connection();
   if (!isDatabaseConfigured()) {
     return (
-      <Notice title="No database configured">
+      <Notice title={common.noDatabaseTitle}>
         <p>
-          Set <code>DATABASE_URL</code> in <code>.env.local</code> to a Neon connection string, or
-          to <code>pglite:./.data/dev</code> for a local demo database.
+          <RichText text={common.noDatabaseBody} />
         </p>
       </Notice>
     );
@@ -44,10 +51,9 @@ async function AdResults({
   } catch (err) {
     if (!isMissingTableError(err)) throw err;
     return (
-      <Notice title="Database is not set up yet">
+      <Notice title={common.notSetUpTitle}>
         <p>
-          The database has no tables. Run <code>npm run db:migrate</code>, or redeploy: Vercel
-          builds apply migrations automatically.
+          <RichText text={common.notSetUpBody} />
         </p>
       </Notice>
     );
@@ -56,30 +62,28 @@ async function AdResults({
   const filtered = Boolean(state.q || state.market || state.platform || state.status);
   let content;
   if (page.ads.length > 0) {
-    content = <AdList page={page} state={state} now={now} />;
+    content = <AdList page={page} state={state} now={now} locale={locale} />;
   } else if (state.page > 1 && page.total > 0) {
     content = (
-      <Notice title="No ads on this page">
+      <Notice title={t.emptyPageTitle}>
         <p>
           <Link href={adsHref({ ...state, page: 1 })} className="underline underline-offset-4">
-            Go to the first page
+            {t.firstPage}
           </Link>
-          .
         </p>
       </Notice>
     );
   } else if (filtered) {
     content = (
-      <Notice title="No ads match these filters">
-        <p>Try a broader search, another market or platform.</p>
+      <Notice title={t.noMatchTitle}>
+        <p>{t.noMatchBody}</p>
       </Notice>
     );
   } else {
     content = (
-      <Notice title="No ads collected yet">
+      <Notice title={t.noneTitle}>
         <p>
-          Run <code>npm run pipeline</code> to collect ads from the Meta Ad Library
-          {state.includeSample ? "" : ", or include sample data"}.
+          <RichText text={t.noneBody} />
         </p>
       </Notice>
     );
@@ -87,31 +91,30 @@ async function AdResults({
 
   return (
     <>
-      <AdControls state={state} />
+      <AdControls state={state} locale={locale} />
       {content}
       <p className="text-muted-foreground mt-4 text-sm">
         <Link
           href={adsHref({ ...state, page: 1, includeSample: !state.includeSample })}
           className="underline-offset-4 hover:underline"
         >
-          {state.includeSample ? "Show real data only" : "Include sample data"}
+          {state.includeSample ? ranking.showRealOnly : ranking.includeSample}
         </Link>
       </p>
     </>
   );
 }
 
-export default function AdsPage({ searchParams }: PageProps<"/ads">) {
+export default async function AdsPage({ searchParams }: PageProps<"/[lang]/ads">) {
+  const locale = await getLocale();
+  const t = getDictionary(locale).ads;
   return (
     <main id="main" className="mx-auto w-full max-w-6xl flex-1 px-4 py-10">
-      <h1 className="text-3xl font-semibold tracking-tight">Ads</h1>
-      <p className="text-muted-foreground mt-2 max-w-2xl">
-        Every ad we have collected, across platforms. Ads that keep running for weeks are usually
-        profitable; open any ad to check it at the source.
-      </p>
+      <h1 className="text-3xl font-semibold tracking-tight">{t.title}</h1>
+      <p className="text-muted-foreground mt-2 max-w-2xl">{t.intro}</p>
       <div className="mt-8">
-        <Suspense fallback={<p className="text-muted-foreground text-sm">Loading ads…</p>}>
-          <AdResults searchParams={searchParams} />
+        <Suspense fallback={<p className="text-muted-foreground text-sm">{t.loading}</p>}>
+          <AdResults searchParams={searchParams} locale={locale} />
         </Suspense>
       </div>
     </main>

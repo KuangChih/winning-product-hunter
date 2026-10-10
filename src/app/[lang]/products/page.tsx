@@ -7,10 +7,15 @@ import { RankingControls } from "@/components/ranking-controls";
 import { getRankedProducts } from "@/data/products";
 import { parseRankingParams } from "@/data/ranking-params";
 import { getDb, isDatabaseConfigured, isMissingTableError } from "@/db/client";
+import { getDictionary } from "@/i18n/dictionaries";
+import { RichText } from "@/i18n/format";
+import type { Locale } from "@/i18n/locales";
+import { getLocale } from "@/i18n/server";
 
-export const metadata: Metadata = {
-  title: "Winning products · Winning Product Hunter",
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const t = getDictionary(await getLocale());
+  return { title: `${t.ranking.title} · ${t.site.name}` };
+}
 
 function Notice({ title, children }: { title: string; children: React.ReactNode }) {
   return (
@@ -23,17 +28,19 @@ function Notice({ title, children }: { title: string; children: React.ReactNode 
 
 async function RankedProducts({
   searchParams,
+  locale,
 }: {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
+  locale: Locale;
 }) {
+  const { ranking: t, common } = getDictionary(locale);
   const { includeSample, ...filters } = parseRankingParams(await searchParams);
   await connection();
   if (!isDatabaseConfigured()) {
     return (
-      <Notice title="No database configured">
+      <Notice title={common.noDatabaseTitle}>
         <p>
-          Set <code>DATABASE_URL</code> in <code>.env.local</code> to a Neon connection string, or
-          to <code>pglite:./.data/dev</code> for a local demo database.
+          <RichText text={common.noDatabaseBody} />
         </p>
       </Notice>
     );
@@ -45,10 +52,9 @@ async function RankedProducts({
   } catch (err) {
     if (!isMissingTableError(err)) throw err;
     return (
-      <Notice title="Database is not set up yet">
+      <Notice title={common.notSetUpTitle}>
         <p>
-          The database has no tables. Run <code>npm run db:migrate</code>, or redeploy: Vercel
-          builds apply migrations automatically.
+          <RichText text={common.notSetUpBody} />
         </p>
       </Notice>
     );
@@ -57,29 +63,28 @@ async function RankedProducts({
   const filtered = Boolean(filters.q || filters.market || filters.minScore !== undefined);
   let content;
   if (products.length > 0) {
-    content = <ProductTable products={products} />;
+    content = <ProductTable products={products} locale={locale} />;
   } else if (filtered) {
     content = (
-      <Notice title="No products match these filters">
-        <p>Try a broader search, another market or a lower minimum score.</p>
+      <Notice title={t.noMatchTitle}>
+        <p>{t.noMatchBody}</p>
       </Notice>
     );
   } else if (includeSample) {
     content = (
-      <Notice title="No scored products yet">
+      <Notice title={t.noScoredTitle}>
         <p>
-          Run <code>npm run pipeline</code> to collect real data, or <code>npm run seed</code> to
-          load sample data.
+          <RichText text={t.noScoredBody} />
         </p>
       </Notice>
     );
   } else {
     content = (
-      <Notice title="No real products yet">
+      <Notice title={t.noRealTitle}>
         <p>
-          Run <code>npm run pipeline</code> to discover products from real data, or{" "}
+          <RichText text={t.noRealBody} />{" "}
           <Link href="/products?sample=1" className="underline underline-offset-4">
-            include sample data
+            {t.includeSampleLink}
           </Link>
           .
         </p>
@@ -92,23 +97,23 @@ async function RankedProducts({
         filters={filters}
         includeSample={includeSample}
         resultCount={products.length}
+        locale={locale}
       />
       {content}
     </>
   );
 }
 
-export default function ProductsPage({ searchParams }: PageProps<"/products">) {
+export default async function ProductsPage({ searchParams }: PageProps<"/[lang]/products">) {
+  const locale = await getLocale();
+  const t = getDictionary(locale).ranking;
   return (
     <main id="main" className="mx-auto w-full max-w-6xl flex-1 px-4 py-10">
-      <h1 className="text-3xl font-semibold tracking-tight">Winning products</h1>
-      <p className="text-muted-foreground mt-2 max-w-2xl">
-        Ranked by Winning Score: ad longevity, scaling activity, search demand and marketplace
-        orders, boosted when sources agree and penalized when the market is crowded.
-      </p>
+      <h1 className="text-3xl font-semibold tracking-tight">{t.title}</h1>
+      <p className="text-muted-foreground mt-2 max-w-2xl">{t.intro}</p>
       <div className="mt-8">
-        <Suspense fallback={<p className="text-muted-foreground text-sm">Loading rankings…</p>}>
-          <RankedProducts searchParams={searchParams} />
+        <Suspense fallback={<p className="text-muted-foreground text-sm">{t.loading}</p>}>
+          <RankedProducts searchParams={searchParams} locale={locale} />
         </Suspense>
       </div>
     </main>
