@@ -69,6 +69,24 @@ describe("keywordsForDay", () => {
     expect(keywordsForDay(day1, 2, list)).toEqual(["c", "d"]);
     expect(keywordsForDay(new Date(2 * 86_400_000), 2, list)).toEqual(["e", "a"]);
   });
+
+  it("gives each sweep of a day its own window, distinct from the next day's", () => {
+    const list = ["a", "b", "c", "d", "e", "f", "g", "h", "i", "j", "k", "l"];
+    const sweeps = (d: number) =>
+      [0, 1, 2].map((slot) =>
+        keywordsForDay(new Date(d * 86_400_000), 2, list, { slot, slotsPerDay: 3 }),
+      );
+    expect(sweeps(0)).toEqual([
+      ["a", "b"],
+      ["c", "d"],
+      ["e", "f"],
+    ]);
+    expect(sweeps(1)).toEqual([
+      ["g", "h"],
+      ["i", "j"],
+      ["k", "l"],
+    ]);
+  });
 });
 
 describe("groupAdsByLanding / isPromising", () => {

@@ -1,21 +1,23 @@
-# Daily real-data pipeline (ADR-007): ECB rates → discover products → collect Shopify evidence →
-# match → score. Accumulates the history that back-testing needs (4–8 weeks).
+# Real-data pipeline (ADR-007, ADR-013): ECB rates → discover products → collect Shopify evidence →
+# match → score. Manual only: the daily run is now a Vercel Cron that drives the same resumable
+# runner (ADR-013). Useful as a fallback when Meta blocks the server's IPs, since GitHub runners
+# leave from other networks; it attaches to a run that is already active on the database.
 #
 # Requires the repository secret DATABASE_URL (the Neon database the site reads from).
 # Optional secret SHOPIFY_UCP_AGENT_PROFILE (our own UCP agent profile URL once deployed).
-name: Daily pipeline
+name: Pipeline (manual)
 
 on:
-  schedule:
-    # 06:00 UTC every day: after the ECB publishes (~16:00 CET the previous day).
-    - cron: "0 6 * * *"
   workflow_dispatch:
     inputs:
       keywords:
-        description: "Discovery keywords to sweep (max 10 = 50 Ad Library pages)"
+        description: "Rotating discovery keywords to sweep (max 10 = 50 Ad Library pages)"
         default: "10"
+      keyword:
+        description: "Optional custom keywords, comma separated (max 10, 60 characters each); replace the rotation"
+        default: ""
       advertisers:
-        description: "Advertisers to follow (one Ad Library page each)"
+        description: "Advertisers to follow (one Ad Library page each, max 20)"
         default: "10"
       collect:
         description: "Products to collect Shopify Catalog evidence for"
@@ -47,10 +49,15 @@ jobs:
       - name: Apply migrations
         run: npm run db:migrate
       - name: Run pipeline
-        # Exits non-zero if any step failed (e.g. a source blocked us); GitHub then emails the
+        # Exits non-zero unless every step succeeded (e.g. a source blocked us); GitHub then emails the
         # repository owner. Partial results are still saved and listed in ingestion_runs.
+        env:
+          # Passed through the environment, never pasted into the script (no shell injection).
+          KEYWORDS: ${{ github.event.inputs.keywords || '10' }}
+          KEYWORD: ${{ github.event.inputs.keyword }}
+          ADVERTISERS: ${{ github.event.inputs.advertisers || '10' }}
+          COLLECT: ${{ github.event.inputs.collect || '20' }}
         run: >-
           npm run pipeline --
-          --keywords=${{ github.event.inputs.keywords || '10' }}
-          --advertisers=${{ github.event.inputs.advertisers || '10' }}
-          --collect=${{ github.event.inputs.collect || '20' }}
+          "--keywords=$KEYWORDS" "--advertisers=$ADVERTISERS" "--collect=$COLLECT"
+          "--keyword=$KEYWORD"

@@ -82,3 +82,28 @@
   - 照片網址只檢查字面上的私有 IP，解析到私有 IP 的網域名稱擋不到。
   - 「兩個同時探索」的測試在同一個 PGlite 連線上跑，不能證明 Neon 上的真實競態。
 - 下一步：M2 可續跑的 pipeline runner。
+
+## 2026-10-10 — Vercel 探索 M2：可續跑的 pipeline runner（純邏輯 + CLI）
+
+- 完成：
+  - `src/pipeline/runner/`：整條 pipeline 拆成可續跑的工作單位（start → 每個 Meta 請求一個單位 → discover_finalize → 追蹤廣告主 → advertisers_finalize → collect 每單位 4 個產品 → stores 每單位 10 個 → hash 每單位 30、每次最多 100 → merge → match → score → finish）。狀態存在 `pipeline_runs`，每個單位開始前先寫入標記、做完立即存檔，被殺掉後下一個 tick 接著做。
+  - Tick：單一條件式 UPDATE 取 lease、所有存檔都有 fencing（lease 被搶就立刻停）、軟預算 200 秒 / 硬中止 250 秒 / lease 320 秒（`PIPELINE_TICK_BUDGET_MS` 可改）；CLI 沒有時間預算，改用每 60 秒的 heartbeat 續約，避免大資料庫上 merge / match / score 超過 320 秒被誤判成 lease 被搶。
+  - Meta 安全（ADR-006）：請求數與下次可請求時間**先寫入再送出**；Meta adapter 不再自動重試（重試是沒記帳的請求，429 依規則應停止退避）；被擋時先寫退避再暫存結果；重試單位若結果已暫存就直接用、不再問 Meta；每次送出前檢查本機 egress 的退避（CLI 接手別處規劃的 run 也不會送）；退避依 `(provider, egress)` 6→12→24 小時…最多 7 天，egress 分成 `vercel`、`github`、`local`。
+  - 上限：每 run ≤70 個 Meta 請求（關鍵字 50 + 廣告主 20）；每個 UTC 日最多 3 次 Meta 掃描（以資料庫時鐘的 run 建立日計算）；同一天第 2、3 次掃描輪到各自的關鍵字視窗與廣告主視窗（不與隔天重複）；只記錄真的會搜尋的關鍵字；2 小時沒進度或 tick 快用完就收尾（已抓到的廣告先存，再 merge / match / score），20 小時或 40 個 tick 硬失敗；單位被中斷 3 次就跳過（跳過本身出錯也不會卡住 run）。
+  - Shopify：401 / 403 / 429 或連續 3 個產品失敗就停止該步驟，不再對已拒絕的來源一直送。
+  - CLI：`npm run pipeline` 改用 runner（新增 `--keyword="a,b"` 自訂關鍵字）；Neon 上接手進行中的 run；PGlite 上取代已死程序留下的 run，仍被持有（例如 dev server）就拒絕。舊 `runPipeline` 移除，3 個測試移植。
+  - GitHub Actions：移除每日 `schedule`，只保留手動；輸入改經環境變數傳入（避免 shell injection）。DEPLOY.md、CLAUDE.md、`.env.example`（`PIPELINE_TICK_BUDGET_MS`）同步更新。
+- 成效（示範資料庫的複本、`--keywords=1 --advertisers=1 --collect=2`、`PIPELINE_TICK_BUDGET_MS=20000` 強制分段；示範資料庫本身沒有寫入）：
+  - run `succeeded`：22 個 tick（21 個各 1 單位、最後 1 個 2 單位）、56 秒、6 個 Meta 請求（關鍵字 5 + 廣告主 1），沒有被擋。
+  - 產品 214 → 215（探索出來的 208 → 209）、Meta 廣告 698 → 703、Shopify 搜尋紀錄 3924 → 4067、評分批次 15 → 16（214 個產品）。
+  - 照片：嘗試 100 張（27 成功、1 失敗、72 沒有可用照片），剛好在每次 100 張的上限（修正前最多可到 120）。
+  - 結束後沒有殘留 `running` 的 ingestion 紀錄或暫存資料。
+  - 發現既有問題：廣告主商品頁紀錄 77 → 73（被同 ID 的搜尋結果覆蓋，ADR-012 售價因此遺失），已列入 ROADMAP「資料品質 C」。
+- 驗證：format ✅ lint ✅ typecheck ✅ test ✅（262）build ✅；`db:generate` 無 schema 變更；e2e 未跑（沒動頁面、路由、proxy）。
+- 限制：
+  - 只在 PGlite 上測過；Neon HTTP driver 的行為未驗證（每個操作都是單一 SQL、不用 transaction）。
+  - Vercel 上的分段執行、自我接續與 Meta 是否擋機房 IP 要到 M3 部署後才知道。
+  - 一天最多 3 次掃描會讓「廣告動能」略偏高，之後要改成只用每日排程的觀測並量測。
+  - 第一次掃描的關鍵字輪替順序因「每天 3 個視窗」而改變（只影響挑哪些關鍵字，不影響評分）。
+  - **Vercel Cron 接上（M3）前沒有任何每日自動蒐集**，要手動跑。
+- 下一步：M3 Vercel 觸發（routes、proxy、cron）。

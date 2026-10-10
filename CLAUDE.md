@@ -61,7 +61,7 @@
 - Next.js 16（App Router，`cacheComponents` 開啟）+ TypeScript（strict）+ Tailwind v4 + shadcn/ui。**寫 Next.js 程式前先讀 `AGENTS.md`**：這版 API 與訓練資料不同，以 `node_modules/next/dist/docs/` 為準
 - Neon Postgres（含 pgvector）+ Drizzle ORM
 - 資料抓取：每個來源一個 adapter，統一介面，皆支援 `fixture` 模式（無 API key 也能開發與測試）
-- 排程：ingestion 與評分寫成 Node CLI jobs（`src/jobs`），預設由 GitHub Actions 排程執行；Vercel Cron 只做輕量觸發（ADR-003）
+- 排程：整條 pipeline 是可續跑的 runner（`src/pipeline/runner`，ADR-013 開發中），CLI（`npm run pipeline`）與之後的 Vercel 分段執行／Vercel Cron 共用；GitHub Actions 只保留手動執行（每日排程已移除，Vercel Cron 上線前沒有每日自動蒐集）
 - 驗證：Better Auth（ADR-003）；付費：Stripe（後期）
 - 測試：Vitest（單元）+ Playwright（E2E）
 - 所有機密只透過環境變數，並列在 `.env.example`

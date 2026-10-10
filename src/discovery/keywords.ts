@@ -30,14 +30,19 @@ export const DISCOVERY_KEYWORDS = [
   "camping gadget",
 ] as const;
 
-/** Keywords for a given day: a window that advances daily and wraps around the list. */
+/**
+ * Keywords for a given day: a window that advances daily and wraps around the list. With
+ * `slotsPerDay` sweeps a day, sweep `slot` (0-based) gets its own window, so a day's 2nd and 3rd
+ * sweeps never repeat the windows of the following days.
+ */
 export function keywordsForDay(
   day: Date,
   count: number,
   keywords: readonly string[] = DISCOVERY_KEYWORDS,
+  { slot = 0, slotsPerDay = 1 }: { slot?: number; slotsPerDay?: number } = {},
 ) {
   const n = Math.min(count, keywords.length);
   const dayNumber = Math.floor(day.getTime() / 86_400_000);
-  const start = (dayNumber * n) % keywords.length;
+  const start = ((dayNumber * slotsPerDay + slot) * n) % keywords.length;
   return Array.from({ length: n }, (_, i) => keywords[(start + i) % keywords.length]);
 }

@@ -49,20 +49,24 @@ npm run db:migrate
 
 本機開發時，`.env.local` 會同時被 Next.js 與 CLI jobs（`npm run pipeline`、`db:migrate` 等）讀取。
 
-## 5. 每日自動蒐集（GitHub Actions）
+## 5. 真實資料蒐集（目前：只能手動）
 
-`.github/workflows/daily-pipeline.yml` 每天 06:00 UTC 執行 `npm run db:migrate` 與 `npm run pipeline`：ECB 匯率 → 產品探索（關鍵字 + 追蹤廣告主）→ Shopify Catalog 蒐集 → 廣告主商品頁查詢 → 去重 → 比對 → 評分。
+> **注意（2026-10-10）**：GitHub Actions 的每日排程已移除，改由 Vercel Cron 觸發同一套可續跑的 pipeline（ADR-013）。Vercel Cron 與網頁「開始探索」按鈕還在開發中（下一個里程碑），**在那之前沒有任何每日自動蒐集**，要手動執行。
+
+`npm run pipeline`（本機或 GitHub Actions 手動執行）：ECB 匯率 → 產品探索（關鍵字 + 追蹤廣告主）→ Shopify Catalog 蒐集 → 廣告主商品頁查詢 → 去重 → 比對 → 評分。每個 UTC 日最多 3 次 Meta 掃描（含之後的每日自動）；用完或被擋時，其他步驟照跑、狀態標成 `partial`。
+
+手動在 GitHub 執行（`.github/workflows/daily-pipeline.yml`，名稱「Pipeline (manual)」）：
 
 1. GitHub repo → **Settings → Secrets and variables → Actions** → 新增 secret `DATABASE_URL`（與 Vercel Production 相同的 Neon 連線字串）。
 2. 選填：新增 `SHOPIFY_UCP_AGENT_PROFILE`。
-3. **Actions → Daily pipeline → Run workflow** 可手動執行，並調整關鍵字數、追蹤廣告主數與蒐集產品數。
+3. **Actions → Pipeline (manual) → Run workflow**，可調整關鍵字數、自訂關鍵字、追蹤廣告主數與蒐集產品數。資料庫上已有進行中的 run 時會接手那一個。
 
-某一步失敗（例如來源被擋）時 workflow 會標示失敗並寄信通知 repo 擁有者；其他步驟照跑，已取得的資料會保留。
+GitHub runner 被 Meta 擋時，退避只影響 GitHub（egress `github`），不影響本機或 Vercel。某一步失敗（例如來源被擋）時 workflow 會標示失敗並寄信通知 repo 擁有者；其他步驟照跑，已取得的資料會保留。
 
 ## 6. 方案選擇
 
 - **Hobby（免費）方案僅限個人、非商業用途**。向使用者收費的 SaaS 必須用 **Pro**。
-- 資料蒐集由 GitHub Actions 執行（ADR-003），不受 Vercel Cron 每日一次的限制。私有 repo 每月有 2,000 分鐘免費額度，每日排程約用 300–450 分鐘。
+- 資料蒐集改為在 Vercel 分段執行（ADR-013，開發中）；GitHub Actions 只保留手動執行，私有 repo 每月 2,000 分鐘免費額度足夠。
 
 ## 疑難排解
 
@@ -70,8 +74,8 @@ npm run db:migrate
 | ----------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------ |
 | `relation "product_scores" does not exist`，或頁面顯示「Database is not set up yet」      | 還沒跑 migration。重新部署，或在本機執行 `npm run db:migrate`。                |
 | 頁面顯示「No database configured」                                                        | 該環境沒有 `DATABASE_URL`，確認 Neon 整合已連結到 Production / Preview。      |
-| 排名頁沒有產品                                                                            | 資料表是空的。手動執行一次 Daily pipeline，或在本機 `npm run pipeline`。       |
+| 排名頁沒有產品                                                                            | 資料表是空的。手動執行一次 Pipeline (manual)，或在本機 `npm run pipeline`。    |
 | Build log 出現 `DATABASE_URL is not set; skipping migrations.`                            | 該環境沒有設定資料庫，migration 被略過。                                       |
-| Daily pipeline 的 discover 步驟失敗                                                       | GitHub 是機房 IP，Meta 可能擋。依 ADR-006 不繞過；看 `/sources` 頁的失敗紀錄。 |
+| Pipeline 的 discover 步驟失敗                                                             | GitHub 是機房 IP，Meta 可能擋。依 ADR-006 不繞過；看 `/sources` 頁的失敗紀錄。 |
 
 > 只想看介面時，可用 `npm run seed` 載入**樣本資料**（fixture）。樣本資料在網頁上會標示「Sample data」，排名頁預設不顯示。請勿對 Production 資料庫執行。

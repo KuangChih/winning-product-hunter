@@ -212,9 +212,14 @@ export async function runIngestion(
   adapter: SourceAdapter,
   ctx: FetchContext,
   now: () => Date = () => new Date(),
-  opts: { pipelineRunId?: number; onStored?: (item: FetchedItem) => void } = {},
+  opts: {
+    pipelineRunId?: number;
+    /** An ingestion_runs row opened earlier (e.g. by a pipeline unit that may be retried). */
+    runId?: number;
+    onStored?: (item: FetchedItem) => void;
+  } = {},
 ): Promise<IngestionResult> {
-  const runId = await startIngestionRun(db, adapter, now(), opts.pipelineRunId);
+  const runId = opts.runId ?? (await startIngestionRun(db, adapter, now(), opts.pipelineRunId));
   let ingested: Awaited<ReturnType<typeof ingestItems>>;
   try {
     ingested = await ingestItems(db, adapter, adapter.fetch(ctx), {

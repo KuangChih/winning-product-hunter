@@ -1,4 +1,6 @@
 // @vitest-environment node
+import { DEFAULT_RUN_OPTIONS } from "@/pipeline/runner/options";
+import { initialState } from "@/pipeline/runner/state";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { sql } from "drizzle-orm";
 import { ingestionRuns, pipelineRuns, signalSnapshots, sourceItems } from "@/db/schema";
@@ -149,7 +151,12 @@ describe("runIngestion", () => {
   it("links the ingestion run to its pipeline run", async () => {
     const [p] = await t.db
       .insert(pipelineRuns)
-      .values({ trigger: "cli", env: "local", options: {}, state: {} })
+      .values({
+        trigger: "cli",
+        env: "local",
+        options: DEFAULT_RUN_OPTIONS,
+        state: initialState(new Date()),
+      })
       .returning();
     const r = await runIngestion(
       t.db,
@@ -206,8 +213,19 @@ describe("runIngestion", () => {
     const [done, live] = await t.db
       .insert(pipelineRuns)
       .values([
-        { trigger: "cli", env: "local", options: {}, state: {}, status: "succeeded" },
-        { trigger: "web", env: "local", options: {}, state: {} },
+        {
+          trigger: "cli",
+          env: "local",
+          options: DEFAULT_RUN_OPTIONS,
+          state: initialState(new Date()),
+          status: "succeeded",
+        },
+        {
+          trigger: "web",
+          env: "local",
+          options: DEFAULT_RUN_OPTIONS,
+          state: initialState(new Date()),
+        },
       ])
       .returning();
     const hoursAgo = (h: number) => sql`now() - ${h}::double precision * interval '1 hour'`;

@@ -112,4 +112,18 @@ describe("advertiser following", () => {
     expect(seen).toEqual(new Set(["100", "101", "102", "103"]));
     expect(await pick(0)).toEqual(await pick(2));
   });
+
+  it("gives a day's later sweeps other advertisers than its first", async () => {
+    for (let i = 0; i < 6; i++) {
+      const p = await product(`p${i}`, 90 - i);
+      await ad(p, String(100 + i), ["US"]);
+    }
+    const pick = async (slot: number) =>
+      (await pickAdvertisers(t.db, 2, { day: NOW, poolFactor: 3, slot, slotsPerDay: 3 })).map(
+        (a) => a.pageId,
+      );
+    // Pool = top 6; the three sweeps of one day cover all of it without repeats.
+    const all = [...(await pick(0)), ...(await pick(1)), ...(await pick(2))];
+    expect(new Set(all).size).toBe(6);
+  });
 });

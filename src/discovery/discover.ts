@@ -128,7 +128,7 @@ export async function storeDiscovery(
   fetched: FetchedItem[],
   failure: unknown,
   now: Date,
-  opts: { pipelineRunId?: number } = {},
+  opts: { pipelineRunId?: number; ingestionRunId?: number } = {},
 ): Promise<DiscoveryResult> {
   const groups = groupAdsByLanding(fetched).filter((g) => isPromising(g, now));
   const idByKey = await productIdsByLandingKey(
@@ -197,7 +197,7 @@ export async function storeDiscovery(
     },
     { queries, limit: toStore.length + 1 },
     () => now,
-    opts,
+    { pipelineRunId: opts.pipelineRunId, runId: opts.ingestionRunId },
   );
 
   return {

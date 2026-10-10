@@ -18,7 +18,7 @@
 ## Vercel 網頁觸發探索 + UI/UX 改版（使用者 2026-10-10 要求，最優先）
 
 - [x] M1 資料層強化（runner 的前置）：`pipeline_runs` 等 schema、可中斷的 HTTP / rate limiter、分批寫入、`collection_attempts` 防止重挑、照片只用廣告主自己的、評分查詢縮減
-- [ ] M2 可續跑的 pipeline runner（純邏輯 + CLI）
+- [x] M2 可續跑的 pipeline runner（純邏輯 + CLI）：工作單位、lease + fencing、Meta 請求先記帳再送出、每日 3 次掃描、依 egress 退避；GitHub 每日排程移除（Vercel Cron 在 M3 接上前沒有每日自動蒐集）
 - [ ] M3 Vercel 觸發：routes、proxy、cron（ADR-013）
 - [ ] M4 介面殼層、探索頁、移除樣本資料
 - [ ] M5 產品列表、首頁儀表板、排名效能
@@ -30,6 +30,7 @@
 - [x] 追蹤廣告主：找到的電商店家，定期查它在 Ad Library 的其他廣告
 - [x] 資料品質 A：Meta 廣告只掛到它連到的產品（846 則中 173 則錯掛 → 0）；`npm run repair -- ad-attachments [--apply]`
 - [x] 資料品質 B（ADR-012）：售價只用廣告主自己的商品頁，搜尋結果改稱「同類商品」
+- [ ] **資料品質 C：廣告主商品頁紀錄被搜尋結果覆蓋**（M2 量測發現）：Shopify 搜尋（`shopify_catalog`）與廣告主商品頁查詢（`shopify_catalog_lookup`）的 `externalId` 都是 `${p.id}|${country}`、source 都是 `shopify`，搜尋結果碰到已查過的廣告主商品時會覆蓋那一筆，ADR-012 的售價就不見了。示範資料庫複本跑一次 pipeline：lookup 紀錄 77 → 73。修正後要量：同樣跑一次 lookup 紀錄數不減少、有廣告主售價的產品數前後對比，並提供 repair 把被覆蓋的重新查回
 - [ ] 售價覆蓋率：目前只有 26 / 208 個產品有廣告主自己的售價；讓每日排程對所有「有商品頁網址、還沒查過」的產品執行廣告主商品頁查詢，並在資料來源頁顯示覆蓋率
 - [ ] 產品探索擴充：
   - [ ] 關鍵字自動延伸：從已探索到的產品標題 / 商品代號抽出候選關鍵字；依每個關鍵字「找到幾個有潛力的新產品」分配掃描次數，產出低的自動淘汰

@@ -16,6 +16,8 @@ import {
   uniqueIndex,
   uuid,
 } from "drizzle-orm/pg-core";
+// Type-only and relative: drizzle-kit loads this file without the "@/" alias.
+import type { RunOptions, RunState, StagedItem } from "../pipeline/runner/types";
 
 /** Where a signal comes from (see docs/research/first-party-sources.md). */
 export const sourceEnum = pgEnum("source", [
@@ -221,9 +223,9 @@ export const pipelineRuns = pgTable(
     /** Where the run was created ("production", "local"…); others never resume it. */
     env: text("env").notNull(),
     /** What the run was asked to do (keywords, advertisers, collect size, countries). */
-    options: jsonb("options").$type<unknown>().notNull(),
+    options: jsonb("options").$type<RunOptions>().notNull(),
     /** Versioned run state (cursor, plan, progress, rate limits, step results). */
-    state: jsonb("state").$type<unknown>().notNull(),
+    state: jsonb("state").$type<RunState>().notNull(),
     lockToken: uuid("lock_token"),
     lockedUntil: timestamp("locked_until", { withTimezone: true }),
     ticks: integer("ticks").notNull().default(0),
@@ -259,7 +261,7 @@ export const pipelineStage = pgTable(
     bucket: text("bucket").notNull(),
     /** Position of the request in the run's plan. */
     idx: integer("idx").notNull(),
-    items: jsonb("items").$type<unknown>().notNull(),
+    items: jsonb("items").$type<StagedItem[]>().notNull(),
     /** Why the request failed (the sweep ends there), if it did. */
     failure: text("failure"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
@@ -291,7 +293,7 @@ export const collectionAttempts = pgTable(
 
 /**
  * A source that blocked us (CAPTCHA, 403/429, login wall): no requests until `until` (ADR-006).
- * Keyed by egress ("vercel", "local") so a block of the server's IPs does not stop the
+ * Keyed by egress ("vercel", "github", "local") so a block of the server's IPs does not stop the
  * user's own machine. `strikes` escalates the wait on repeated blocks and resets on success.
  */
 export const sourceBackoff = pgTable(

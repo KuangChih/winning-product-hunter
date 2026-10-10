@@ -8,7 +8,12 @@ import type { AnyDatabase } from "@/db/client";
 import { collectionAttempts, productScores, products, sourceItems } from "@/db/schema";
 import { landingKey } from "@/discovery/landing";
 import { forProducts, type ProductQuery } from "@/ingestion/collect-for-products";
-import { runIngestion, type IngestionResult } from "@/ingestion/run";
+import {
+  ingestItems,
+  IngestionAbortedError,
+  runIngestion,
+  type IngestionResult,
+} from "@/ingestion/run";
 import type { FetchedItem, SourceAdapter } from "@/ingestion/types";
 
 const DAY = 86_400_000;
@@ -251,6 +256,12 @@ export async function collectForTargets(
     now?: Date;
     signal?: AbortSignal;
     pipelineRunId?: number;
+    /**
+     * Write into this already open ingestion_runs row instead of opening and closing one (a
+     * pipeline step spread over several units). Observations are then stamped `now`, so a
+     * retried unit writes the same snapshots. The result's status still says how this call went.
+     */
+    ingestionRunId?: number;
   } = {},
 ): Promise<IngestionResult> {
   // Keyword-level items (e.g. a keyword's active ad count) say nothing about this product.
@@ -276,20 +287,33 @@ export async function collectForTargets(
           { productId, outcome: "error", error: error ?? "Results not stored" }
         : { productId, outcome: "empty" };
 
-  let result: Awaited<ReturnType<typeof runIngestion>>;
+  const onStored = (item: FetchedItem) => {
+    if (aboutProduct(item)) stored.add(item.productId!);
+  };
+  let result: IngestionResult;
   try {
-    result = await runIngestion(
-      db,
-      counting,
-      { queries: [], limit: 10_000, signal: opts.signal },
-      () => new Date(),
-      {
+    const ctx = { queries: [], limit: 10_000, signal: opts.signal };
+    if (opts.ingestionRunId !== undefined) {
+      const observedAt = opts.now ?? new Date();
+      const r = await ingestItems(db, counting, counting.fetch(ctx), {
+        now: () => observedAt,
+        signal: opts.signal,
+        onStored,
+      });
+      result = {
+        runId: opts.ingestionRunId,
+        status: r.error === undefined ? "succeeded" : "failed",
+        itemsFetched: r.itemsFetched,
+        ...(r.error === undefined
+          ? {}
+          : { error: r.error instanceof Error ? r.error.message : String(r.error) }),
+      };
+    } else {
+      result = await runIngestion(db, counting, ctx, () => new Date(), {
         pipelineRunId: opts.pipelineRunId,
-        onStored: (item) => {
-          if (aboutProduct(item)) stored.add(item.productId!);
-        },
-      },
-    );
+        onStored,
+      });
+    }
   } catch (err) {
     if (opts.signal?.aborted) {
       // The last product started was cut short: leave it due.
@@ -300,7 +324,7 @@ export async function collectForTargets(
         opts.now ?? new Date(),
       );
     }
-    throw err;
+    throw err instanceof IngestionAbortedError ? err.reason : err;
   }
   // The product being queried when the run failed (source or write error) was cut short.
   const failedOn = result.status === "failed" ? started.at(-1) : undefined;

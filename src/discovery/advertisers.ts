@@ -107,15 +107,22 @@ export async function rankAdvertisers(db: AnyDatabase): Promise<FollowedAdvertis
 /**
  * Today's advertisers to follow: a window over the top `pool` ranked advertisers that advances
  * daily, so the best stores are revisited every few days without exceeding the request cap.
+ * With `slotsPerDay` sweeps a day, sweep `slot` (0-based) moves on to its own window.
  */
 export async function pickAdvertisers(
   db: AnyDatabase,
   count: number,
-  { day = new Date(), poolFactor = 5 }: { day?: Date; poolFactor?: number } = {},
+  {
+    day = new Date(),
+    poolFactor = 5,
+    slot = 0,
+    slotsPerDay = 1,
+  }: { day?: Date; poolFactor?: number; slot?: number; slotsPerDay?: number } = {},
 ): Promise<FollowedAdvertiser[]> {
   const pool = (await rankAdvertisers(db)).slice(0, count * poolFactor);
   if (pool.length <= count) return pool;
-  const start = (Math.floor(day.getTime() / 86_400_000) * count) % pool.length;
+  const window = Math.floor(day.getTime() / 86_400_000) * slotsPerDay + slot;
+  const start = (window * count) % pool.length;
   return Array.from({ length: count }, (_, i) => pool[(start + i) % pool.length]);
 }
 
