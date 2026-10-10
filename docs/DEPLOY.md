@@ -72,6 +72,7 @@ npm run seed
 | 變數 | 環境 | 說明 |
 | --- | --- | --- |
 | `DATABASE_URL` | Production、Preview、Development | Neon 整合會自動設定 |
+| `SITE_PASSWORD` | Production、Preview | **部署前必設**：設定後所有頁面都需要輸入密碼（ADR-008）；本機開發可留空 |
 | `META_ACCESS_TOKEN`、`SERPAPI_KEY`、`ALIEXPRESS_APP_KEY`、`ALIEXPRESS_APP_SECRET`、`ALIEXPRESS_TRACKING_ID` 等 | Production | 接上 live API 後才需要，完整清單見 `.env.example` |
 
 本機開發時，`.env.local` 會同時被 Next.js 與 CLI jobs（`npm run ingest` / `match` / `score` / `seed` / `db:migrate`）讀取。

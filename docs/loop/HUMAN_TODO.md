@@ -7,6 +7,7 @@ Loop 遇到只有你能做的事（申請 API key、建立帳號、付費、法�
 
 - [ ] 建立 Vercel 專案並連結 GitHub repo（loop 不會 push 或部署，步驟見 `docs/DEPLOY.md`）
 - [ ] 在 Vercel 加入 Neon 資料庫（會自動設定 `DATABASE_URL`）
+- [ ] **部署前在 Vercel 設定 `SITE_PASSWORD`**（Settings → Environment Variables，Production 與 Preview）：網站會要求輸入這組密碼才能瀏覽。Meta 公開網頁資料限個人研究使用（ADR-006 / ADR-008），沒設定的話任何人都看得到
 - [ ] **啟用每日自動蒐集**（最重要：越早開始，越早能驗證評分）
   1. push 到 GitHub：`git push -u origin main`
   2. GitHub repo → Settings → Secrets and variables → Actions → New repository secret：名稱 `DATABASE_URL`，值為 Neon 的連線字串（與 Vercel 上的相同）

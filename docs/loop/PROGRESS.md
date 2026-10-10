@@ -218,3 +218,15 @@
 - 修正：CLAUDE.md 已知陷阱新增「含反斜線的程式碼不要用 heredoc 寫檔」。
 - 驗證：format ✅ lint ✅ typecheck ✅ test ✅（118）；瀏覽器實測搜尋 neck → 10 個產品、紐西蘭 + 最不擁擠 → 34 個產品。
 - 下一步：產品詳情頁補強（ROADMAP Phase 4 下一項）
+
+## 2026-10-10 — 回顧輪 30
+- 現況：37 個 commit、118 個單元測試、4 個 e2e 全綠；真實來源：Meta Ad Library（公開網站）、Shopify Global Catalog（搜尋 + 廣告主店家查詢）、ECB 匯率；頁面：首頁、排名（篩選/搜尋）、詳情、資料來源健康度。
+- 最大瓶頸在使用者端：每日排程未啟用（push + `DATABASE_URL` secret）→ 動能、回測無法開始；`CJ_API_KEY` → 毛利。
+- 決定：ADR-008，部署前先加站台密碼保護（公開網頁資料限個人研究使用）；新增 Phase 4A（密碼保護 → 全站導覽 → 詳情頁補強）。
+- 技術債記錄：排名查詢全量載入、vite-tsconfig-paths 警告、e2e 覆蓋不足（排入 Phase 6）。
+
+## 2026-10-10 — 站台密碼保護（ADR-008）
+- 完成：`src/proxy.ts`（Next 16 proxy：設定 `SITE_PASSWORD` 時所有頁面需登入，未設定時開放）、`/login` 頁與 server action（雜湊比對、HttpOnly + SameSite=Lax cookie 30 天、改密碼即全部登出、登入後只導回站內相對路徑）、`.env.example` / DEPLOY.md / HUMAN_TODO 加入 `SITE_PASSWORD`；`.claude/launch.json` 新增 `dev-protected`（3001 port，本機測試密碼）。
+- 修正：`npm run typecheck` 改為 `next typegen && tsc --noEmit`，CI 全新環境沒有路由型別時也能通過。
+- 驗證：format ✅ lint ✅ typecheck ✅ test ✅（124）build ✅；瀏覽器實測：未登入導向登入頁並保留原網址、錯誤密碼顯示提示、正確密碼回到原頁面。
+- 下一步：全站導覽列
