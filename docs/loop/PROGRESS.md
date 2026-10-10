@@ -207,3 +207,14 @@
 - 完成：`robustZ` / `mad`（stats）、`adMomentum` 特徵（每日觀察到的廣告數，最新一天對前 4–14 天的 robust z-score）、`momentum` 子分數取代一直沒有資料的 `engagementVelocity`；歷史不足時說明還需要幾天。ROADMAP：回測標為等待時間累積；實體對應 v2 降為低優先。
 - 驗證：format ✅ lint ✅ typecheck ✅ test ✅（113）
 - 下一步：Phase 4 產品介面（Landing page、篩選）
+
+## 2026-10-10 — Landing page
+- 完成：首頁改為完整 landing page（`src/components/landing.tsx`）：定位、兩個 CTA（排名頁、資料來源頁）、即時前三名真實產品（串流載入，資料庫異常時顯示說明而不讓首頁失敗）、四個差異化重點、運作方式四步驟、資料來源清單。
+- 驗證：format ✅ lint ✅ typecheck ✅ test ✅（113）；瀏覽器實測桌面與手機寬度（375px 無水平捲動）。
+- 下一步：產品探索頁篩選與搜尋
+
+## 2026-10-10 — 排名頁篩選與搜尋
+- 完成：`applyRankingFilters`（標題逐字搜尋、市場、最低分數、排序：最高分 / 最新 / 最不擁擠）、`parseRankingParams`（不合法參數回到預設值）、`RankingControls`（GET 表單，不需 JS、每個篩選結果都有可分享的網址，切換樣本資料時保留篩選條件）、篩選無結果時的提示。
+- 修正：CLAUDE.md 已知陷阱新增「含反斜線的程式碼不要用 heredoc 寫檔」。
+- 驗證：format ✅ lint ✅ typecheck ✅ test ✅（118）；瀏覽器實測搜尋 neck → 10 個產品、紐西蘭 + 最不擁擠 → 34 個產品。
+- 下一步：產品詳情頁補強（ROADMAP Phase 4 下一項）

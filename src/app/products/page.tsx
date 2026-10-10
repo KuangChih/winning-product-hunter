@@ -3,7 +3,9 @@ import Link from "next/link";
 import { connection } from "next/server";
 import { Suspense } from "react";
 import { ProductTable } from "@/components/product-table";
+import { RankingControls } from "@/components/ranking-controls";
 import { getRankedProducts } from "@/data/products";
+import { parseRankingParams } from "@/data/ranking-params";
 import { getDb, isDatabaseConfigured, isMissingTableError } from "@/db/client";
 
 export const metadata: Metadata = {
@@ -19,7 +21,12 @@ function Notice({ title, children }: { title: string; children: React.ReactNode 
   );
 }
 
-async function RankedProducts({ includeSample }: { includeSample: boolean }) {
+async function RankedProducts({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
+  const { includeSample, ...filters } = parseRankingParams(await searchParams);
   await connection();
   if (!isDatabaseConfigured()) {
     return (
@@ -34,7 +41,7 @@ async function RankedProducts({ includeSample }: { includeSample: boolean }) {
 
   let products;
   try {
-    products = await getRankedProducts(await getDb(), { includeSample });
+    products = await getRankedProducts(await getDb(), { includeSample, ...filters });
   } catch (err) {
     if (!isMissingTableError(err)) throw err;
     return (
@@ -46,15 +53,28 @@ async function RankedProducts({ includeSample }: { includeSample: boolean }) {
       </Notice>
     );
   }
-  if (products.length === 0) {
-    return includeSample ? (
+
+  const filtered = Boolean(filters.q || filters.market || filters.minScore !== undefined);
+  let content;
+  if (products.length > 0) {
+    content = <ProductTable products={products} />;
+  } else if (filtered) {
+    content = (
+      <Notice title="No products match these filters">
+        <p>Try a broader search, another market or a lower minimum score.</p>
+      </Notice>
+    );
+  } else if (includeSample) {
+    content = (
       <Notice title="No scored products yet">
         <p>
           Run <code>npm run pipeline</code> to collect real data, or <code>npm run seed</code> to
           load sample data.
         </p>
       </Notice>
-    ) : (
+    );
+  } else {
+    content = (
       <Notice title="No real products yet">
         <p>
           Run <code>npm run pipeline</code> to discover products from real data, or{" "}
@@ -66,41 +86,14 @@ async function RankedProducts({ includeSample }: { includeSample: boolean }) {
       </Notice>
     );
   }
-  return <ProductTable products={products} />;
-}
-
-async function SampleToggle({ searchParams }: { searchParams: Promise<{ sample?: string }> }) {
-  const includeSample = (await searchParams).sample === "1";
   return (
     <>
-      <nav aria-label="Data filter" className="mb-4 flex gap-2 text-sm">
-        <Link
-          href="/products"
-          aria-current={includeSample ? undefined : "page"}
-          className={
-            includeSample
-              ? "text-muted-foreground underline-offset-4 hover:underline"
-              : "font-medium"
-          }
-        >
-          Real data only
-        </Link>
-        <span aria-hidden className="text-muted-foreground">
-          ·
-        </span>
-        <Link
-          href="/products?sample=1"
-          aria-current={includeSample ? "page" : undefined}
-          className={
-            includeSample
-              ? "font-medium"
-              : "text-muted-foreground underline-offset-4 hover:underline"
-          }
-        >
-          Include sample data
-        </Link>
-      </nav>
-      <RankedProducts includeSample={includeSample} />
+      <RankingControls
+        filters={filters}
+        includeSample={includeSample}
+        resultCount={products.length}
+      />
+      {content}
     </>
   );
 }
@@ -123,7 +116,7 @@ export default function ProductsPage({ searchParams }: PageProps<"/products">) {
       </p>
       <div className="mt-8">
         <Suspense fallback={<p className="text-muted-foreground text-sm">Loading rankings…</p>}>
-          <SampleToggle searchParams={searchParams} />
+          <RankedProducts searchParams={searchParams} />
         </Suspense>
       </div>
     </main>

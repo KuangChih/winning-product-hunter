@@ -98,3 +98,4 @@
 - 串流頁面（Suspense）用 `get_page_text` 可能只讀到 fallback（例如「Loading…」），內容其實已經渲染；以截圖或 `find` 確認，不要誤判成卡住。
 - 修改 `src/db/schema.ts` 後要 `npm run db:generate` 並 commit `drizzle/`；Vercel 部署時 `vercel-build` 會自動套用 migration。
 - 長時間執行的指令加 `timeout`，避免整輪卡住。
+- 程式碼含反斜線（regex 如 `\s`、`\d`、`\\`）時，**不要**用 bash heredoc + node 字串取代去寫檔，反斜線會被吃掉；改用 Write / Edit 工具，寫完用 grep 確認。

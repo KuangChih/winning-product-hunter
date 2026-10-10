@@ -21,16 +21,50 @@ export interface RankedProduct {
   isSample: boolean;
 }
 
-export interface RankingOptions {
+export type RankingSort = "score" | "newest" | "least_crowded";
+
+export interface RankingFilters {
+  /** Case-insensitive title search; every word must match. */
+  q?: string;
+  /** ISO country the product must have evidence in. */
+  market?: string;
+  minScore?: number;
+  sort?: RankingSort;
+}
+
+export interface RankingOptions extends RankingFilters {
   limit?: number;
   /** Include products with any sample (fixture) evidence. Off by default. */
   includeSample?: boolean;
 }
 
+/** Applies search, filters and sort to ranked products (pure, so it is easy to test). */
+export function applyRankingFilters(
+  items: RankedProduct[],
+  { q, market, minScore, sort = "score" }: RankingFilters,
+): RankedProduct[] {
+  const words = (q ?? "").toLowerCase().split(/\s+/).filter(Boolean);
+  const filtered = items.filter(
+    (p) =>
+      words.every((w) => p.title.toLowerCase().includes(w)) &&
+      (!market || p.markets.includes(market)) &&
+      (minScore === undefined || p.score >= minScore),
+  );
+  const by: Record<RankingSort, (a: RankedProduct, b: RankedProduct) => number> = {
+    score: (a, b) => b.score - a.score,
+    // Youngest products first: the earliest evidence is the most recent.
+    newest: (a, b) =>
+      a.breakdown.saturation.ageDays - b.breakdown.saturation.ageDays || b.score - a.score,
+    least_crowded: (a, b) =>
+      a.breakdown.saturation.penalty - b.breakdown.saturation.penalty || b.score - a.score,
+  };
+  return filtered.sort(by[sort] ?? by.score);
+}
+
 /** Products ranked by their most recent Winning Score, highest first. */
 export async function getRankedProducts(
   db: AnyDatabase,
-  { limit = 50, includeSample = false }: RankingOptions = {},
+  { limit = 50, includeSample = false, ...filters }: RankingOptions = {},
 ): Promise<RankedProduct[]> {
   const latest = await db
     .selectDistinctOn([productScores.productId], {
@@ -55,10 +89,7 @@ export async function getRankedProducts(
             .where(eq(sourceItems.provider, "fixture"))
         ).map((r) => r.productId),
       );
-  const top = latest
-    .filter((s) => !sampleIds.has(s.productId))
-    .sort((a, b) => b.score - a.score)
-    .slice(0, limit);
+  const top = latest.filter((s) => !sampleIds.has(s.productId)).sort((a, b) => b.score - a.score);
   if (top.length === 0) return [];
   const ids = top.map((s) => s.productId);
 
@@ -81,7 +112,7 @@ export async function getRankedProducts(
   const productById = new Map(productRows.map((p) => [p.id, p]));
   const evidenceById = new Map(evidence.map((e) => [e.productId, e]));
 
-  return top.flatMap((s) => {
+  const all = top.flatMap((s) => {
     const p = productById.get(s.productId);
     if (!p) return [];
     const e = evidenceById.get(s.productId);
@@ -102,4 +133,5 @@ export async function getRankedProducts(
       },
     ];
   });
+  return applyRankingFilters(all, filters).slice(0, limit);
 }
