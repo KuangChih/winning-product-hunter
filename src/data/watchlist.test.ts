@@ -1,6 +1,6 @@
 // @vitest-environment node
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { products, productScores } from "@/db/schema";
+import { products, productScores, sourceItems } from "@/db/schema";
 import { createTestDb } from "@/db/testing/pglite";
 import {
   addToWatchlist,
@@ -65,6 +65,24 @@ describe("watchlist", () => {
 
     await removeFromWatchlist(t.db, a);
     expect(await isWatched(t.db, a)).toBe(false);
+    expect((await getWatchlist(t.db)).map((w) => w.slug)).toEqual(["neck-fan"]);
+  });
+
+  it("leaves out products with sample (fixture) evidence", async () => {
+    const item = (productId: string, provider: string, externalId: string) => ({
+      source: "meta_ads" as const,
+      provider,
+      externalId,
+      kind: "ad" as const,
+      productId,
+      firstSeenAt: NOW,
+      lastSeenAt: NOW,
+    });
+    await t.db
+      .insert(sourceItems)
+      .values([item(a, "fixture", "sample-1"), item(b, "ad_library_web", "real-1")]);
+    await addToWatchlist(t.db, a, day(2));
+    await addToWatchlist(t.db, b, day(1));
     expect((await getWatchlist(t.db)).map((w) => w.slug)).toEqual(["neck-fan"]);
   });
 });

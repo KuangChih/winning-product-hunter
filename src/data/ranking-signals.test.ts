@@ -63,9 +63,6 @@ describe("sub-score signals", () => {
     expect(parsed.sort).toBe("momentum");
     expect(parseRankingParams({}).signals).toBeUndefined();
 
-    const { includeSample, ...filters } = parsed;
-    expect(rankingHref(filters, includeSample)).toBe(
-      "/products?min_longevity=60&min_momentum=data&sort=momentum",
-    );
+    expect(rankingHref(parsed)).toBe("/products?min_longevity=60&min_momentum=data&sort=momentum");
   });
 });

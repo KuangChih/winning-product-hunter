@@ -11,6 +11,13 @@ const nextConfig: NextConfig = {
   async headers() {
     return [{ source: "/:path*", headers: SECURITY_HEADERS }];
   },
+  // The data-sources page became the discovery page (source health is shown there).
+  async redirects() {
+    return [
+      { source: "/sources", destination: "/discover", permanent: true },
+      { source: "/:lang(en|zh-TW)/sources", destination: "/:lang/discover", permanent: true },
+    ];
+  },
   turbopack: {
     rules: {
       "*.css": {

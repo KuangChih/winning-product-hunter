@@ -1,29 +1,22 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import { connection } from "next/server";
 import { Suspense } from "react";
+import { Notice } from "@/components/notice";
 import { ProductTable } from "@/components/product-table";
 import { RankingControls } from "@/components/ranking-controls";
+import { ListSkeleton } from "@/components/skeleton";
+import { StartDiscoveryCard } from "@/components/start-discovery-card";
+import { getPipelineStatus } from "@/data/pipeline-status";
 import { getRankedProducts } from "@/data/products";
 import { parseRankingParams } from "@/data/ranking-params";
 import { getDb, isDatabaseConfigured, isMissingTableError } from "@/db/client";
 import { getDictionary } from "@/i18n/dictionaries";
-import { RichText } from "@/i18n/format";
 import type { Locale } from "@/i18n/locales";
 import { getLocale } from "@/i18n/server";
 
 export async function generateMetadata(): Promise<Metadata> {
   const t = getDictionary(await getLocale());
   return { title: `${t.ranking.title} · ${t.site.name}` };
-}
-
-function Notice({ title, children }: { title: string; children: React.ReactNode }) {
-  return (
-    <div className="bg-muted/30 rounded-lg border p-6">
-      <h2 className="font-semibold">{title}</h2>
-      <div className="text-muted-foreground mt-2 space-y-2 text-sm">{children}</div>
-    </div>
-  );
 }
 
 async function RankedProducts({
@@ -33,29 +26,26 @@ async function RankedProducts({
   searchParams: Promise<Record<string, string | string[] | undefined>>;
   locale: Locale;
 }) {
-  const { ranking: t, common } = getDictionary(locale);
-  const { includeSample, ...filters } = parseRankingParams(await searchParams);
+  const { ranking: t, common, discover } = getDictionary(locale);
+  const filters = parseRankingParams(await searchParams);
   await connection();
   if (!isDatabaseConfigured()) {
     return (
       <Notice title={common.noDatabaseTitle}>
-        <p>
-          <RichText text={common.noDatabaseBody} />
-        </p>
+        <p>{common.noDatabaseBody}</p>
       </Notice>
     );
   }
 
+  const db = await getDb();
   let products;
   try {
-    products = await getRankedProducts(await getDb(), { includeSample, ...filters });
+    products = await getRankedProducts(db, filters);
   } catch (err) {
     if (!isMissingTableError(err)) throw err;
     return (
       <Notice title={common.notSetUpTitle}>
-        <p>
-          <RichText text={common.notSetUpBody} />
-        </p>
+        <p>{common.notSetUpBody}</p>
       </Notice>
     );
   }
@@ -73,12 +63,7 @@ async function RankedProducts({
   if (products.length > 0) {
     content = (
       <>
-        <ProductTable
-          products={products}
-          locale={locale}
-          filters={filters}
-          includeSample={includeSample}
-        />
+        <ProductTable products={products} locale={locale} filters={filters} />
         <p className="text-muted-foreground mt-2 text-xs">
           {t.signalsNote} {t.priceNote}
         </p>
@@ -90,33 +75,22 @@ async function RankedProducts({
         <p>{t.noMatchBody}</p>
       </Notice>
     );
-  } else if (includeSample) {
-    content = (
-      <Notice title={t.noScoredTitle}>
-        <p>
-          <RichText text={t.noScoredBody} />
-        </p>
-      </Notice>
-    );
   } else {
     content = (
-      <Notice title={t.noRealTitle}>
-        <p>
-          <RichText text={t.noRealBody} />{" "}
-          <Link href="/products?sample=1" className="underline underline-offset-4">
-            {t.includeSampleLink}
-          </Link>
-          .
-        </p>
-      </Notice>
+      <StartDiscoveryCard
+        title={t.noneTitle}
+        body={t.noneBody}
+        status={await getPipelineStatus(process.env, db)}
+        labels={discover}
+      />
     );
   }
   return (
     <>
       <RankingControls
         filters={filters}
-        includeSample={includeSample}
-        resultCount={products.length}
+        // "0 products" next to the empty-state card would only repeat it.
+        resultCount={products.length > 0 || filtered ? products.length : undefined}
         locale={locale}
       />
       {content}
@@ -128,11 +102,11 @@ export default async function ProductsPage({ searchParams }: PageProps<"/[lang]/
   const locale = await getLocale();
   const t = getDictionary(locale).ranking;
   return (
-    <main id="main" className="mx-auto w-full max-w-6xl flex-1 px-4 py-10">
-      <h1 className="text-3xl font-semibold tracking-tight">{t.title}</h1>
-      <p className="text-muted-foreground mt-2 max-w-2xl">{t.intro}</p>
-      <div className="mt-8">
-        <Suspense fallback={<p className="text-muted-foreground text-sm">{t.loading}</p>}>
+    <main id="main" className="mx-auto w-full max-w-6xl flex-1 px-4 py-8 sm:py-10">
+      <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">{t.title}</h1>
+      <p className="text-muted-foreground mt-2 max-w-2xl text-sm sm:text-base">{t.intro}</p>
+      <div className="mt-6 sm:mt-8">
+        <Suspense fallback={<ListSkeleton label={t.loading} />}>
           <RankedProducts searchParams={searchParams} locale={locale} />
         </Suspense>
       </div>

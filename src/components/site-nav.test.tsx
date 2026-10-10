@@ -14,11 +14,26 @@ describe("SiteNav", () => {
   it("marks the current section, including its sub-pages", () => {
     pathname.value = "/products/neck-massager";
     render(<SiteNav labels={en} />);
-    expect(screen.getByRole("link", { name: "Winning products" })).toHaveAttribute(
-      "aria-current",
-      "page",
-    );
-    expect(screen.getByRole("link", { name: "Data sources" })).not.toHaveAttribute("aria-current");
+    expect(screen.getByRole("link", { name: "Products" })).toHaveAttribute("aria-current", "page");
+    expect(screen.getByRole("link", { name: "Discover" })).not.toHaveAttribute("aria-current");
+  });
+
+  it("has the four sections, each with an icon and a visible label", () => {
+    pathname.value = "/discover";
+    render(<SiteNav labels={en} />);
+    const links = screen.getAllByRole("link");
+    expect(links.map((l) => [l.textContent, l.getAttribute("href")])).toEqual([
+      ["Products", "/products"],
+      ["Ads", "/ads"],
+      ["Watchlist", "/watchlist"],
+      ["Discover", "/discover"],
+    ]);
+    // Icons are decorative; the label is the accessible name.
+    for (const link of links) expect(link.querySelector("svg")).toHaveAttribute("aria-hidden");
+    expect(screen.getByRole("link", { name: "Discover" })).toHaveAttribute("aria-current", "page");
+    // One navigation element for every screen size (a bottom tab bar on phones).
+    expect(screen.getAllByRole("navigation")).toHaveLength(1);
+    expect(screen.getByRole("navigation").className).toMatch(/(^| )fixed .* md:static( |$)/);
   });
 
   it("renders plain links without an active state as the prerendered fallback", () => {
@@ -47,7 +62,7 @@ describe("SiteNav", () => {
 
   it("does not treat a prefix of another word as the same section", () => {
     expect(isActive("/products-old", "/products")).toBe(false);
-    expect(isActive("/sources", "/sources")).toBe(true);
-    expect(isActive("/zh-TW/sources", "/sources")).toBe(true);
+    expect(isActive("/discover", "/discover")).toBe(true);
+    expect(isActive("/zh-TW/discover", "/discover")).toBe(true);
   });
 });

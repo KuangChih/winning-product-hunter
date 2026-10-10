@@ -1,5 +1,6 @@
 "use client";
 
+import { Monitor, Moon, Sun, type LucideIcon } from "lucide-react";
 import { useEffect, useSyncExternalStore } from "react";
 import type { Dictionary } from "@/i18n/dictionaries";
 import { fill } from "@/i18n/format";
@@ -31,7 +32,7 @@ function subscribe(onChange: () => void) {
   };
 }
 
-const ICONS: Record<ThemePreference, string> = { system: "◐", light: "☀", dark: "☾" };
+const ICONS: Record<ThemePreference, LucideIcon> = { system: Monitor, light: Sun, dark: Moon };
 
 export type ThemeLabels = Dictionary["theme"];
 
@@ -49,6 +50,7 @@ export function ThemeToggle({ labels }: { labels: ThemeLabels }) {
   }, [preference]);
 
   const next = nextThemePreference(preference);
+  const Icon = ICONS[preference];
   // Lowercased for "Switch to light theme"; no effect on languages without letter case.
   const names = { current: labels[preference], next: labels[next].toLowerCase() };
   return (
@@ -65,9 +67,9 @@ export function ThemeToggle({ labels }: { labels: ThemeLabels }) {
       }}
       title={fill(labels.switchTitle, names)}
       aria-label={fill(labels.switchLabel, names)}
-      className="text-muted-foreground hover:text-foreground hover:bg-secondary size-8 rounded-md text-base"
+      className="text-muted-foreground hover:text-foreground hover:bg-secondary inline-flex size-9 items-center justify-center rounded-md"
     >
-      <span aria-hidden>{ICONS[preference]}</span>
+      <Icon aria-hidden className="size-4" />
     </button>
   );
 }

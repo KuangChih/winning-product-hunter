@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { SiteFooter, SiteHeader } from "@/components/site-header";
 import { getDictionary } from "@/i18n/dictionaries";
@@ -27,6 +27,9 @@ export async function generateMetadata(): Promise<Metadata> {
   };
 }
 
+// `cover` lets the phone tab bar pad itself for the home indicator (safe-area insets).
+export const viewport: Viewport = { width: "device-width", initialScale: 1, viewportFit: "cover" };
+
 // Every language gets its own prerendered shell (required for root params with Cache Components).
 export function generateStaticParams() {
   return LOCALES.map((lang) => ({ lang }));
@@ -45,7 +48,8 @@ export default async function RootLayout({ children }: LayoutProps<"/[lang]">) {
       <head>
         <script dangerouslySetInnerHTML={{ __html: THEME_INIT_SCRIPT }} />
       </head>
-      <body className="flex min-h-full flex-col">
+      {/* Bottom padding on phones: room for the fixed tab bar (see SiteNav). */}
+      <body className="flex min-h-full flex-col pb-[calc(4rem+env(safe-area-inset-bottom))] md:pb-0">
         <a
           href="#main"
           className="bg-background sr-only z-50 rounded-md border px-3 py-2 text-sm focus:not-sr-only focus:fixed focus:top-2 focus:left-2"

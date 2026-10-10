@@ -7,7 +7,10 @@ import { fixtureAdapters } from "@/ingestion/fixtures";
 import { runIngestion } from "@/ingestion/run";
 import { runMatching } from "@/matching/run";
 import { runScoring } from "@/scoring/run";
-import { getProductDetail, type ProductDetail } from "./product-detail";
+import { getProductDetail, getProductTitle, type ProductDetail } from "./product-detail";
+
+// The seeded data is all fixtures (sample data), which the website never shows.
+const SAMPLE = { includeSample: true };
 
 const NOW = new Date("2026-10-09T00:00:00Z");
 
@@ -33,7 +36,11 @@ describe("getProductDetail", () => {
   });
 
   it("returns the latest score, score history and evidence grouped by item", async () => {
-    const d = (await getProductDetail(t.db, "silicone-dog-paw-cleaner-cup")) as ProductDetail;
+    const d = (await getProductDetail(
+      t.db,
+      "silicone-dog-paw-cleaner-cup",
+      SAMPLE,
+    )) as ProductDetail;
 
     expect(d).not.toBeNull();
     expect(d!.isSample).toBe(true);
@@ -65,6 +72,22 @@ describe("getProductDetail", () => {
     await t.db.update(products).set({ mergedInto: survivor.id }).where(eq(products.id, loser.id));
 
     expect(await getProductDetail(t.db, loser.slug)).toEqual({ redirectTo: survivor.slug });
-    expect(await getProductDetail(t.db, survivor.slug)).toHaveProperty("evidence");
+    expect(await getProductDetail(t.db, survivor.slug, SAMPLE)).toHaveProperty("evidence");
+  });
+
+  it("hides sample (fixture) products: no page and no title", async () => {
+    // The page turns null into "not found"; the <title> must not leak the name either.
+    expect(await getProductDetail(t.db, "silicone-dog-paw-cleaner-cup")).toBeNull();
+    expect(await getProductTitle(t.db, "silicone-dog-paw-cleaner-cup")).toBeNull();
+
+    const [real] = await t.db
+      .insert(products)
+      .values({ slug: "real-product", title: "Real Product", firstSeenAt: NOW })
+      .returning();
+    expect(await getProductTitle(t.db, real.slug)).toBe("Real Product");
+    expect(await getProductDetail(t.db, real.slug)).toMatchObject({
+      title: "Real Product",
+      isSample: false,
+    });
   });
 });

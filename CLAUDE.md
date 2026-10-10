@@ -123,3 +123,4 @@
 - 頁面路由在 `src/app/[lang]/`（ADR-011）：新頁面放這裡、`PageProps<"/[lang]/...">`；Server Component 用 `getLocale()` / `getDictionary()`（`src/i18n`）取語言與字串，連結維持不帶語言前綴（proxy 依 cookie 改寫）；客戶端元件的字串由伺服器端以 props 傳入。
 - dev server 剛啟動時若同時收到兩個請求（例如 preview 工具的 HEAD 探測加上瀏覽器的 GET），log 可能出現一次 `SyntaxError: Unexpected end of JSON input`（page `/en`）並回 500，之後都正常；這是 dev 首次編譯的競態，`next start` 同時打 6 個冷請求都是 200。看到時重新整理一次確認即可，不要當成程式錯誤。同類的 dev 偶發：e2e 平行跑時，偶爾一個沒帶語言 cookie 的請求拿到 `lang="zh-TW"`；`next start` 同時送 24 個中英文混合請求全部正確。e2e 偶發失敗時先重跑確認，連續失敗才當成真問題。
 - 程式碼含反斜線（regex 如 `\s`、`\d`、`\\`）時，**不要**用 bash heredoc + node 字串取代去寫檔，反斜線會被吃掉；改用 Write / Edit 工具，寫完用 grep 確認。
+- 資料庫連線（`getDb`）必須放在 `globalThis`，不能只放模組變數：Next.js 把頁面和 route handler 分開打包，各有一份模組。用 PGlite 時兩份會把同一個目錄開成兩個互不相通的記憶體資料庫，頁面就看不到 route（例如探索的 tick）寫進去的資料，要重啟才會出現。

@@ -12,9 +12,9 @@ describe("Landing", () => {
       "href",
       "/products",
     );
-    expect(screen.getByRole("link", { name: "How the data is collected" })).toHaveAttribute(
+    expect(screen.getByRole("link", { name: "Discover new products" })).toHaveAttribute(
       "href",
-      "/sources",
+      "/discover",
     );
     expect(screen.getByText("preview here")).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Why it is different" })).toBeInTheDocument();

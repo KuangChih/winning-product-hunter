@@ -1,24 +1,22 @@
 import Link from "next/link";
 import { type RankedProduct, type RankingFilters, signalValue } from "@/data/products";
 import { rankingHref } from "@/data/ranking-params";
-import { type Dictionary, getDictionary } from "@/i18n/dictionaries";
+import { getDictionary } from "@/i18n/dictionaries";
 import { countryName, fill } from "@/i18n/format";
 import { DEFAULT_LOCALE, type Locale } from "@/i18n/locales";
+import { formatUsd } from "@/lib/format";
 import { marketTier } from "@/lib/markets";
 import { sourceLabel } from "@/lib/sources";
 import { cn } from "@/lib/utils";
 import { confidenceLabel, SUB_SCORE_ORDER } from "@/scoring/score";
-
-const usd = (cents: number) =>
-  (cents / 100).toLocaleString("en-US", { style: "currency", currency: "USD" });
+import { ProductThumb } from "./product-thumb";
+import { ScoreBadge } from "./score-badge";
 
 function ScoreBar({ score }: { score: number }) {
   return (
     <div className="flex items-center gap-2">
-      <span className="w-10 text-right font-mono text-sm font-semibold tabular-nums">
-        {score.toFixed(0)}
-      </span>
-      <div className="bg-muted h-2 w-24 overflow-hidden rounded-full" aria-hidden>
+      <ScoreBadge score={score} />
+      <div className="bg-muted h-2 w-20 overflow-hidden rounded-full" aria-hidden>
         <div className="bg-primary h-full rounded-full" style={{ width: `${score}%` }} />
       </div>
     </div>
@@ -52,37 +50,15 @@ export function MarketList({
   );
 }
 
-export function SampleDataBadge({
-  className,
-  t = getDictionary(DEFAULT_LOCALE).common,
-}: {
-  className?: string;
-  t?: Dictionary["common"];
-}) {
-  return (
-    <span
-      className={cn(
-        "rounded-md border border-amber-500/40 bg-amber-500/10 px-1.5 py-0.5 text-xs font-medium text-amber-700 dark:text-amber-400",
-        className,
-      )}
-      title={t.sampleDataTitle}
-    >
-      {t.sampleData}
-    </span>
-  );
-}
-
 export function ProductTable({
   products,
   locale,
   filters = {},
-  includeSample = false,
 }: {
   products: RankedProduct[];
   locale: Locale;
   /** Current filters, so the signal column headers can link to a sort that keeps them. */
   filters?: RankingFilters;
-  includeSample?: boolean;
 }) {
   const { ranking: t, common, breakdown } = getDictionary(locale);
   return (
@@ -105,7 +81,10 @@ export function ProductTable({
                   className="px-2 py-2 text-right font-medium"
                 >
                   <Link
-                    href={rankingHref({ ...filters, sort: name }, includeSample)}
+                    href={rankingHref({ ...filters, sort: name })}
+                    // Every prefetch renders the page on the server (a full ranking query each);
+                    // fetch on hover or click instead of for all headers and rows at once.
+                    prefetch={false}
                     aria-label={fill(t.sortByColumn, { signal: t.signals[name] })}
                     className={active ? "text-foreground underline" : "hover:text-foreground"}
                   >
@@ -127,14 +106,15 @@ export function ProductTable({
             <tr key={p.id} className="hover:bg-muted/30 border-t">
               <td className="text-muted-foreground px-3 py-3 tabular-nums">{i + 1}</td>
               <td className="min-w-48 px-3 py-3">
-                <div className="flex flex-wrap items-center gap-2">
+                <div className="flex items-center gap-3">
+                  <ProductThumb src={p.imageUrl} size="sm" />
                   <Link
                     href={`/products/${p.slug}`}
+                    prefetch={false}
                     className="font-medium underline-offset-4 hover:underline"
                   >
                     {p.title}
                   </Link>
-                  {p.isSample && <SampleDataBadge t={common} />}
                 </div>
               </td>
               <td className="px-3 py-3">
@@ -158,7 +138,7 @@ export function ProductTable({
                 {p.retailUsdCents === null ? (
                   <span className="text-muted-foreground">—</span>
                 ) : (
-                  usd(p.retailUsdCents)
+                  formatUsd(p.retailUsdCents)
                 )}
               </td>
               <td className="px-3 py-3">{common.confidence[confidenceLabel(p.confidence)]}</td>

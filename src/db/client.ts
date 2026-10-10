@@ -57,18 +57,36 @@ export function createNeonDb(databaseUrl: string): AnyDatabase {
   return drizzle(neon(databaseUrl), { schema }) as unknown as AnyDatabase;
 }
 
-let cached: Promise<Connection> | undefined;
+/**
+ * One connection per process, kept on `globalThis`: Next.js bundles pages and route handlers
+ * separately, each with its own copy of this module. With PGlite two copies would open the same
+ * directory as two independent in-memory databases, and a page would never see what a route
+ * (e.g. a discovery tick) wrote.
+ */
+const CACHE_KEY = Symbol.for("winning-product-hunter.db");
+/** The connection and the URL it was made for (a changed DATABASE_URL gets a new one). */
+type DbCache = { [CACHE_KEY]?: { url: string; connection: Promise<Connection> } };
+const store = globalThis as DbCache;
 
 /** Lazily connects so that builds and tests never need DATABASE_URL. */
 export async function getDb(): Promise<AnyDatabase> {
-  if (!cached) {
-    const url = process.env.DATABASE_URL;
-    if (!url) throw new Error("DATABASE_URL is not set. See .env.example.");
-    cached = url.startsWith(PGLITE_PREFIX)
+  const url = process.env.DATABASE_URL;
+  if (!url) throw new Error("DATABASE_URL is not set. See .env.example.");
+  let cached = store[CACHE_KEY];
+  if (!cached || cached.url !== url) {
+    // Release the connection made for the old URL (PGlite keeps a database open).
+    cached?.connection.then((c) => c.close()).catch(() => {});
+    const connection = url.startsWith(PGLITE_PREFIX)
       ? connectPglite(url.slice(PGLITE_PREFIX.length))
       : Promise.resolve({ db: createNeonDb(url), close: async () => {} });
+    cached = { url, connection };
+    store[CACHE_KEY] = cached;
+    // A failed connect must not stick: the next call tries again.
+    connection.catch(() => {
+      if (store[CACHE_KEY]?.connection === connection) store[CACHE_KEY] = undefined;
+    });
   }
-  return (await cached).db;
+  return (await cached.connection).db;
 }
 
 /**
@@ -100,8 +118,8 @@ export function isMissingTableError(err: unknown): boolean {
 
 /** Releases the connection so CLI jobs can exit (PGlite keeps the process alive). */
 export async function closeDb(): Promise<void> {
+  const cached = store[CACHE_KEY];
   if (!cached) return;
-  const conn = await cached;
-  cached = undefined;
-  await conn.close();
+  store[CACHE_KEY] = undefined;
+  await (await cached.connection).close();
 }

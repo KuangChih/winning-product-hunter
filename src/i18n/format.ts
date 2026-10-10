@@ -1,4 +1,3 @@
-import type { ReactNode } from "react";
 import { marketName } from "@/lib/markets";
 import type { Locale } from "./locales";
 
@@ -16,9 +15,4 @@ export function fill(template: string, values: Record<string, string | number>):
   return template.replace(/\{(\w+)\}/g, (match, key: string) =>
     key in values ? String(values[key]) : match,
   );
-}
-
-/** Renders `backticked` parts of a dictionary string as <code>, the rest as plain text. */
-export function RichText({ text }: { text: string }): ReactNode {
-  return text.split("`").map((part, i) => (i % 2 === 1 ? <code key={i}>{part}</code> : part));
 }

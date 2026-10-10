@@ -7,20 +7,20 @@ import type { Dictionary } from "@/i18n/dictionaries";
 export function Landing({ preview, t }: { preview: ReactNode; t: Dictionary["landing"] }) {
   return (
     <main id="main" className="mx-auto w-full max-w-5xl flex-1 px-4">
-      <section className="py-20 sm:py-28">
+      <section className="py-10 sm:py-20">
         <p className="text-muted-foreground text-sm font-medium tracking-wide uppercase">
           {t.eyebrow}
         </p>
-        <h1 className="mt-3 max-w-3xl text-4xl font-semibold tracking-tight sm:text-5xl">
+        <h1 className="mt-3 max-w-3xl text-3xl font-semibold tracking-tight sm:text-5xl">
           Winning Product Hunter
         </h1>
-        <p className="text-muted-foreground mt-5 max-w-2xl text-lg">{t.intro}</p>
-        <div className="mt-8 flex flex-wrap gap-3">
+        <p className="text-muted-foreground mt-4 max-w-2xl sm:text-lg">{t.intro}</p>
+        <div className="mt-6 flex flex-wrap gap-3">
           <Link href="/products" className={buttonVariants({ size: "lg" })}>
             {t.ctaProducts}
           </Link>
-          <Link href="/sources" className={buttonVariants({ size: "lg", variant: "outline" })}>
-            {t.ctaSources}
+          <Link href="/discover" className={buttonVariants({ size: "lg", variant: "outline" })}>
+            {t.ctaDiscover}
           </Link>
         </div>
       </section>

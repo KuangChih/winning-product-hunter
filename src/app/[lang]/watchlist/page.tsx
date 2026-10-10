@@ -2,6 +2,9 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { connection } from "next/server";
 import { Suspense } from "react";
+import { Notice } from "@/components/notice";
+import { ScoreBadge } from "@/components/score-badge";
+import { ListSkeleton } from "@/components/skeleton";
 import { WatchButton } from "@/components/watch-button";
 import {
   ALERT_THRESHOLD,
@@ -12,7 +15,7 @@ import {
 } from "@/data/watchlist";
 import { getDb, isDatabaseConfigured, isMissingTableError } from "@/db/client";
 import { type Dictionary, getDictionary } from "@/i18n/dictionaries";
-import { fill, RichText } from "@/i18n/format";
+import { fill } from "@/i18n/format";
 import type { Locale } from "@/i18n/locales";
 import { getLocale } from "@/i18n/server";
 import { cn } from "@/lib/utils";
@@ -20,15 +23,6 @@ import { cn } from "@/lib/utils";
 export async function generateMetadata(): Promise<Metadata> {
   const t = getDictionary(await getLocale());
   return { title: `${t.watchlist.title} · ${t.site.name}` };
-}
-
-function Notice({ title, children }: { title: string; children: React.ReactNode }) {
-  return (
-    <div className="bg-muted/30 rounded-lg border p-6">
-      <h2 className="font-semibold">{title}</h2>
-      <div className="text-muted-foreground mt-2 space-y-2 text-sm">{children}</div>
-    </div>
-  );
 }
 
 function Change({ value }: { value: number | null }) {
@@ -95,8 +89,12 @@ function WatchTable({ items, dict }: { items: WatchedProduct[]; dict: Dictionary
                   {w.title}
                 </Link>
               </td>
-              <td className="px-3 py-2 text-right font-semibold tabular-nums">
-                {w.score === null ? t.notScored : w.score.toFixed(0)}
+              <td className="px-3 py-2 text-right">
+                {w.score === null ? (
+                  <span className="text-muted-foreground">{t.notScored}</span>
+                ) : (
+                  <ScoreBadge score={w.score} />
+                )}
               </td>
               <td className="px-3 py-2 text-right">
                 <Change value={scoreChange(w.score, w.previousScore)} />
@@ -125,9 +123,7 @@ async function Watchlist({ locale }: { locale: Locale }) {
   if (!isDatabaseConfigured()) {
     return (
       <Notice title={common.noDatabaseTitle}>
-        <p>
-          <RichText text={common.noDatabaseBody} />
-        </p>
+        <p>{common.noDatabaseBody}</p>
       </Notice>
     );
   }
@@ -139,9 +135,7 @@ async function Watchlist({ locale }: { locale: Locale }) {
     if (!isMissingTableError(err)) throw err;
     return (
       <Notice title={common.notSetUpTitle}>
-        <p>
-          <RichText text={common.notSetUpBody} />
-        </p>
+        <p>{common.notSetUpBody}</p>
       </Notice>
     );
   }
@@ -196,13 +190,13 @@ export default async function WatchlistPage() {
   const locale = await getLocale();
   const t = getDictionary(locale).watchlist;
   return (
-    <main id="main" className="mx-auto w-full max-w-6xl flex-1 px-4 py-10">
-      <h1 className="text-3xl font-semibold tracking-tight">{t.title}</h1>
-      <p className="text-muted-foreground mt-2 max-w-2xl">
+    <main id="main" className="mx-auto w-full max-w-6xl flex-1 px-4 py-8 sm:py-10">
+      <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">{t.title}</h1>
+      <p className="text-muted-foreground mt-2 max-w-2xl text-sm sm:text-base">
         {fill(t.intro, { n: ALERT_THRESHOLD })}
       </p>
-      <div className="mt-8">
-        <Suspense fallback={<p className="text-muted-foreground text-sm">{t.loading}</p>}>
+      <div className="mt-6 sm:mt-8">
+        <Suspense fallback={<ListSkeleton label={t.loading} rows={3} />}>
           <Watchlist locale={locale} />
         </Suspense>
       </div>

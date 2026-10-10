@@ -1,9 +1,7 @@
 import type { Dictionary } from "@/i18n/dictionaries";
 import { fill } from "@/i18n/format";
+import { formatUsd as usd } from "@/lib/format";
 import type { MarginEstimate as Estimate } from "@/lib/margin";
-
-const usd = (cents: number) =>
-  (cents / 100).toLocaleString("en-US", { style: "currency", currency: "USD" });
 
 function Figure({ label, value, note }: { label: string; value: string; note?: string }) {
   return (

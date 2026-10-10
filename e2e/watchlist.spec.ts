@@ -6,7 +6,7 @@ test("a product can be watched from its page and unwatched from the watchlist", 
   await page.goto("/products");
   const table = page.getByRole("table");
   await expect(
-    table.or(page.getByText(/No database configured|No real products yet|not set up/)),
+    table.or(page.getByText(/No database configured|No products yet|not set up/)),
   ).toBeVisible();
   test.skip(!(await table.isVisible()), "No scored products in this environment");
 

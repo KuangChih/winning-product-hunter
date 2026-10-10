@@ -6,7 +6,7 @@ test("a ranked product opens its detail page with score breakdown and evidence",
   await page.goto("/products");
   const table = page.getByRole("table");
   await expect(
-    table.or(page.getByText(/No database configured|No scored products yet|not set up/)),
+    table.or(page.getByText(/No database configured|No products yet|not set up/)),
   ).toBeVisible();
   test.skip(!(await table.isVisible()), "No scored products in this environment");
 

@@ -20,7 +20,7 @@
 - [x] M1 資料層強化（runner 的前置）：`pipeline_runs` 等 schema、可中斷的 HTTP / rate limiter、分批寫入、`collection_attempts` 防止重挑、照片只用廣告主自己的、評分查詢縮減
 - [x] M2 可續跑的 pipeline runner（純邏輯 + CLI）：工作單位、lease + fencing、Meta 請求先記帳再送出、每日 3 次掃描、依 egress 退避；GitHub 每日排程移除（Vercel Cron 在 M3 接上前沒有每日自動蒐集）
 - [x] M3 Vercel 觸發：routes、proxy、cron（ADR-013）；部署後實測（Meta 是否擋 Vercel IP、自我接續是否遇到 508）見 HUMAN_TODO
-- [ ] M4 介面殼層、探索頁、移除樣本資料
+- [x] M4 介面殼層、探索頁、移除樣本資料（e2e 在 4 個 worker 下偶發：點連結後的動態頁 5 秒內仍停在 Suspense 載入畫面，2 個 worker 或單獨跑都穩定，待查）
 - [ ] M5 產品列表、首頁儀表板、排名效能
 - [ ] M6 詳情頁、廣告、收藏
 - [ ] M7 文件收尾

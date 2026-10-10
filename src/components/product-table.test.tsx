@@ -14,7 +14,7 @@ const product = (over: Partial<RankedProduct>): RankedProduct => ({
   computedAt: new Date(),
   sources: ["cj", "meta_ads"],
   markets: ["US", "DE"],
-  isSample: true,
+  isSample: false,
   retailUsdCents: 2499,
   breakdown: {
     saturation: { activeAdvertisers: 2 },
@@ -27,10 +27,13 @@ const product = (over: Partial<RankedProduct>): RankedProduct => ({
 });
 
 describe("ProductTable", () => {
-  it("shows rank, linked title, score, evidence sources and the sample-data label", () => {
+  it("shows rank, photo placeholder, linked title, score and evidence sources", () => {
     render(
       <ProductTable
-        products={[product({}), product({ id: "2", slug: "real", title: "Real", isSample: false })]}
+        products={[
+          product({}),
+          product({ id: "2", slug: "real", title: "Real", imageUrl: "https://cdn.example/p.jpg" }),
+        ]}
         locale="en"
       />,
     );
@@ -45,19 +48,24 @@ describe("ProductTable", () => {
     expect(first.getByText("$24.99")).toBeInTheDocument();
     expect(first.getByText("Medium")).toBeInTheDocument();
     expect(first.getByText("Meta Ads")).toBeInTheDocument();
-    expect(first.getByText("Sample data")).toBeInTheDocument();
+    expect(first.getByText("73")).toHaveAttribute("data-level", "high");
     expect(first.getByTitle("United States")).toHaveTextContent("US");
     expect(first.getByTitle("Germany")).toHaveTextContent("DE");
-    expect(within(rows[1]).queryByText("Sample data")).toBeNull();
+    // Sample data is never shown, so there is no sample badge any more.
+    expect(screen.queryByText("Sample data")).toBeNull();
+    // A real photo loads lazily; without one there is a placeholder instead of a broken image.
+    expect(rows[0].querySelector("img")).toBeNull();
+    const img = rows[1].querySelector("img")!;
+    expect(img).toHaveAttribute("src", "https://cdn.example/p.jpg");
+    expect(img).toHaveAttribute("loading", "lazy");
   });
 
-  it("translates headers, confidence, badge and country names", () => {
+  it("translates headers, confidence and country names", () => {
     render(<ProductTable products={[product({})]} locale="zh-TW" />);
     expect(screen.getByRole("columnheader", { name: "可信度" })).toBeInTheDocument();
     expect(screen.getByRole("columnheader", { name: "廣告主售價（美國）" })).toBeInTheDocument();
     const row = within(screen.getAllByRole("row")[1]);
     expect(row.getByText("中")).toBeInTheDocument();
-    expect(row.getByText("樣本資料")).toBeInTheDocument();
     expect(row.getByTitle("美國")).toHaveTextContent("US");
     expect(row.getByTitle("德國")).toHaveTextContent("DE");
   });
@@ -68,7 +76,6 @@ describe("ProductTable", () => {
         products={[product({})]}
         locale="en"
         filters={{ market: "US", sort: "longevity" }}
-        includeSample={false}
       />,
     );
     const header = screen.getByRole("columnheader", { name: /Longevity/ });

@@ -33,7 +33,7 @@ function priceParam(value: string | undefined): number | undefined {
 /** Parses ranking page search params; unknown or invalid values fall back to defaults. */
 export function parseRankingParams(
   params: Params,
-): Required<Pick<RankingFilters, "sort">> & RankingFilters & { includeSample: boolean } {
+): Required<Pick<RankingFilters, "sort">> & RankingFilters {
   const q = first(params.q)?.trim() || undefined;
   const marketRaw = first(params.market)?.toUpperCase();
   const minScoreRaw = Number(first(params.minScore));
@@ -53,12 +53,11 @@ export function parseRankingParams(
     source: source && source in SOURCE_LABELS ? source : undefined,
     signals: Object.keys(signals).length ? signals : undefined,
     sort: sortRaw && SORTS.includes(sortRaw) ? sortRaw : "score",
-    includeSample: first(params.sample) === "1",
   };
 }
 
 /** URL for the ranking page with these filters; defaults are left out to keep links short. */
-export function rankingHref(filters: RankingFilters, includeSample: boolean): string {
+export function rankingHref(filters: RankingFilters): string {
   const params = new URLSearchParams();
   if (filters.q) params.set("q", filters.q);
   if (filters.market) params.set("market", filters.market);
@@ -71,7 +70,6 @@ export function rankingHref(filters: RankingFilters, includeSample: boolean): st
     if (rule !== undefined) params.set(signalParam(name), String(rule));
   }
   if (filters.sort && filters.sort !== "score") params.set("sort", filters.sort);
-  if (includeSample) params.set("sample", "1");
   const qs = params.toString();
   return qs ? `/products?${qs}` : "/products";
 }

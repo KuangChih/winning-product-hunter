@@ -104,4 +104,4 @@ npm run db:migrate
 | Build log 出現 `DATABASE_URL is not set; skipping migrations.`                            | 該環境沒有設定資料庫，migration 被略過。                                       |
 | Pipeline 的 discover 步驟失敗或被跳過（backoff）                                          | Vercel / GitHub 是機房 IP，Meta 可能擋。依 ADR-006 不繞過、自動退避；可改在自己電腦執行 `npm run pipeline`。 |
 
-> 只想看介面時，可用 `npm run seed` 載入**樣本資料**（fixture）。樣本資料在網頁上會標示「Sample data」，排名頁預設不顯示。請勿對 Production 資料庫執行。
+> 網站不再顯示樣本資料（fixture 只留給自動測試，`npm run seed` 已移除）。要看介面就到「探索」頁按「開始探索」蒐集真實資料。

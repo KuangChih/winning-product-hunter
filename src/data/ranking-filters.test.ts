@@ -89,9 +89,10 @@ describe("parseRankingParams", () => {
         market: "us",
         minScore: "60",
         sort: "newest",
+        // The old sample-data switch is gone: sample data is never shown.
         sample: "1",
       }),
-    ).toEqual({ q: "neck", market: "US", minScore: 60, sort: "newest", includeSample: true });
+    ).toEqual({ q: "neck", market: "US", minScore: 60, sort: "newest" });
     expect(
       parseRankingParams({ market: "XX", minScore: "abc", sort: "random", q: ["a", "b"] }),
     ).toEqual({
@@ -99,7 +100,6 @@ describe("parseRankingParams", () => {
       market: undefined,
       minScore: undefined,
       sort: "score",
-      includeSample: false,
     });
   });
 

@@ -3,6 +3,8 @@ import { describe, expect, it } from "vitest";
 import type { AdListItem } from "@/data/ads";
 import { AdControls, AdList, adsHref } from "./ad-browser";
 
+const hidden = { hidden: true };
+
 const NOW = new Date("2026-10-10T00:00:00Z");
 const ad: AdListItem = {
   id: "1",
@@ -19,7 +21,7 @@ const ad: AdListItem = {
   lastSeenAt: NOW,
   product: { slug: "ear-cleaner", title: "Ear Cleaner" },
 };
-const state = { includeSample: false, sort: "longest" as const, page: 1 };
+const state = { sort: "longest" as const, page: 1 };
 
 describe("ad browser", () => {
   it("builds short shareable URLs", () => {
@@ -27,6 +29,26 @@ describe("ad browser", () => {
     expect(adsHref({ ...state, market: "US", sort: "newest", page: 2 })).toBe(
       "/ads?market=US&sort=newest&page=2",
     );
+  });
+
+  it("folds market, platform and status away and shows them as removable chips", () => {
+    render(
+      <AdControls
+        state={{ ...state, q: "ear", market: "US", status: "active", page: 3 }}
+        locale="en"
+      />,
+    );
+    expect(screen.getByText("Filters (2)")).toBeInTheDocument();
+    expect(screen.getByRole("combobox", { name: "Market", ...hidden })).toHaveValue("US");
+    // Removing a filter goes back to the first page.
+    expect(
+      screen.getByRole("link", { name: "Remove filter: Market: United States" }),
+    ).toHaveAttribute("href", "/ads?q=ear&status=active");
+    expect(screen.getByRole("link", { name: "Remove filter: Status: Active" })).toHaveAttribute(
+      "href",
+      "/ads?q=ear&market=US",
+    );
+    expect(screen.getByRole("link", { name: "Clear all" })).toHaveAttribute("href", "/ads");
   });
 
   it("renders filters and ad cards in English", () => {
@@ -61,7 +83,7 @@ describe("ad browser", () => {
       />,
     );
     expect(screen.getByRole("search", { name: "篩選廣告" })).toBeInTheDocument();
-    expect(screen.getByRole("combobox", { name: "平台" })).toHaveTextContent("所有平台");
+    expect(screen.getByRole("combobox", { name: "平台", ...hidden })).toHaveTextContent("所有平台");
     expect(screen.getByRole("option", { name: "投放最久" })).toBeInTheDocument();
     expect(screen.getByText("120 則廣告 · 顯示第 51–51 則")).toBeInTheDocument();
     expect(

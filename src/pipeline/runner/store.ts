@@ -61,6 +61,15 @@ export async function getLatestRun(db: AnyDatabase): Promise<PipelineRunRow | nu
   return run ?? null;
 }
 
+/** The most recent runs, newest first (the discovery page's history). */
+export async function listRecentRuns(db: AnyDatabase, limit = 10): Promise<PipelineRunRow[]> {
+  return db
+    .select()
+    .from(pipelineRuns)
+    .orderBy(desc(pipelineRuns.createdAt), desc(pipelineRuns.id))
+    .limit(limit);
+}
+
 export async function getLastFinishedRun(db: AnyDatabase): Promise<PipelineRunRow | null> {
   const [run] = await db
     .select()

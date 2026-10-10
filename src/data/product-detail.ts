@@ -1,4 +1,4 @@
-import { desc, eq, inArray } from "drizzle-orm";
+import { and, desc, eq, exists, inArray, not } from "drizzle-orm";
 import type { AnyDatabase } from "@/db/client";
 import { productScores, products, signalSnapshots, sourceItems } from "@/db/schema";
 import type { FxRates } from "@/lib/fx";
@@ -45,12 +45,21 @@ export interface ProductDetail {
   fxRates: FxRates | null;
 }
 
-/** Title for the page metadata, without loading the evidence. */
+/** Products with any sample (fixture) evidence: never shown on the website. */
+const hasSampleEvidence = (db: AnyDatabase) =>
+  exists(
+    db
+      .select({ one: sourceItems.id })
+      .from(sourceItems)
+      .where(and(eq(sourceItems.productId, products.id), eq(sourceItems.provider, "fixture"))),
+  );
+
+/** Title for the page metadata, without loading the evidence (null for sample products). */
 export async function getProductTitle(db: AnyDatabase, slug: string): Promise<string | null> {
   const [row] = await db
     .select({ title: products.title })
     .from(products)
-    .where(eq(products.slug, slug))
+    .where(and(eq(products.slug, slug), not(hasSampleEvidence(db))))
     .limit(1);
   return row?.title ?? null;
 }
@@ -63,9 +72,18 @@ export interface MergedProduct {
 /** Longest merge chain we follow; dedupe points losers straight at survivors, so 1 is typical. */
 const MAX_MERGE_HOPS = 5;
 
+export interface ProductDetailOptions {
+  /**
+   * Return sample (fixture) products too: for tests that seed fixtures only. The website never
+   * passes it, so a sample product's page is "not found".
+   */
+  includeSample?: boolean;
+}
+
 export async function getProductDetail(
   db: AnyDatabase,
   slug: string,
+  { includeSample = false }: ProductDetailOptions = {},
 ): Promise<ProductDetail | MergedProduct | null> {
   let [product] = await db.select().from(products).where(eq(products.slug, slug)).limit(1);
   if (!product) return null;
@@ -134,6 +152,9 @@ export async function getProductDetail(
     };
   });
 
+  const isSample = items.some((i) => i.provider === "fixture");
+  if (isSample && !includeSample) return null;
+
   const latest = scores[0];
   return {
     id: product.id,
@@ -151,7 +172,7 @@ export async function getProductDetail(
       : null,
     scoreHistory: scores.map((s) => ({ score: s.score, computedAt: s.computedAt })).reverse(),
     evidence,
-    isSample: items.some((i) => i.provider === "fixture"),
+    isSample,
     fxRates: await getLatestFxRates(db),
   };
 }

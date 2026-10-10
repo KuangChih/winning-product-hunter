@@ -11,13 +11,13 @@ import { countryName, fill } from "@/i18n/format";
 import type { Locale } from "@/i18n/locales";
 import { MARKETS } from "@/lib/markets";
 import { sourceLabel } from "@/lib/sources";
+import { FilterChips, FilterDisclosure, type FilterChip } from "./filter-disclosure";
+import { Pagination } from "./pagination";
+import { fieldClass } from "./ui/field";
 
 const DAY = 86_400_000;
 
-const fieldClass =
-  "border-input bg-background h-9 rounded-md border px-2 text-sm focus-visible:outline-2 focus-visible:outline-offset-1";
-
-type BrowserState = AdFilters & { includeSample: boolean };
+type BrowserState = AdFilters;
 
 /** URL for the ad browser with the given state; defaults are left out to keep links short. */
 export function adsHref(state: BrowserState) {
@@ -28,86 +28,127 @@ export function adsHref(state: BrowserState) {
   if (state.status) params.set("status", state.status);
   if (state.sort && state.sort !== "longest") params.set("sort", state.sort);
   if (state.page && state.page > 1) params.set("page", String(state.page));
-  if (state.includeSample) params.set("sample", "1");
   const qs = params.toString();
   return qs ? `/ads?${qs}` : "/ads";
 }
 
-/** Search and filters as a plain GET form, so every view has a shareable URL. */
+/** Applied filters as removable chips (each link goes back to the first page). */
+export function adFilterChips(state: BrowserState, locale: Locale): FilterChip[] {
+  const { ads: t, ranking, common } = getDictionary(locale);
+  const base = { ...state, page: 1 };
+  const chip = (name: string, value: string, without: BrowserState): FilterChip => ({
+    label: fill(common.chip, { name, value }),
+    removeHref: adsHref(without),
+  });
+  const chips: FilterChip[] = [];
+  if (state.q) chips.push(chip(t.search, state.q, { ...base, q: undefined }));
+  if (state.market) {
+    chips.push(
+      chip(ranking.market, countryName(state.market, locale), { ...base, market: undefined }),
+    );
+  }
+  if (state.platform) {
+    chips.push(
+      chip(t.platform, sourceLabel(state.platform, locale), { ...base, platform: undefined }),
+    );
+  }
+  if (state.status) {
+    chips.push(
+      chip(t.status, state.status === "active" ? t.statusActive : t.statusStopped, {
+        ...base,
+        status: undefined,
+      }),
+    );
+  }
+  return chips;
+}
+
+/**
+ * Search and filters as a plain GET form, so every view has a shareable URL. Search and sort
+ * stay visible; market, platform and status fold away and show as chips once applied.
+ */
 export function AdControls({ state, locale }: { state: BrowserState; locale: Locale }) {
-  const { ads: t, ranking } = getDictionary(locale);
+  const { ads: t, ranking, common } = getDictionary(locale);
+  const folded = [state.market, state.platform, state.status].filter(Boolean).length;
   return (
-    <form
-      method="get"
-      action="/ads"
-      role="search"
-      aria-label={t.filterLabel}
-      className="mb-6 flex flex-wrap items-end gap-3"
-    >
-      <label className="flex min-w-48 flex-1 flex-col gap-1 text-xs">
-        <span className="text-muted-foreground">{t.search}</span>
-        <input
-          type="search"
-          name="q"
-          defaultValue={state.q ?? ""}
-          placeholder={t.searchPlaceholder}
-          className={fieldClass}
-        />
-      </label>
-      <label className="flex flex-col gap-1 text-xs">
-        <span className="text-muted-foreground">{ranking.market}</span>
-        <select name="market" defaultValue={state.market ?? ""} className={fieldClass}>
-          <option value="">{ranking.allMarkets}</option>
-          {MARKETS.map((m) => (
-            <option key={m.code} value={m.code}>
-              {countryName(m.code, locale)}
-            </option>
-          ))}
-        </select>
-      </label>
-      <label className="flex flex-col gap-1 text-xs">
-        <span className="text-muted-foreground">{t.platform}</span>
-        <select name="platform" defaultValue={state.platform ?? ""} className={fieldClass}>
-          <option value="">{t.allPlatforms}</option>
-          {AD_PLATFORMS.map((p) => (
-            <option key={p} value={p}>
-              {sourceLabel(p, locale)}
-            </option>
-          ))}
-        </select>
-      </label>
-      <label className="flex flex-col gap-1 text-xs">
-        <span className="text-muted-foreground">{t.status}</span>
-        <select name="status" defaultValue={state.status ?? ""} className={fieldClass}>
-          <option value="">{ranking.any}</option>
-          <option value="active">{t.statusActive}</option>
-          <option value="stopped">{t.statusStopped}</option>
-        </select>
-      </label>
-      <label className="flex flex-col gap-1 text-xs">
-        <span className="text-muted-foreground">{ranking.sortBy}</span>
-        <select name="sort" defaultValue={state.sort ?? "longest"} className={fieldClass}>
-          {Object.entries(t.sorts).map(([value, label]) => (
-            <option key={value} value={value}>
-              {label}
-            </option>
-          ))}
-        </select>
-      </label>
-      {state.includeSample && <input type="hidden" name="sample" value="1" />}
-      <button
-        type="submit"
-        className="bg-primary text-primary-foreground h-9 rounded-md px-4 text-sm font-medium"
+    <div className="mb-6 space-y-3">
+      <form
+        method="get"
+        action="/ads"
+        role="search"
+        aria-label={t.filterLabel}
+        className="flex flex-wrap items-end gap-3"
       >
-        {ranking.apply}
-      </button>
-      <Link
-        href={state.includeSample ? "/ads?sample=1" : "/ads"}
-        className="text-muted-foreground h-9 content-center text-sm underline-offset-4 hover:underline"
-      >
-        {ranking.reset}
-      </Link>
-    </form>
+        <label className="flex min-w-40 flex-1 flex-col gap-1 text-xs">
+          <span className="text-muted-foreground">{t.search}</span>
+          <input
+            type="search"
+            name="q"
+            defaultValue={state.q ?? ""}
+            placeholder={t.searchPlaceholder}
+            className={fieldClass}
+          />
+        </label>
+        <label className="flex flex-col gap-1 text-xs">
+          <span className="text-muted-foreground">{ranking.sortBy}</span>
+          <select name="sort" defaultValue={state.sort ?? "longest"} className={fieldClass}>
+            {Object.entries(t.sorts).map(([value, label]) => (
+              <option key={value} value={value}>
+                {label}
+              </option>
+            ))}
+          </select>
+        </label>
+        <button
+          type="submit"
+          className="bg-primary text-primary-foreground h-9 rounded-md px-4 text-sm font-medium"
+        >
+          {ranking.apply}
+        </button>
+        <FilterDisclosure
+          label={common.filters}
+          activeLabel={common.filtersActive}
+          activeCount={folded}
+          applyLabel={ranking.apply}
+        >
+          <label className="flex flex-col gap-1 text-xs">
+            <span className="text-muted-foreground">{ranking.market}</span>
+            <select name="market" defaultValue={state.market ?? ""} className={fieldClass}>
+              <option value="">{ranking.allMarkets}</option>
+              {MARKETS.map((m) => (
+                <option key={m.code} value={m.code}>
+                  {countryName(m.code, locale)}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="flex flex-col gap-1 text-xs">
+            <span className="text-muted-foreground">{t.platform}</span>
+            <select name="platform" defaultValue={state.platform ?? ""} className={fieldClass}>
+              <option value="">{t.allPlatforms}</option>
+              {AD_PLATFORMS.map((p) => (
+                <option key={p} value={p}>
+                  {sourceLabel(p, locale)}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="flex flex-col gap-1 text-xs">
+            <span className="text-muted-foreground">{t.status}</span>
+            <select name="status" defaultValue={state.status ?? ""} className={fieldClass}>
+              <option value="">{ranking.any}</option>
+              <option value="active">{t.statusActive}</option>
+              <option value="stopped">{t.statusStopped}</option>
+            </select>
+          </label>
+        </FilterDisclosure>
+      </form>
+      <FilterChips
+        chips={adFilterChips(state, locale)}
+        clearHref={adsHref({ sort: state.sort })}
+        labels={common}
+      />
+    </div>
   );
 }
 
@@ -125,12 +166,7 @@ function AdCard({ ad, now, locale }: { ad: AdListItem; now: Date; locale: Locale
   return (
     <li className="flex flex-col gap-2 border-t py-3 first:border-t-0 sm:flex-row sm:items-start sm:justify-between sm:gap-3">
       <div className="min-w-0 flex-1 space-y-1">
-        <div className="flex flex-wrap items-baseline gap-2">
-          <span className="font-medium">{ad.advertiserName ?? e.unknownAdvertiser}</span>
-          {ad.provider === "fixture" && (
-            <span className="rounded border px-1.5 text-[10px] uppercase">{t.sample}</span>
-          )}
-        </div>
+        <div className="font-medium">{ad.advertiserName ?? e.unknownAdvertiser}</div>
         {ad.title && <p className="line-clamp-2 text-sm">{ad.title}</p>}
         <div className="text-muted-foreground text-xs">
           {[
@@ -195,27 +231,12 @@ export function AdList({
           <AdCard key={ad.id} ad={ad} now={now} locale={locale} />
         ))}
       </ul>
-      {page.pageCount > 1 && (
-        <nav aria-label={t.pagination} className="flex items-center justify-between text-sm">
-          {page.page > 1 ? (
-            <Link href={adsHref({ ...state, page: page.page - 1 })} className="underline">
-              {t.previous}
-            </Link>
-          ) : (
-            <span />
-          )}
-          <span className="text-muted-foreground">
-            {fill(t.pageOf, { page: page.page, count: page.pageCount })}
-          </span>
-          {page.page < page.pageCount ? (
-            <Link href={adsHref({ ...state, page: page.page + 1 })} className="underline">
-              {t.next}
-            </Link>
-          ) : (
-            <span />
-          )}
-        </nav>
-      )}
+      <Pagination
+        page={page.page}
+        pageCount={page.pageCount}
+        hrefFor={(n) => adsHref({ ...state, page: n })}
+        labels={t}
+      />
     </div>
   );
 }

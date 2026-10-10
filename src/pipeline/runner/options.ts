@@ -31,12 +31,18 @@ export class RunOptionsError extends Error {
 }
 
 /**
+ * Separators between custom keywords: comma, full-width comma and enumeration comma (Chinese
+ * keyboards), new line. The web form counts keywords with the same rule.
+ */
+export const KEYWORD_SEPARATOR = /[,，、\n]/;
+
+/**
  * Custom keywords from free text ("a, b" or a list): trimmed, blanks and duplicates (ignoring
  * case) dropped. Throws RunOptionsError over the limits. Empty input → null (use the rotation).
  */
 export function parseKeywords(input: string | string[] | null | undefined): string[] | null {
   if (input === null || input === undefined) return null;
-  const parts = (Array.isArray(input) ? input : input.split(/[,\n]/))
+  const parts = (Array.isArray(input) ? input : input.split(KEYWORD_SEPARATOR))
     .map((k) => k.replace(/\s+/g, " ").trim())
     .filter((k) => k.length > 0);
   const seen = new Set<string>();

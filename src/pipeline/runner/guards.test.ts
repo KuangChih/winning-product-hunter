@@ -67,6 +67,13 @@ describe("run options", () => {
       "Neck massager",
     ]);
     expect(parseKeywords("  ")).toBeNull();
+    // Full-width comma and the enumeration comma typed on Chinese keyboards, and new lines.
+    expect(parseKeywords("頸部按摩器，寵物梳、led mask\nneck fan")).toEqual([
+      "頸部按摩器",
+      "寵物梳",
+      "led mask",
+      "neck fan",
+    ]);
     expect(() => parseKeywords(Array.from({ length: 11 }, (_, i) => `k${i}`))).toThrow(
       RunOptionsError,
     );

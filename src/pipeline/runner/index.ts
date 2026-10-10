@@ -34,6 +34,7 @@ export {
   getLastFinishedRun,
   getLatestRun,
   getRun,
+  listRecentRuns,
   recordKickResult,
   type PipelineRunRow,
 } from "./store";

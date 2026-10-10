@@ -1,6 +1,6 @@
-import { desc, eq, inArray } from "drizzle-orm";
+import { and, desc, eq, inArray, notExists } from "drizzle-orm";
 import type { AnyDatabase } from "@/db/client";
-import { productScores, products, watchlist } from "@/db/schema";
+import { productScores, products, sourceItems, watchlist } from "@/db/schema";
 
 /** Score moves of at least this many points are highlighted as alerts. */
 export const ALERT_THRESHOLD = 5;
@@ -46,7 +46,10 @@ export async function removeFromWatchlist(db: AnyDatabase, productId: string) {
   await db.delete(watchlist).where(eq(watchlist.productId, productId));
 }
 
-/** Watched products with their latest and previous scores, most recently added first. */
+/**
+ * Watched products with their latest and previous scores, most recently added first. Products
+ * with sample (fixture) evidence are left out: sample data is never shown on the website.
+ */
 export async function getWatchlist(db: AnyDatabase): Promise<WatchedProduct[]> {
   const rows = await db
     .select({
@@ -59,6 +62,14 @@ export async function getWatchlist(db: AnyDatabase): Promise<WatchedProduct[]> {
     })
     .from(watchlist)
     .innerJoin(products, eq(watchlist.productId, products.id))
+    .where(
+      notExists(
+        db
+          .select({ one: sourceItems.id })
+          .from(sourceItems)
+          .where(and(eq(sourceItems.productId, products.id), eq(sourceItems.provider, "fixture"))),
+      ),
+    )
     .orderBy(desc(watchlist.addedAt));
   if (rows.length === 0) return [];
 

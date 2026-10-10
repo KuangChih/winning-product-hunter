@@ -5,8 +5,8 @@ import { connection } from "next/server";
 import { Suspense } from "react";
 import { EvidenceList } from "@/components/evidence-list";
 import { MarginEstimate } from "@/components/margin-estimate";
-import { SampleDataBadge } from "@/components/product-table";
 import { ScoreBreakdown } from "@/components/score-breakdown";
+import { BlockSkeleton } from "@/components/skeleton";
 import { Sparkline } from "@/components/sparkline";
 import { WatchButton } from "@/components/watch-button";
 import { getProductDetail, getProductTitle } from "@/data/product-detail";
@@ -58,6 +58,7 @@ async function ProductDetailView({
     if (isMissingTableError(err)) notFound();
     throw err;
   }
+  // Unknown, or sample (fixture) data, which is for automated tests only.
   if (!product) notFound();
   // Duplicates merged by dedupe keep working links: send them to the surviving product.
   if ("redirectTo" in product) redirect(`/products/${encodeURIComponent(product.redirectTo)}`);
@@ -69,7 +70,6 @@ async function ProductDetailView({
       <header className="space-y-3">
         <div className="flex flex-wrap items-center gap-2">
           <h1 className="text-3xl font-semibold tracking-tight">{product.title}</h1>
-          {product.isSample && <SampleDataBadge t={dict.common} />}
           <div className="ml-auto">
             <WatchButton productId={product.id} watched={watched} labels={t} />
           </div>
@@ -139,7 +139,7 @@ export default async function ProductPage({ params }: PageProps<"/[lang]/product
       >
         {t.backToRankings}
       </Link>
-      <Suspense fallback={<p className="text-muted-foreground text-sm">{t.loading}</p>}>
+      <Suspense fallback={<BlockSkeleton label={t.loading} />}>
         <ProductDetailView params={params} locale={locale} />
       </Suspense>
     </main>

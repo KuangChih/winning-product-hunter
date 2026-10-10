@@ -19,7 +19,7 @@ export interface RankedProduct {
   sources: string[];
   /** ISO countries the evidence covers, target markets first. */
   markets: string[];
-  /** True when any evidence comes from fixtures (sample data), so the score is not real. */
+  /** True when any evidence comes from fixtures (sample data); only tests ever see these. */
   isSample: boolean;
   /** The advertiser's own store price in USD cents (ECB-converted); similar products excluded. */
   retailUsdCents: number | null;
@@ -65,7 +65,10 @@ export interface RankingFilters {
 
 export interface RankingOptions extends RankingFilters {
   limit?: number;
-  /** Include products with any sample (fixture) evidence. Off by default. */
+  /**
+   * Include products with any sample (fixture) evidence: for tests that seed fixtures only. The
+   * website never passes it (sample data is never shown).
+   */
   includeSample?: boolean;
 }
 

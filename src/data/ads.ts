@@ -32,7 +32,10 @@ export interface AdFilters {
 }
 
 export interface AdQueryOptions extends AdFilters {
-  /** Include sample (fixture) ads. Off by default. */
+  /**
+   * Include sample (fixture) ads: for tests that seed fixtures only. The website never passes
+   * it (sample data is never shown).
+   */
   includeSample?: boolean;
   now?: Date;
 }
@@ -70,7 +73,7 @@ function first(value: string | string[] | undefined): string | undefined {
 /** Parses ad browser search params; unknown or invalid values fall back to defaults. */
 export function parseAdParams(
   params: Params,
-): Required<Pick<AdFilters, "sort" | "page">> & AdFilters & { includeSample: boolean } {
+): Required<Pick<AdFilters, "sort" | "page">> & AdFilters {
   const market = first(params.market)?.toUpperCase();
   const platform = first(params.platform) as AdPlatform | undefined;
   const status = first(params.status);
@@ -83,7 +86,6 @@ export function parseAdParams(
     status: status === "active" || status === "stopped" ? status : undefined,
     sort: sort && SORTS.includes(sort) ? sort : "longest",
     page: Number.isFinite(page) && page >= 1 ? page : 1,
-    includeSample: first(params.sample) === "1",
   };
 }
 

@@ -108,6 +108,7 @@ describe("parseAdParams", () => {
         status: "stopped",
         sort: "newest",
         page: "3",
+        // The old sample-data switch is ignored: sample data is never shown.
         sample: "1",
       }),
     ).toEqual({
@@ -117,7 +118,6 @@ describe("parseAdParams", () => {
       status: "stopped",
       sort: "newest",
       page: 3,
-      includeSample: true,
     });
     expect(
       parseAdParams({ market: "XX", platform: "myspace", status: "x", sort: "x", page: "-2" }),
@@ -128,7 +128,6 @@ describe("parseAdParams", () => {
       status: undefined,
       sort: "longest",
       page: 1,
-      includeSample: false,
     });
   });
 });

@@ -1,7 +1,7 @@
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test } from "@playwright/test";
 
-const PAGES = ["/", "/products", "/ads", "/watchlist", "/sources", "/login"];
+const PAGES = ["/", "/products", "/ads", "/watchlist", "/discover", "/login"];
 
 /** WCAG 2.1 A/AA rules checked by axe-core on every page, in both color schemes. */
 for (const colorScheme of ["light", "dark"] as const) {
@@ -31,7 +31,7 @@ for (const colorScheme of ["light", "dark"] as const) {
       await page.goto("/products");
       const table = page.getByRole("table");
       await expect(
-        table.or(page.getByText(/No database configured|No real products yet|not set up/)),
+        table.or(page.getByText(/No database configured|No products yet|not set up/)),
       ).toBeVisible();
       test.skip(!(await table.isVisible()), "No products in this environment");
       await table.locator("tbody").getByRole("link").first().click();
