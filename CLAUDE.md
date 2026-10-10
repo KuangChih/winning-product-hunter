@@ -34,12 +34,13 @@
 | 市集            | Amazon Best Sellers / Movers & Shakers、AliExpress 聯盟 API、CJ Dropshipping API | BSR 變化、訂單數成長、供貨價格                       |
 | Shopify 店家    | 公開的 `/products.json`、商店偵測                                                | 新品上架、跨店重複販售                               |
 
-**資料蒐集規則（ADR-006）**：
+**資料蒐集規則（ADR-006；執行地點與上限見 ADR-013）**：
 
 - 優先使用官方 API；官方 API 拿不到的資料（例如美國的 Meta / TikTok 廣告），依使用者 2026-10-10 的決定，可以蒐集**公開網頁**（Meta Ad Library 網站、TikTok Creative Center 等）。現階段平台由使用者個人研究使用；若之後對外開放或收費，必須重新評估並記錄 ADR。
 - **不可做（任何情況都不做）**：破解或代解 CAPTCHA、繞過反爬或 bot 偵測（含 proxy 輪替、偽造瀏覽器指紋）、用自動化程式輸入帳號密碼登入、蒐集或儲存個人資料。
 - 被擋（CAPTCHA、403/429、要求登入）時就停止並退避，記錄在 ingestion_runs，不嘗試繞過。
 - 請求要節制：低頻率、隨機間隔、每次執行有總量上限；遵守 robots.txt 之外的蒐集都要在 ADR 記錄理由。
+- 目前的實作（ADR-013）：pipeline 可在 Vercel、本機、GitHub Actions（手動）執行；Meta 請求間隔 5 秒（跨 tick 也成立，先記帳再送出）、每次 run 最多 70 個、每個 UTC 日最多 3 次 Meta 掃描；被擋時依出口（`vercel` / `github` / `local`）退避 6 → 12 → 24 小時…最多 7 天。
 
 ## 評分方法（初始假設，需研究、回測、以 ADR 修正）
 
@@ -61,7 +62,7 @@
 - Next.js 16（App Router，`cacheComponents` 開啟）+ TypeScript（strict）+ Tailwind v4 + shadcn/ui。**寫 Next.js 程式前先讀 `AGENTS.md`**：這版 API 與訓練資料不同，以 `node_modules/next/dist/docs/` 為準
 - Neon Postgres（含 pgvector）+ Drizzle ORM
 - 資料抓取：每個來源一個 adapter，統一介面，皆支援 `fixture` 模式（無 API key 也能開發與測試）
-- 排程：整條 pipeline 是可續跑的 runner（`src/pipeline/runner`，ADR-013 開發中），CLI（`npm run pipeline`）與之後的 Vercel 分段執行／Vercel Cron 共用；GitHub Actions 只保留手動執行（每日排程已移除，Vercel Cron 上線前沒有每日自動蒐集）
+- 排程：整條 pipeline 是可續跑的 runner（`src/pipeline/runner`，ADR-013）。正式環境在 Vercel 分段執行：`/discover` 的「開始探索」按鈕 + Vercel Cron（`vercel.json` 06–09 UTC 4 個，第 1 個開始、其餘恢復）；CLI（`npm run pipeline`）用同一個 runner；GitHub Actions 只保留手動執行
 - 驗證：Better Auth（ADR-003）；付費：Stripe（後期）
 - 測試：Vitest（單元）+ Playwright（E2E）
 - 所有機密只透過環境變數，並列在 `.env.example`
@@ -125,3 +126,7 @@
 - 程式碼含反斜線（regex 如 `\s`、`\d`、`\\`）時，**不要**用 bash heredoc + node 字串取代去寫檔，反斜線會被吃掉；改用 Write / Edit 工具，寫完用 grep 確認。
 - e2e 固定 4 個 worker（`playwright.config.ts`）：所有 worker 共用一個 `next start`，PGlite 與 SSR 在同一條執行緒，預設 10 個 worker 會讓它飽和、頁面停在載入畫面超過 5 秒（M5 查明，10 個並沒有比 4 個快）。不要調高。跑 e2e 時用 `DATABASE_URL=pglite:<示範資料庫複本>` 覆蓋，收藏的測試會寫入資料庫。
 - 資料庫連線（`getDb`）必須放在 `globalThis`，不能只放模組變數：Next.js 把頁面和 route handler 分開打包，各有一份模組。用 PGlite 時兩份會把同一個目錄開成兩個互不相通的記憶體資料庫，頁面就看不到 route（例如探索的 tick）寫進去的資料，要重啟才會出現。
+- Route handler（`src/app/api/**`）**不可 import `src/jobs/*`**：jobs 在 import 時會載入 `.env.local`（`load-env`）並由 `runJob` 結束時關閉資料庫連線。共用邏輯放在 `src/pipeline/*`（例如 `targets.ts`、`live-deps.ts`、`web.ts`），jobs 從那裡 re-export。
+- `/api/internal/*`（tick 接續、Vercel Cron）被 `src/proxy.ts` 的 matcher 排除、不經網站密碼，各自檢查 Bearer token（`src/lib/internal-auth.ts`）；新增內部 route 一定要先驗證 token、失敗回 401/503（fail closed）。其他 `/api/*` 未登入時 proxy 回 401 JSON，不轉址、不做語言改寫。
+- Tick 預算維持 120–250 秒（預設 200 秒）：預算 + 50 秒硬中止必須小於 Vercel 的 300 秒上限，一個 Meta 單位最長 45 秒、collect 單位 60 秒；調低會讓每個 tick 只做一個單位、撞到 40 個 tick 上限。測試或本機量測要強制分段時才用小預算。
+- 本機量測 pipeline 或跑 e2e 一律用示範資料庫的**複本**（`DATABASE_URL=pglite:<複本路徑>`），不要直接寫 `.data/dev`；e2e 伺服器設了 `PIPELINE_DISABLED=1`，不會送出真實請求。

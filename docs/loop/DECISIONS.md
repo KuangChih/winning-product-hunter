@@ -15,11 +15,11 @@
 
 | 主題           | 有效 ADR         | 重點                                                                         |
 | -------------- | ---------------- | ---------------------------------------------------------------------------- |
-| 資料來源       | 005、006、007、013 | 第一手官方 API 優先；美國等市場的廣告用公開網站蒐集（可在 Vercel 執行，規則不變）；先完成真實資料閉環 |
+| 資料來源       | 005、006、007、013 | 第一手官方 API 優先；美國等市場的廣告用公開網站蒐集（可在 Vercel 執行，ADR-006 規則不變；每日最多 3 次 Meta 掃描、每次最多 70 個請求、被擋依出口退避）；先完成真實資料閉環 |
 | 評分與實體對應 | 002、012         | 可解釋的加權子分數；售價只用廣告主自己的商品頁                               |
-| 架構           | 003、013         | Next.js on Vercel + Neon + Drizzle；pipeline 是可續跑的 runner，在 Vercel 分段執行（網頁按鈕 + Vercel Cron），CLI 共用 |
-| 存取與安全     | 008、010         | 站台密碼保護、登入防暴力破解、安全標頭                                       |
-| 介面           | 009、011         | 單一 Watchlist；`[lang]` 路由 + cookie 改寫的中英文介面                      |
+| 架構           | 003、013         | Next.js on Vercel + Neon + Drizzle；pipeline 是可續跑的 runner，在 Vercel 分段執行（「開始探索」按鈕 + 每天 4 個 Vercel Cron，第 1 個開始、其餘恢復），CLI 共用；GitHub Actions 只手動 |
+| 存取與安全     | 008、010、013    | 站台密碼保護（正式站沒設密碼時不能開始探索）、登入防暴力破解、安全標頭；內部 route 用 Bearer token |
+| 介面           | 009、011、013    | 單一 Watchlist；`[lang]` 路由 + cookie 改寫的中英文介面；不顯示樣本資料、`/discover` 探索頁 |
 
 ---
 
@@ -54,6 +54,7 @@
 - 背景：當時沒有任何 API 金鑰，live adapter 寫了也無法驗證；實體對應、評分、頁面都還沒開始。
 - 決定：先用 fixture 打通「蒐集 → 對應 → 評分 → 頁面」的最小版本，再接真實來源。
 - 理由：越早有可點進去看證據的產品頁，越早發現 schema 與評分設計的問題。
+- 後續：真實資料閉環完成後，網站不再顯示樣本資料（ADR-013，`npm run seed` 移除）；fixture 只留給自動測試。
 
 ## ADR-005：以第一手資料為主、英語系五國優先，移除 AliExpress（2026-10-10，狀態：採用；決定 2 由 ADR-006 修改）
 
@@ -76,7 +77,7 @@
 - 決定：
   1. 實作 Meta Ad Library 網站與 TikTok Creative Center 的公開頁面蒐集器，英語系市場優先。
   2. 界線：不破解 CAPTCHA、不繞過 bot 偵測（不用 proxy 輪替、不偽造指紋或簽章）、不用程式輸入帳密、不蒐集個人資料；被擋就停止退避並記錄。
-  3. 低頻率、有總量上限；在 GitHub Actions 或使用者電腦執行，不在 Vercel。
+  3. 低頻率、有總量上限；~~在 GitHub Actions 或使用者電腦執行，不在 Vercel~~（執行地點已由 ADR-013 修改：也在 Vercel 分段執行，其他規則不變）。
   4. 自建蒐集器長期被擋時，再評估 Apify 等付費服務（依花錢原則由使用者決定）。
 - 後果：CLAUDE.md 的「資料蒐集規則」以此為準。TikTok Creative Center 實測後暫緩（API 需要頁面簽章，見 [`tiktok-creative-center.md`](../research/tiktok-creative-center.md)）。
 
@@ -85,7 +86,7 @@
 - 背景：已接上三個不需金鑰的真實來源（Shopify Global Catalog、Meta Ad Library 公開網站、ECB 匯率），但系統只會用樣本產品名稱去搜尋，不會自己發現新產品；評分沒用到真實訊號；沒有每日排程，回測無法開始累積。
 - 決定：新增 Phase 2R 並放最前面：產品探索 → 真實訊號評分 → 每日排程 → 來源健康度。產品探索 v1 用 Meta Ad Library 做品類關鍵字掃描，以商品頁網址分組（同一商品頁 = 同一商品，比標題比對可靠）。
 - 理由：每天自動累積的真實資料本身就是最有價值的資產；之後每個新來源都只是增加訊號。
-- 後果：需要使用者 push 並在 GitHub Secrets 設定 `DATABASE_URL`，排程才會執行。
+- 後果：需要使用者 push 並在 GitHub Secrets 設定 `DATABASE_URL`，排程才會執行（每日排程後來由 ADR-013 改為 Vercel Cron，GitHub Actions 只保留手動執行）。
 
 ## ADR-008：部署前先加站台存取保護（2026-10-10，回顧輪 30，狀態：採用）
 
@@ -135,6 +136,14 @@
   - 自我接續只送往允許的網址：正式環境 `https://$VERCEL_PROJECT_PRODUCTION_URL`，本機只送 localhost / 127.0.0.1 / [::1]，絕不跟著請求的 `Host`。失敗記在 `last_kick_error`。
   - 只在 Vercel Production 或本機執行；Preview 需 `PIPELINE_ALLOW_PREVIEW=1`（避免 Neon preview branch 複製出第二條 pipeline 再掃一次 Meta）；`PIPELINE_DISABLED=1` 總開關（e2e）。一個 deployment 只接手自己環境或 CLI 建立的 run。
   - ADR-006 的蒐集規則全部保留：誠實 User-Agent、Meta 請求間隔 5 秒、每個 run 最多 70 個 Meta 請求、被擋就停止並依 egress（vercel / github / local）退避 6 → 12 → 24 小時…最多 7 天、不繞過。新增：每個 UTC 日最多 3 次 Meta 掃描（含每日自動），用完後按鈕仍可用，只做售價、去重、評分。
+  - 最終行為（M1–M7 完成後，2026-10-11）：
+    - Tick：軟預算 200 秒（`PIPELINE_TICK_BUDGET_MS`，支援 120000–250000）、預算後 50 秒硬中止、lease 再多 70 秒（共 320 秒）；需要 Fluid compute（300 秒），不支援 60 秒模式。CLI 沒有預算，用每 60 秒的 heartbeat 續約。
+    - Meta 間隔跨 tick 也成立：下次可請求時間存在 run 狀態，請求數與時間**先寫入再送出**；Meta adapter 不自動重試（重試是沒記帳的請求）；重試的單位若結果已暫存就不再問 Meta。
+    - 上限：每 run ≤40 個 tick、20 小時硬失敗；2 小時沒進度或 tick 快用完就收尾（merge → match → score）；同一單位被中斷 3 次就跳過；每 UTC 日 ≤3 次 Meta 掃描（以 run 建立日計算，第 2、3 次輪到不同的關鍵字與廣告主視窗）。
+    - Cron：`vercel.json` 4 個 entry（06、07、08、09 UTC）指向同一個 route；當天沒有成功或進行中的 cron run、也還沒掃過 Meta 才開新 run，其餘只恢復停住或標記過期的 run。
+    - 環境：只在 Vercel Production 或本機執行；Preview 預設停用（`PIPELINE_ALLOW_PREVIEW=1` 才允許，且不自我接續）；`PIPELINE_DISABLED=1` 是總開關（e2e 伺服器使用）。
+    - 介面：`/discover` 探索頁（按鈕、自訂關鍵字、即時步驟、被擋 / 今日已用完 / cron 未啟用 / 無法開始的誠實提示、執行紀錄、來源健康度）；`/sources` 永久轉址到 `/discover`；網站不再顯示樣本資料（`?sample=1`、`npm run seed` 移除），fixture 產品在排名、詳情（404）、收藏都被排除。
+    - Route handler 不 import `src/jobs/*`（`load-env`、`runJob` 有副作用）；runner 與 HTTP 傳輸層分離（`src/pipeline/runner`、`src/pipeline/web.ts`、`src/pipeline/transport.ts`）。
 - 理由：使用者要求在網頁直接觸發並由 Vercel 每日自動執行；(C) 不需新依賴，邏輯與 Next.js 分離（可用 PGlite 單元測試、與 CLI 共用），每個工作單位冪等，任何一段被殺都能從資料庫狀態接續。
 - 後果：
   - **最大風險**：Vercel 對外是 AWS 機房 IP，Meta 可能直接擋；本機（住宅 IP）實測成功不代表 Vercel 也會成功，要使用者部署後按一次才知道。被擋時頁面說明並退避；替代方案是在自己電腦用 Neon 連線字串跑 `npm run pipeline`，或之後評估付費來源。

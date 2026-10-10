@@ -3,18 +3,32 @@
 Loop 遇到只有你能做的事（申請金鑰、建立帳號、付費、決策、部署）會寫在這裡，然後繼續做其他項目。
 處理完後打勾，把金鑰填進 `.env.local`（不要 commit），下一輪 loop 會自動接手。
 
-## 1. 部署與每日排程（最重要）
+## 1. 部署並在網站上取得真實資料（最重要）
 
-- [ ] **啟用每日自動蒐集（Vercel Cron，ADR-013）**：越早開始，越早能驗證評分（廣告動能需要 5 天以上歷史，回測需要 4–8 週）
-  1. 建立 Vercel 專案並加入 Neon（下一項）、確認 **Fluid compute 開啟**（Settings → Functions；不支援 60 秒上限模式）
-  2. Vercel → Settings → Environment Variables 新增 `CRON_SECRET`（Production，至少 32 個隨機字元，例如 `openssl rand -hex 32`）
-  3. push 並部署後，登入網站，用瀏覽器開發者工具或 curl 對 `POST /api/pipeline/start` 送一次（M4 會加上「開始探索」按鈕），再看 `GET /api/pipeline/status`
-  4. **回報兩件事**：(a) Meta 有沒有擋 Vercel 的機房 IP（status 的 `run.blocked` / `adLibrary.pausedUntil`）；(b) tick 之間的接續有沒有失敗（`run.lastKickError`，特別是 `HTTP 508` 迴圈偵測）。這兩件事只有部署後才量得到
-  - 成果：每天 06:00 UTC 自動探索新產品、補證據、重新評分（07–09 點的 cron 只負責接續卡住的 run），開始累積歷史資料
-  - 費用：預期在 Vercel Hobby 免費額度內，$0（每天一次 run，最多 40 個 tick；實際用量部署後再確認）
-  - 注意：Vercel 是機房 IP，Meta 比較可能擋；被擋時退避、其他步驟照跑，狀態標 `partial`
-- [ ] 建立 Vercel 專案、加入 Neon 資料庫（步驟見 [`DEPLOY.md`](../DEPLOY.md)；loop 不會 push 或部署）
-- [ ] **部署前在 Vercel 設定 `SITE_PASSWORD`**（Production 與 Preview，至少 16 個隨機字元）。Meta 公開網頁資料限個人研究使用（ADR-006、ADR-008），沒設定的話任何人都看得到
+網站上的「開始探索」按鈕與每日自動探索都已完成（ADR-013），但**要部署後才知道 Meta 會不會擋 Vercel 的機房 IP**，這件事 loop 沒辦法替你驗證。照順序做（細節見 [`DEPLOY.md`](../DEPLOY.md)）：
+
+- [ ] 1. **把 `main` push 到 GitHub**，Vercel 會自動部署（loop 不會 push 或部署）。還沒建立 Vercel 專案的話，先照 DEPLOY 第 1、2 節匯入 repo 並加入 Neon。
+  - 依本機紀錄，GitHub 上的 `main` 停在「資料品質 C」；探索頁、按鈕與介面改版（M4–M7）還沒 push，一般的 `git push` 即可（不需要 force push）。
+- [ ] 2. **Vercel → Settings → Environment Variables（Production）**：
+  - 新增 `CRON_SECRET`：至少 16 個隨機字元，建議 `openssl rand -hex 32` 產生的 64 字元。
+  - 確認 `SITE_PASSWORD` 已設定（至少 16 個隨機字元；Preview 也要設）。**正式站沒設密碼時「開始探索」會拒絕執行**。
+  - 確認 `DATABASE_URL` 存在（Neon 整合自動加入）。
+- [ ] 3. **確認 Fluid compute 開啟**：Settings → Functions（新專案預設開啟）。不支援 60 秒上限的模式。
+- [ ] 4. **重新部署**（Deployments → 最新一筆 → Redeploy），讓新的環境變數生效；migration 會自動套用。
+- [ ] 5. 登入網站 → 「探索」頁 → 按**「開始探索」**，等 10–15 分鐘（可以離開頁面）。
+- [ ] 6. **回報結果**（截圖或文字都可以）：
+  - (a) Meta 有沒有擋：探索頁是否出現「Meta 擋下了這台伺服器」，或「搜尋 Meta 廣告」步驟是失敗 / 已跳過；
+  - (b) 段與段的接續有沒有失敗：是否出現「交接給下一段失敗」，或 `/api/pipeline/status` 的 `run.lastKickError` 不是 `null`（特別是 `HTTP 508`）；
+  - (c) 最後狀態（完成 / 部分完成 / 失敗）、新增幾個產品，以及「產品」頁有沒有出現產品。
+  - 如果 Meta 擋了：照 DEPLOY 第 7 節在自己電腦用 Production 的 Neon 連線字串跑 `npm run pipeline`（本機的退避與 Vercel 分開），網站就會有資料。
+- 成果：網站上有真實產品；每天 06:00 UTC（台灣 14:00）左右自動探索新產品、補證據、重新評分（07–09 點的 cron 只負責接續卡住的探索），開始累積評分回測需要的歷史（廣告動能需要 5 天以上、回測需要 4–8 週）。
+- 費用：預期在 Vercel Hobby 與 Neon 免費額度內，$0（每天最多 3 次探索、每次最多 40 段 function；實際用量部署後在 Vercel → Usage 確認）。
+- 不再需要：GitHub Actions 的每日排程（已移除，只保留手動執行，當作 Meta 擋 Vercel 時的另一個出口）。
+
+**選填（本機示範資料庫，`.data/dev`）**：兩個 repair 指令預設只預覽、不寫入，看完預覽再決定要不要加 `--apply`：
+
+- `npm run repair -- product-images`：有 17 個產品的照片是「同類商品」的（錯圖），套用後改用廣告主自己的照片（複本實測：正確照片 23 → 74、錯圖 17 → 0）。
+- `npm run repair -- store-listings`：找出廣告主商品頁紀錄曾被搜尋結果覆蓋的產品（複本預覽 11 個），套用後下次探索會重新查這些商品頁。
 
 ## 2. 申請帳號與金鑰（依優先順序，皆免費）
 
@@ -51,7 +65,7 @@ Loop 遇到只有你能做的事（申請金鑰、建立帳號、付費、決策
   - A. 只申請官方 Commercial Content API（免費，僅 UK + EU，需審核）——上方第 7 項
   - B. 另外付費用 Apify 的 TikTok actor 取得美國資料（約 $1.5–5 / 1,000 筆）：可換到美國 TikTok 熱門廣告與 TikTok Shop 商品銷量，補「社群互動」這項目前完全沒資料的訊號
   - 建議：先 A；真實資料累積兩週、確認評分缺口後再評估 B
-- [ ] **收藏產品的分數變動要不要寄 Email？**（選填，不急）Watchlist 頁已會標出變動 5 分以上的產品。要每天自動寄信的話，建議 [Resend](https://resend.com)（免費方案每月 3,000 封，$0），註冊後把 `RESEND_API_KEY` 與收件信箱 `ALERT_EMAIL_TO` 加進 `.env.local` 與 GitHub Secrets。
+- [ ] **收藏產品的分數變動要不要寄 Email？**（選填，不急）Watchlist 頁已會標出變動 5 分以上的產品。要每天自動寄信的話，建議 [Resend](https://resend.com)（免費方案每月 3,000 封，$0），註冊後把 `RESEND_API_KEY` 與收件信箱 `ALERT_EMAIL_TO` 加進 `.env.local` 與 Vercel 環境變數。
   - 成果：每日排程跑完後，收藏產品分數大幅變動時自動收到 Email
 
 ## 4. 暫不需要（之後視成果再決定）

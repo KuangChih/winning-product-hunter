@@ -228,3 +228,28 @@
   - 廣告依投放天數排序，沒有開始日期的排最後；展開全部時一次渲染所有廣告（示範資料庫中單一產品最多 39 則）。
   - 收藏的取消按鈕名稱仍是「★ 已收藏」，清單中多個按鈕同名（螢幕閱讀器要靠所在卡片判斷是哪個產品）。
 - 下一步：M7 文件收尾。
+
+## 2026-10-11 — Vercel 探索 M7：文件收尾與整體 review（Vercel 網頁觸發探索 + UI/UX 改版完成）
+
+- 整體成果（M1–M7 + 資料品質 C，`727fe2c..HEAD`）：
+  - 在網站「探索」頁按「開始探索」就會在 Vercel 上分段執行完整 pipeline（每段約 200 秒、自動接續、頁面即時顯示進度），Vercel Cron 每天自動跑一次（06 UTC，07–09 UTC 負責恢復）；CLI 與 GitHub Actions（手動）共用同一個 runner。
+  - ADR-006 規則全部保留並強化：Meta 請求先記帳再送出、間隔 5 秒跨 tick 成立、每 run ≤70、每 UTC 日 ≤3 次掃描、被擋依出口（vercel / github / local）退避 6 小時起最多 7 天、不重試不繞過。
+  - 網站不再顯示樣本資料；全站改版（單一導覽、手機底部分頁列、產品表格 / 卡片、首頁儀表板、詳情頁摘要卡、廣告卡片、收藏響應式清單）。
+- 重點數字（都在示範資料庫的複本上量測，`.data/dev` 本身沒有寫入）：
+  - 評分重構：213 個產品新舊分數差 0；PGlite 評分 878–1110 → 396–483 ms。
+  - 產品照片只用廣告主自己的：錯圖 17 → 0、正確照片 23 → 74（repair 套用在複本上）。
+  - 本機分段執行：M2 CLI 22 個 tick、56 秒、6 個 Meta 請求；M3 HTTP 自我接續 36 個 tick、35 次接續全部 202、15 個 Meta 請求、產品 214 → 230；M4 網頁按鈕兩次各新增 16、23 個產品，沒有被擋。
+  - 資料品質 C：廣告主商品頁紀錄同樣跑一次 pipeline 77 → 73（修正前）→ 77 → 77（修正後）。
+  - 排名查詢：58,647 筆評分歷史時中位數 92–96 → 33 ms；目前資料量 33 → 31.5 ms；排序結果完全相同。
+  - 詳情頁查詢中位數 16.1–16.8 → 10.4–10.6 ms；208 個有廣告的產品中 11 個連到超過 1 個網域，現在會顯示警示。
+- M7 本輪：
+  - 整體 review（安全、ADR-006、樣本資料、milestone 之間的回歸、殘留程式與文件）：proxy 只排除 `/api/internal/`、內部 route 缺 secret 回 503（fail closed）、tick token 只送往 Production 網域或 loopback、start 檢查 cookie + 同站 `Origin`、正式站沒密碼不能開始；client props 只有布林（`cronConfigured`），不含 secret；照片下載只允許 https、擋私有網段、每次轉址重新檢查；外部連結都經 `externalHref` 且 `noopener noreferrer`；頁面沒有任何 `includeSample` / `sample` 用法；route 沒有 import `src/jobs/*`；字典鍵沒有未使用的；沒有找到需要修的程式問題。
+  - 修正文件與設定：`.env.example` 補 `SHOPIFY_UCP_AGENT_PROFILE`、移除已不用的 AliExpress 金鑰、`CRON_SECRET` 長度說明；README 的排程描述（原本寫 GitHub Actions）；DEPLOY.md 改寫成端到端步驟（含探索頁每個狀態與提示的意思、Meta 擋 Vercel 時用 Production 的 Neon 連線字串在本機跑）；HUMAN_TODO 改成 6 個編號步驟並移除過時的 GitHub 每日排程說明、修正「歷史已分岔」的錯誤說法（本機紀錄 `origin/main` 停在資料品質 C，一般 push 即可）；ADR-013 補上最終行為、決策一覽表、ADR-004/006/007 的交叉註記；CLAUDE.md 技術棧排程、資料蒐集規則、4 條已知陷阱；ROADMAP 勾選 M7 並加入後續項目。
+- 驗證：format ✅ lint ✅ typecheck ✅ test ✅（61 檔 369 個）build ✅ e2e ✅（47，4 個 worker、示範資料庫複本，`[WebServer]` 沒有錯誤）；`drizzle-kit check` 與 `db:generate` 沒有待產生的 schema 變更。
+- 仍未驗證（要部署後才知道，已寫進 HUMAN_TODO 第 1 項）：
+  - Meta 會不會擋 Vercel（AWS 機房 IP）；本機住宅 IP 沒被擋不代表 Vercel 也不會。Shopify Global Catalog 從 Vercel 的表現也未驗證。
+  - Vercel 自我請求的 508 迴圈偵測門檻未公開；以看門狗與 4 個 cron 緩解，實際是否觸發未知。
+  - Neon HTTP driver 下的 lease、fencing 與並行建立產品只在 PGlite 上測過（每個操作都是單一 SQL，理論上安全）。
+  - Hobby 的 cron 在該小時內任何時間觸發，用量是否真的在免費額度內要看 Vercel Usage。
+- 其他限制：Meta 請求間隔固定 5 秒（CLAUDE.md 寫隨機間隔，已列 ROADMAP）；照片下載擋不到 DNS 解析到私有 IP 的網域；一天最多 3 次掃描會讓廣告動能偏高；「市場」含同類商品的國家；廣告 `countries` 只留最後一國、`groupAdsByLanding` 跨國重複計數（都已列 ROADMAP）。
+- 下一步：使用者部署並按一次「開始探索」回報結果；loop 回到 Phase 4C（售價覆蓋率）。

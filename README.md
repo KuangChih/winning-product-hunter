@@ -10,7 +10,9 @@ multiple sources (ad libraries, social, search trends, marketplaces). Every scor
 ## Stack
 
 Next.js 16 (App Router) · TypeScript · Tailwind v4 · shadcn/ui · Neon Postgres + Drizzle ·
-Vitest · Playwright. Ingestion and scoring run as Node CLI jobs on GitHub Actions (ADR-003).
+Vitest · Playwright. Data collection, matching and scoring are one resumable pipeline runner
+(ADR-013): on Vercel it runs in short ticks, started by the **Start discovery** button on
+`/discover` and by a daily Vercel Cron; locally `npm run pipeline` runs the same runner.
 
 ## Local development
 
@@ -18,7 +20,7 @@ Requirements: Node.js 22+ and npm.
 
 ```bash
 npm install
-cp .env.example .env.local   # fill in what you have; empty source keys fall back to fixtures
+cp .env.example .env.local   # only DATABASE_URL is needed locally (see below)
 npm run dev                  # http://localhost:3000
 ```
 
