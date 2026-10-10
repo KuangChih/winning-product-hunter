@@ -139,3 +139,29 @@ export async function adLibraryAllowance(
     strikes,
   };
 }
+
+/**
+ * Whether the daily cron should start a run now (`now`'s UTC day). Vercel calls the cron several
+ * times a day (the later calls are for recovery): only the first one that finds the day not yet
+ * swept starts a run. A cron run that failed does not count, so the next call retries it.
+ */
+export async function shouldCronStart(
+  db: AnyDatabase,
+  now: Date,
+): Promise<{ start: true } | { start: false; reason: "cron_ran_today" | "swept_today" }> {
+  const start = utcDayStart(now);
+  const [cron] = await db
+    .select({ n: count() })
+    .from(pipelineRuns)
+    .where(
+      and(
+        eq(pipelineRuns.trigger, "cron"),
+        ne(pipelineRuns.status, "failed"),
+        gte(pipelineRuns.createdAt, start),
+        lt(pipelineRuns.createdAt, new Date(start.getTime() + DAY)),
+      ),
+    );
+  if (Number(cron?.n ?? 0) > 0) return { start: false, reason: "cron_ran_today" };
+  if ((await sweepsOnDay(db, now)) > 0) return { start: false, reason: "swept_today" };
+  return { start: true };
+}

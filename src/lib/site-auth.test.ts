@@ -65,6 +65,34 @@ describe("proxy", () => {
     const ok = await proxy(request("/products", await siteToken("secret")));
     expect(ok.headers.get("location")).toBeNull();
   });
+
+  it("answers 401 JSON (not a login redirect) for API routes without a valid cookie", async () => {
+    vi.stubEnv("SITE_PASSWORD", "secret");
+    for (const cookie of [undefined, "nope"]) {
+      const res = await proxy(request("/api/pipeline/status", cookie));
+      expect(res.status).toBe(401);
+      expect(res.headers.get("location")).toBeNull();
+      expect(res.headers.get("cache-control")).toBe("no-store");
+      expect(await res.json()).toEqual({ error: "unauthorized" });
+    }
+    const ok = await proxy(request("/api/pipeline/status", await siteToken("secret")));
+    expect(ok.status).toBe(200);
+  });
+
+  it("never rewrites API routes to a language", async () => {
+    vi.stubEnv("SITE_PASSWORD", "");
+    const api = await proxy(request("/api/pipeline/status"));
+    expect(api.headers.get("x-middleware-rewrite")).toBeNull();
+    const page = await proxy(request("/products"));
+    expect(new URL(page.headers.get("x-middleware-rewrite")!).pathname).toBe("/en/products");
+  });
+
+  it("leaves the internal API to its own Bearer tokens", async () => {
+    vi.stubEnv("SITE_PASSWORD", "secret");
+    const res = await proxy(request("/api/internal/pipeline/tick"));
+    expect(res.status).toBe(200);
+    expect(res.headers.get("location")).toBeNull();
+  });
 });
 
 describe("proxy matcher", () => {
@@ -77,6 +105,14 @@ describe("proxy matcher", () => {
     expect(matches("/robots.txt")).toBe(false);
     expect(matches("/_next/static/chunks/app.js")).toBe(false);
     expect(matches("/favicon.ico")).toBe(false);
+  });
+
+  it("guards the public API but skips the internal API (tick hand-off, cron)", () => {
+    expect(matches("/api/pipeline/status")).toBe(true);
+    expect(matches("/api/pipeline/start")).toBe(true);
+    expect(matches("/api/internal")).toBe(true); // handled defensively in proxy()
+    expect(matches("/api/internal/pipeline/tick")).toBe(false);
+    expect(matches("/api/internal/cron/daily")).toBe(false);
   });
 });
 

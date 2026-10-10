@@ -3,22 +3,37 @@ import { LOCALE_COOKIE, localizedPath, splitLocale } from "@/i18n/locales";
 import { isValidSiteToken, SITE_AUTH_COOKIE, sitePassword } from "@/lib/site-auth";
 
 /**
- * 1. Gate every page behind SITE_PASSWORD when it is set (ADR-008); open otherwise.
+ * 1. Gate every page behind SITE_PASSWORD when it is set (ADR-008); open otherwise. API routes
+ *    answer 401 JSON instead of redirecting to the login page.
  * 2. Serve unprefixed URLs in the visitor's language by rewriting to `/[lang]/...` (ADR-011).
+ *    Never for `/api/*`.
+ *
+ * `/api/internal/*` (tick hand-off, Vercel Cron) is excluded by the matcher: those routes check
+ * their own Bearer tokens (ADR-013) and never carry the site cookie.
  */
 export async function proxy(request: NextRequest) {
   const { pathname, search } = request.nextUrl;
+  const isApi = pathname === "/api" || pathname.startsWith("/api/");
+  // Defensive: the matcher already skips these.
+  if (/^\/api\/internal(\/|$)/.test(pathname)) return NextResponse.next();
 
   const password = sitePassword();
   if (
     password &&
-    splitLocale(pathname).path !== "/login" &&
+    (isApi || splitLocale(pathname).path !== "/login") &&
     !(await isValidSiteToken(request.cookies.get(SITE_AUTH_COOKIE)?.value, password))
   ) {
+    if (isApi) {
+      return NextResponse.json(
+        { error: "unauthorized" },
+        { status: 401, headers: { "Cache-Control": "no-store" } },
+      );
+    }
     const login = new URL("/login", request.url);
     login.searchParams.set("next", pathname + search);
     return NextResponse.redirect(login);
   }
+  if (isApi) return NextResponse.next();
 
   const target = localizedPath(pathname, request.cookies.get(LOCALE_COOKIE)?.value);
   if (!target) return NextResponse.next();
@@ -28,9 +43,9 @@ export async function proxy(request: NextRequest) {
 }
 
 export const config = {
-  // Everything except static assets, image optimization and robots.txt (crawlers must be able
-  // to read "Disallow: /" without signing in).
+  // Everything except the internal API, static assets, image optimization and robots.txt
+  // (crawlers must be able to read "Disallow: /" without signing in).
   matcher: [
-    "/((?!_next/static|_next/image|favicon.ico|robots.txt|.*\\.(?:png|jpg|jpeg|svg|webp|ico)$).*)",
+    "/((?!api/internal/|_next/static|_next/image|favicon.ico|robots.txt|.*\\.(?:png|jpg|jpeg|svg|webp|ico)$).*)",
   ],
 };

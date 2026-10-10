@@ -29,6 +29,12 @@ export async function isValidSiteToken(token: string | undefined, password: stri
   return token !== undefined && safeEqual(token, await siteToken(password));
 }
 
+/** Whether a request may use the site: always without SITE_PASSWORD, else with a valid cookie. */
+export async function hasSiteAccess(token: string | undefined): Promise<boolean> {
+  const password = sitePassword();
+  return !password || isValidSiteToken(token, password);
+}
+
 /** Only same-site relative paths are allowed after login (no open redirects). */
 export function safeNextPath(next: string | null | undefined): string {
   if (!next || !next.startsWith("/") || next.startsWith("//") || next.startsWith("/\\")) {

@@ -15,9 +15,9 @@
 
 | 主題           | 有效 ADR         | 重點                                                                         |
 | -------------- | ---------------- | ---------------------------------------------------------------------------- |
-| 資料來源       | 005、006、007    | 第一手官方 API 優先；美國等市場的廣告用公開網站蒐集；先完成真實資料閉環       |
+| 資料來源       | 005、006、007、013 | 第一手官方 API 優先；美國等市場的廣告用公開網站蒐集（可在 Vercel 執行，規則不變）；先完成真實資料閉環 |
 | 評分與實體對應 | 002、012         | 可解釋的加權子分數；售價只用廣告主自己的商品頁                               |
-| 架構           | 003              | Next.js on Vercel + Neon + Drizzle；蒐集與評分是 CLI jobs，由 GitHub Actions 排程 |
+| 架構           | 003、013         | Next.js on Vercel + Neon + Drizzle；pipeline 是可續跑的 runner，在 Vercel 分段執行（網頁按鈕 + Vercel Cron），CLI 共用 |
 | 存取與安全     | 008、010         | 站台密碼保護、登入防暴力破解、安全標頭                                       |
 | 介面           | 009、011         | 單一 Watchlist；`[lang]` 路由 + cookie 改寫的中英文介面                      |
 
@@ -37,7 +37,7 @@
 - 理由：初期沒有標註資料，無法訓練 A；B 透明、可驗證，符合差異化定位；累積回測資料後再用 A 調權重。
 - 後果：ingestion 必須保存不可覆寫的時間序列快照；評分要輸出完整拆解。
 
-## ADR-003：整體架構、資料庫、排程與驗證（2026-10-09，狀態：採用）
+## ADR-003：整體架構、資料庫、排程與驗證（2026-10-09，狀態：採用；排程部分由 ADR-013 修改）
 
 - 背景：Vercel function 有執行時間上限（Hobby 300 秒、Pro 800 秒）；Vercel Cron 在 Hobby 只能每天一次；評分需要 pgvector 與時間序列快照；Auth.js 已由 Better Auth 團隊接手，官方建議新專案用 Better Auth。
 - 決定：
@@ -69,7 +69,7 @@
   4. 資料模型加入國家維度，評分可依目標市場加權。
 - 後果：需要使用者申請各平台的開發者帳號（見 HUMAN_TODO）。
 
-## ADR-006：蒐集 Meta / TikTok 公開廣告網站（2026-10-10，狀態：採用）
+## ADR-006：蒐集 Meta / TikTok 公開廣告網站（2026-10-10，狀態：採用；決定 3 的執行地點由 ADR-013 修改）
 
 - 背景：官方 API 只提供 UK + EU 的商業廣告，而最優先的市場是 US、CA、AU、NZ。使用者認為 Meta 與 TikTok 的公開廣告網站是最重要的第一手資訊，決定蒐集；平台初期由使用者個人研究使用。
 - 風險（已告知使用者）：Meta 條款禁止自動化蒐集（不論是否登入）並禁止轉售蒐集資料；TikTok 條款禁止 scraping；可能被封鎖。若對外開放或收費，必須重新評估。
@@ -122,3 +122,22 @@
 - 決定：C。
 - 理由：核心原則「只用真實資料、不推估」——(2) 的中位數不是這個產品的價格；(2) 的店家數仍是有效的飽和度訊號，但要明確說是「同類商品」。
 - 後果：示範資料庫有售價的產品從 43 個降到 26 個。要提高覆蓋率，需對更多產品執行廣告主商品頁查詢（ROADMAP Phase 4C）。
+
+## ADR-013：pipeline 在 Vercel 分段執行，由網頁按鈕與 Vercel Cron 觸發（2026-10-10，狀態：採用；修改 ADR-006 決定 3 與 ADR-003 排程部分）
+
+- 背景：正式站（Vercel + Neon）的資料庫是空的，真實資料只能用 CLI 或 GitHub Actions 蒐集，而 GitHub 排程從未設定。使用者 2026-10-10 決定：在網頁上按按鈕就觸發真實資料探索、蒐集直接在 Vercel 執行、Vercel Cron 每天自動跑一次、每個 UTC 日最多 3 次 Meta 掃描、可輸入自訂關鍵字。限制：Vercel Hobby 每次 function（含 `after()`）最多 300 秒，而整條 pipeline 因節制的請求間隔需要 10–15 分鐘。
+- 選項：
+  - (A) 維持 CLI + GitHub Actions 排程，網頁只顯示。
+  - (B) Vercel Workflow（durable steps）：要新依賴，與 Next 16.4 + cacheComponents 的相容性未驗證，且無法在部署前驗證。
+  - (C) 自建可續跑的 runner：狀態存在 `pipeline_runs`（DB lease + fencing），工作拆成冪等的小單位，每個 function 做一段約 200 秒的 tick，結束前 POST 下一段（自我接續）；status 輪詢（看門狗）與每天 4 個 cron（06–09 UTC）負責恢復停住的 run。CLI 用同一個 runner、沒有時間限制。
+- 決定：C。
+  - 路由：`POST /api/pipeline/start`（網站 cookie + `Origin` 檢查；已有進行中的 run 就回傳那一個；正式環境沒設 `SITE_PASSWORD` 時拒絕）、`GET /api/pipeline/status`（進度 JSON；含 `cronConfigured`、`canStart`、`startBlockedReason`）、`POST /api/internal/pipeline/tick`（Bearer = sha256(固定前綴 + `CRON_SECRET` 或 `DATABASE_URL`)，常數時間比較）、`GET /api/internal/cron/daily`（需要 `Authorization: Bearer $CRON_SECRET`，沒設回 503；當天還沒掃過 Meta 才建立 run，否則只恢復停住的 run）。都是 `maxDuration = 300`、Node runtime；`/api/internal/*` 不經過網站密碼的 proxy。
+  - 自我接續只送往允許的網址：正式環境 `https://$VERCEL_PROJECT_PRODUCTION_URL`，本機只送 localhost / 127.0.0.1 / [::1]，絕不跟著請求的 `Host`。失敗記在 `last_kick_error`。
+  - 只在 Vercel Production 或本機執行；Preview 需 `PIPELINE_ALLOW_PREVIEW=1`（避免 Neon preview branch 複製出第二條 pipeline 再掃一次 Meta）；`PIPELINE_DISABLED=1` 總開關（e2e）。一個 deployment 只接手自己環境或 CLI 建立的 run。
+  - ADR-006 的蒐集規則全部保留：誠實 User-Agent、Meta 請求間隔 5 秒、每個 run 最多 70 個 Meta 請求、被擋就停止並依 egress（vercel / github / local）退避 6 → 12 → 24 小時…最多 7 天、不繞過。新增：每個 UTC 日最多 3 次 Meta 掃描（含每日自動），用完後按鈕仍可用，只做售價、去重、評分。
+- 理由：使用者要求在網頁直接觸發並由 Vercel 每日自動執行；(C) 不需新依賴，邏輯與 Next.js 分離（可用 PGlite 單元測試、與 CLI 共用），每個工作單位冪等，任何一段被殺都能從資料庫狀態接續。
+- 後果：
+  - **最大風險**：Vercel 對外是 AWS 機房 IP，Meta 可能直接擋；本機（住宅 IP）實測成功不代表 Vercel 也會成功，要使用者部署後按一次才知道。被擋時頁面說明並退避；替代方案是在自己電腦用 Neon 連線字串跑 `npm run pipeline`，或之後評估付費來源。
+  - Vercel 自我請求的迴圈偵測（508）門檻未公開；以較長的 tick、看門狗與 4 個恢復用 cron 緩解。
+  - 一天最多掃 3 次會讓「廣告動能」（每日觀測到的廣告數）略偏高，寫進 ROADMAP 之後改為只用每日排程的觀測並量測。
+  - 部署需要設定 `CRON_SECRET`（每日自動）並確認 Fluid compute 開啟（300 秒；不支援 60 秒上限的模式：一個工作單位可能就要 45–60 秒，調低 `PIPELINE_TICK_BUDGET_MS` 會讓 tick 數撞到 40 次上限），見 `docs/DEPLOY.md`。GitHub Actions 每日排程不再需要（只保留手動執行）。

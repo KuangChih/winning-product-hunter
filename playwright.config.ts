@@ -13,7 +13,11 @@ export default defineConfig({
   webServer: {
     command: "npm run build && npm run start",
     url: "http://localhost:3000",
-    reuseExistingServer: !process.env.CI,
+    // Never reuse a running server: it would not have PIPELINE_DISABLED, and a test pressing
+    // "start discovery" would send real requests and write to the demo database.
+    reuseExistingServer: false,
     timeout: 180_000,
+    // Never send real requests to Meta or Shopify from e2e (ADR-013 kill switch).
+    env: { PIPELINE_DISABLED: "1" },
   },
 });

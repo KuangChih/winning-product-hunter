@@ -14,6 +14,7 @@ export {
   adLibraryAllowance,
   backoffMs,
   isAdLibraryBlock,
+  shouldCronStart,
   sweepsOnDay,
 } from "./guards";
 export {

@@ -107,3 +107,28 @@
   - 第一次掃描的關鍵字輪替順序因「每天 3 個視窗」而改變（只影響挑哪些關鍵字，不影響評分）。
   - **Vercel Cron 接上（M3）前沒有任何每日自動蒐集**，要手動跑。
 - 下一步：M3 Vercel 觸發（routes、proxy、cron）。
+
+## 2026-10-11 — Vercel 探索 M3：Vercel 觸發（routes、proxy、cron）
+
+- 完成：
+  - `POST /api/pipeline/start`：再檢查一次站點 cookie、要求同站 `Origin`（否則 403）；可帶 `{keywords}`（同 CLI 驗證，錯誤回 400）；已有進行中的 run 就回那一個（200、`created:false`，停住的會接著跑；帶了關鍵字會回 `ignoredOptions:true`，不會假裝用了）；Production 沒設 `SITE_PASSWORD` 一律拒絕；新 run 回 201，第一個 tick 在 `after()` 跑。
+  - `GET /api/pipeline/status`：`no-store` 的進度 JSON（含 `configured`、`setup`、`disabled`、`cronConfigured`（只回布林）、`canStart`、`startBlockedReason`）；兼 watchdog，run 停住超過 45 秒就在 `after()` 接著跑。
+  - `POST /api/internal/pipeline/tick`：Bearer token = 固定前綴 + `CRON_SECRET`（沒設時用 `DATABASE_URL`）的 sha256，常數時間比對；做完一段後只往白名單 origin（Production 的 `VERCEL_PROJECT_PRODUCTION_URL`、本機 loopback）POST 下一段，可重試的失敗重試一次，失敗原因記在 `last_kick_error`。
+  - `GET /api/internal/cron/daily`（`vercel.json` 06–09 UTC 各一個）：需要 `Bearer $CRON_SECRET`；當天沒有成功的 cron run、也還沒掃過 Meta 才開新 run；其餘時間只接續停住的 run、把超過上限的 run 標失敗。
+  - Proxy：`api/internal/` 不經 proxy；`/api/*` 不做語言改寫、未登入回 401 JSON。只在 Vercel Production 或本機執行（Preview 要 `PIPELINE_ALLOW_PREVIEW=1`），`PIPELINE_DISABLED=1` 全關（e2e 伺服器已設，且不再重用已在跑的伺服器）。
+  - Review 修正：交棒只認 202，或 tick route 回的 `{accepted:false}`（其他 200 例如防火牆頁面不算成功）；run 結束時清掉過時的 `last_kick_error`；別的環境的 run 超過上限也會被標失敗（不會擋住當天的 cron）；cron 在 migration 前回 503 而不是 500；DEPLOY.md 改成「Fluid compute 必須開啟、不支援 60 秒模式」，移除調低到 30000 的錯誤建議；補 start 接續停住的 run、別的環境的 run、cron 過期後的決策、tick 停用 / 409 等測試。
+- 成效（`next dev` + 示範資料庫的複本，`PIPELINE_TICK_BUDGET_MS=30000`，`POST /api/pipeline/start {"keywords":"posture corrector"}`，每 20 秒輪詢 status；示範資料庫 `.data/dev` 本身沒有寫入）：
+  - run #1 `succeeded`：36 個 tick、35 次 HTTP 自我接續全部 202、接續錯誤 0、261.6 秒、15 個 Meta 請求（關鍵字 5 + 廣告主 10）、沒有被擋。
+  - 產品 214 → 230（新增 16）、Meta 廣告 817 → 926（新增 109）、評分 229 個產品。230 與 229 的差距是 1 個早就被合併掉的產品（`merged_into` 有值、沒有自己的廣告），本來就不評分。
+  - 各步驟：discover 149 則廣告 → 19 個產品（1 新）、advertisers 232 則 → 29 個（15 新）、collect 20 個產品 2057 筆、stores 3 筆、dedupe 22 張照片（1 張失敗、0 合併）、match 0。
+  - 對同一份複本用 `next start` 開 `/products`：16 個新產品全部看得到（10 個在「最新」排序第一頁，6 個用搜尋找到），分數 29.4–43.3。
+  - 失誤：run #1 結束後又送了一次 start，建立了 run #2（真的掃描），送出 4 個 Meta 請求後停掉伺服器；兩個 run 合計 19 個真實 Meta 請求，都在上限內，只寫入複本，run #2 留在複本裡 `running`。
+  - 與計畫的差異：預算用 30000 而不是 60000；用 API 直接觸發而不是瀏覽器按鈕（按鈕在 M4）。
+- 驗證：format ✅ lint ✅ typecheck ✅ test ✅（300）build ✅ e2e ✅（41）；dev / e2e log 沒有 `[WebServer]` 或 blocking-prerender 錯誤。
+- 限制：
+  - 預算 30000 時每個 tick 只做 1 個單位（Meta 單位上限 45 秒、collect 60 秒），小 run 就用了 40 次上限中的 36 次；預設 200000 才是支援的設定。
+  - 未在 Vercel 上驗證：Meta 會不會擋 Vercel 機房 IP、自我 POST 會不會被 508 迴圈偵測切斷，要部署後才知道（已寫入 HUMAN_TODO）。
+  - Route 沒有 `export const runtime`：Node.js 是預設，文件也建議不要寫。
+  - start 只接受自訂關鍵字；廣告主數、collect 數用預設值。
+  - 還沒有按鈕（M4）；部署前只能直接呼叫 API。
+- 下一步：M4 介面殼層、探索頁（開始探索按鈕、進度）、移除樣本資料。

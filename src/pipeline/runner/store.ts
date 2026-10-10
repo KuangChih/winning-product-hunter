@@ -184,6 +184,8 @@ export async function completeRun(
       status,
       adLibraryRequests: state.adLibrary.requests,
       error: error?.slice(0, 2000) ?? null,
+      // A tick ran after any failed hand-off, so that error no longer describes the run.
+      lastKickError: null,
       lockToken: null,
       lockedUntil: null,
       updatedAt: sql`now()`,
