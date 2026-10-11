@@ -24,11 +24,12 @@ Meta 網站擋了 Vercel（HTTP 403），我們不繞過。合規又能在 Verce
 Meta 擋了 Vercel（HTTP 403），所以正式站一直沒有產品。現在探索多了「搜尋 CJ 熱銷商品」步驟（ADR-014），Meta 被擋時照常從 CJ 找有訂單的商品。
 
 - [ ] 1. **把 `main` push 到 GitHub**（loop 不會 push）。
-- [ ] 2. **Vercel → Settings → Environment Variables → Production** 新增 `CJ_API_KEY`（值與 `.env.local` 相同）。
+- [x] 2. **Vercel → Settings → Environment Variables → Production** 新增 `CJ_API_KEY`（值與 `.env.local` 相同）。（2026-10-11 使用者已設定）
 - [ ] 3. **Redeploy**（Deployments → 最新一筆 → Redeploy），讓變數生效；新的資料表 `api_tokens` 會自動建立。
 - [ ] 4. 登入 → 「探索」頁 → 按「開始探索」，確認「搜尋 CJ 熱銷商品」步驟是「完成」、「產品」頁出現產品，把結果（或截圖）回報給我。
 - 能換到：示範資料庫複本實測，Meta 被擋的情況下一次探索從 CJ 新增 19 個有真實訂單的產品（CJ 訂單數 ≥ 50 且 30 天內有付款），每個都附 CJ 訂單數、上架數、供貨價與 CJ 商品連結。
-- 費用：$0（CJ API 免費；每次探索用約 550 點，帳號每日 50,000 點）。
+- 費用：$0（CJ API 免費；每次探索約 550 點＋運費試算最多 200 點，帳號每日 50,000 點）。
+- 2026-10-11 之後的更新（同款照片比對、CJ 請求節奏、到岸毛利）都還沒 push：第 1、3、4 步照做即可，新的資料表（`cj_landed_costs` 等）會在部署時自動建立。
 - 限制：CJ 的訂單數是 CJ 平台計數（CJ 未公開統計期間），不是整個市場；只有 CJ 證據的產品可信度低、最高 50 分。
 
 ## 1. 部署並在網站上取得真實資料（最重要）
