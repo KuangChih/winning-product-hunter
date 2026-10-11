@@ -1,6 +1,7 @@
 import type { FetchedItem } from "@/ingestion/types";
 import type {
   CjStepState,
+  MetaApiStepState,
   RunState,
   RunStatus,
   SkipReason,
@@ -16,6 +17,7 @@ export const STEP_ORDER: StepName[] = [
   "fx",
   "discover",
   "advertisers",
+  "meta_api",
   "cj",
   "collect",
   "stores",
@@ -31,6 +33,8 @@ export const UNIT_ORDER: UnitName[] = [
   "discover_finalize",
   "advertisers",
   "advertisers_finalize",
+  "meta_api",
+  "meta_api_finalize",
   "cj",
   "cj_details",
   "cj_finalize",
@@ -50,6 +54,8 @@ export const STEP_OF_UNIT: Record<UnitName, StepName | null> = {
   discover_finalize: "discover",
   advertisers: "advertisers",
   advertisers_finalize: "advertisers",
+  meta_api: "meta_api",
+  meta_api_finalize: "meta_api",
   cj: "cj",
   cj_details: "cj",
   cj_finalize: "cj",
@@ -64,16 +70,18 @@ export const STEP_OF_UNIT: Record<UnitName, StepName | null> = {
 };
 
 /**
- * Where a unit that threw goes next: a failed source never stops the rest (FX, CJ, collect,
- * dedupe, match and score always run after a Meta block or failure). A failed CJ request unit
- * still stores what it found (cj_finalize).
+ * Where a unit that threw goes next: a failed source never stops the rest (FX, the official
+ * Meta API, CJ, collect, dedupe, match and score always run after a Meta website block or
+ * failure). A failed CJ or official-API request unit still stores what it found (its finalize).
  */
 export const FAIL_NEXT: Record<UnitName, UnitName> = {
   start: "discover",
   discover: "discover_finalize",
   discover_finalize: "advertisers",
   advertisers: "advertisers_finalize",
-  advertisers_finalize: "cj",
+  advertisers_finalize: "meta_api",
+  meta_api: "meta_api_finalize",
+  meta_api_finalize: "cj",
   cj: "cj_finalize",
   cj_details: "cj_finalize",
   cj_finalize: "collect",
@@ -92,13 +100,21 @@ export const WRAP_UP_FROM: UnitName = "merge";
 
 /** Ad Library sweep units and the finalize unit that stores what they staged. */
 const FINALIZE_OF: Partial<
-  Record<UnitName, { progress: "keyword" | "advertiser"; finalize: UnitName }>
+  Record<UnitName, { progress: "keyword" | "advertiser" | "metaApi"; finalize: UnitName }>
 > = {
   discover: { progress: "keyword", finalize: "discover_finalize" },
   advertisers: { progress: "advertiser", finalize: "advertisers_finalize" },
+  meta_api: { progress: "metaApi", finalize: "meta_api_finalize" },
 };
 
 const step = (): StepState => ({ status: "pending" });
+const metaApiStep = (): MetaApiStepState => ({
+  status: "pending",
+  requests: 0,
+  ads: 0,
+  failures: 0,
+  stopped: null,
+});
 const cjStep = (): CjStepState => ({
   status: "pending",
   requests: 0,
@@ -123,6 +139,7 @@ export function initialState(now: Date, createdAt: Date = new Date()): RunState 
       collect: null,
       stores: null,
       cj: null,
+      metaApi: null,
     },
     progress: {
       keyword: 0,
@@ -132,15 +149,17 @@ export function initialState(now: Date, createdAt: Date = new Date()): RunState 
       hashAttempted: 0,
       cjList: 0,
       cjDetail: 0,
+      metaApi: 0,
     },
     unit: null,
-    rate: { adLibraryNextAt: null, shopifyNextAt: null, cjNextAt: null },
+    rate: { adLibraryNextAt: null, shopifyNextAt: null, cjNextAt: null, metaApiNextAt: null },
     cjCandidates: [],
     adLibrary: { requests: 0, blocked: null, stopped: null },
     steps: {
       fx: step(),
       discover: step(),
       advertisers: step(),
+      meta_api: metaApiStep(),
       cj: cjStep(),
       collect: { ...step(), items: 0, failedProducts: 0, errors: [] },
       stores: { ...step(), items: 0, failedProducts: 0, errors: [] },
@@ -155,15 +174,39 @@ export function initialState(now: Date, createdAt: Date = new Date()): RunState 
       adsFetched: 0,
       productsScored: 0,
       cjProducts: 0,
+      metaApiProducts: 0,
     },
   };
 }
 
 /**
- * Fills in what states saved before the CJ step existed lack (same version: they stay
- * resumable). A run that had already passed the CJ step's place records it as skipped.
+ * Fills in what states saved before the CJ and official Meta API steps existed lack (same
+ * version: they stay resumable). A run that had already passed a step's place records it as
+ * skipped.
  */
 export function upgradeState(s: RunState): RunState {
+  return upgradeMetaApi(upgradeCj(s));
+}
+
+function upgradeMetaApi(s: RunState): RunState {
+  if (s.steps.meta_api) return s;
+  const passed = UNIT_ORDER.indexOf(s.cursor) > UNIT_ORDER.indexOf("advertisers_finalize");
+  return {
+    ...s,
+    plan: { ...s.plan, metaApi: passed ? [] : null },
+    progress: { ...s.progress, metaApi: 0 },
+    rate: { ...s.rate, metaApiNextAt: null },
+    steps: {
+      ...s.steps,
+      meta_api: passed
+        ? { ...metaApiStep(), status: "skipped", skipReason: "incompatible_state" }
+        : metaApiStep(),
+    },
+    results: { ...s.results, metaApiProducts: 0 },
+  };
+}
+
+function upgradeCj(s: RunState): RunState {
   if (s.steps.cj) return s;
   const passed = UNIT_ORDER.indexOf(s.cursor) > UNIT_ORDER.indexOf("advertisers_finalize");
   return {
@@ -227,6 +270,7 @@ export function fastForward(s: RunState, reason: SkipReason): RunState {
   if (
     s.cursor === "discover_finalize" ||
     s.cursor === "advertisers_finalize" ||
+    s.cursor === "meta_api_finalize" ||
     s.cursor === "cj_finalize"
   ) {
     next = s;
@@ -238,13 +282,21 @@ export function fastForward(s: RunState, reason: SkipReason): RunState {
     // CJ products already fetched (counted requests) are stored first, as for Meta sweeps.
     next = { ...s, cursor: "cj_finalize", unit: null };
     keep = "cj";
-  } else if (sweep && s.progress[sweep.progress] > 0) {
+  } else if (sweep && (s.progress[sweep.progress] ?? 0) > 0) {
     next = { ...s, cursor: sweep.finalize, unit: null };
     keep = STEP_OF_UNIT[s.cursor];
   } else {
     next = { ...s, cursor: WRAP_UP_FROM, unit: null };
   }
-  for (const name of ["fx", "discover", "advertisers", "cj", "collect", "stores"] as const) {
+  for (const name of [
+    "fx",
+    "discover",
+    "advertisers",
+    "meta_api",
+    "cj",
+    "collect",
+    "stores",
+  ] as const) {
     if (name === keep) continue;
     const st = next.steps[name].status;
     if (st === "pending" || st === "running") {

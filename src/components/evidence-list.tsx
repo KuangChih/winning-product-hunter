@@ -3,7 +3,7 @@ import type { EvidenceItem } from "@/data/product-detail";
 import { type Dictionary, getDictionary } from "@/i18n/dictionaries";
 import { countryName, fill } from "@/i18n/format";
 import { DEFAULT_LOCALE, type Locale } from "@/i18n/locales";
-import { adRunDays, externalHref, urlHost } from "@/lib/ad-facts";
+import { adRunDays, dedupeAdRecords, externalHref, urlHost } from "@/lib/ad-facts";
 import type { FxRates } from "@/lib/fx";
 import { MARKETS, sortByMarketPriority } from "@/lib/markets";
 import { marketRetailPrice, OWN_LISTING_PROVIDER } from "@/lib/retail-price";
@@ -78,16 +78,47 @@ function Section({
   );
 }
 
-function AdRow({ ad, now, t, locale }: { ad: EvidenceItem; now: Date; t: T; locale: Locale }) {
+type AdRecord = EvidenceItem & { providers: string[] };
+
+/** Website and official-API records of the same ad, shown as one row (ADR-015). */
+function mergeTwin(kept: EvidenceItem, twin: EvidenceItem): EvidenceItem {
+  return {
+    ...kept,
+    countries: [...new Set([...kept.countries, ...twin.countries])],
+    metrics: { ...twin.metrics, ...kept.metrics },
+    startedAt: kept.startedAt ?? twin.startedAt,
+  };
+}
+
+const formatCount = (n: number) => n.toLocaleString("en-US");
+
+/** Reach from the official API; "—" when the API returned the ad without a reach estimate. */
+function reachText(ad: AdRecord, t: T): string | null {
+  if (!ad.providers.includes("ad_library_api")) return null;
+  const parts = [
+    ad.metrics.eu_total_reach !== undefined
+      ? fill(t.euReach, { n: formatCount(ad.metrics.eu_total_reach) })
+      : null,
+    ad.metrics.uk_total_reach !== undefined
+      ? fill(t.ukReach, { n: formatCount(ad.metrics.uk_total_reach) })
+      : null,
+  ].filter(Boolean);
+  return parts.length ? parts.join(" · ") : t.reachMissing;
+}
+
+function AdRow({ ad, now, t, locale }: { ad: AdRecord; now: Date; t: T; locale: Locale }) {
   const { detail } = getDictionary(locale);
   const variants = ad.metrics.creative_variants;
   const parts = [
-    evidenceLabel(ad, t, locale),
+    ad.providers.length > 1
+      ? ad.providers.map((p) => evidenceLabel({ ...ad, provider: p }, t, locale)).join(" + ")
+      : evidenceLabel(ad, t, locale),
     ad.countries.length ? ad.countries.join(", ") : null,
     ad.format ? (t.formats[ad.format] ?? ad.format) : null,
     variants && variants > 1 ? fill(t.sharedCreative, { n: variants }) : null,
     ad.startedAt ? fill(t.started, { date: formatDate(ad.startedAt) }) : null,
     urlHost(ad.landingUrl),
+    reachText(ad, t),
   ];
   return (
     <li className="flex flex-wrap items-start justify-between gap-x-3 gap-y-1 py-2.5 first:pt-0 last:pb-0">
@@ -225,7 +256,10 @@ export function EvidenceList({
   const dict = getDictionary(locale);
   const t = dict.evidence;
   const newTab = dict.detail.newTab;
-  const ads = evidence.filter((e) => e.kind === "ad").sort(byRunDays(now));
+  const ads = dedupeAdRecords(
+    evidence.filter((e) => e.kind === "ad"),
+    mergeTwin,
+  ).sort(byRunDays(now));
   const activeAds = evidence
     .filter((e) => e.kind === "trend" && e.metrics.active_ads !== undefined)
     .sort((a, b) => countryOrder(a) - countryOrder(b));
@@ -244,7 +278,7 @@ export function EvidenceList({
 
   const first = ads.slice(0, ADS_SHOWN_FIRST);
   const rest = ads.slice(ADS_SHOWN_FIRST);
-  const adRows = (list: EvidenceItem[]) =>
+  const adRows = (list: AdRecord[]) =>
     list.map((ad) => <AdRow key={ad.id} ad={ad} now={now} t={t} locale={locale} />);
 
   return (
@@ -258,6 +292,9 @@ export function EvidenceList({
                 .map((a) => `${a.countries[0]} ~${count(a.metrics.active_ads)}`)
                 .join(" · ")}
             </p>
+          )}
+          {ads.some((a) => a.providers.includes("ad_library_api")) && (
+            <p className="text-muted-foreground text-xs">{t.reachNote}</p>
           )}
           <ul className="divide-y">{adRows(first)}</ul>
           {rest.length > 0 && (

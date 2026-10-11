@@ -5,6 +5,7 @@
 import { fetchWithRetry } from "@/ingestion/http";
 import { createCjClient, CJ_PROVIDER } from "@/ingestion/sources/cj";
 import { createAdLibraryWebAdapter } from "@/ingestion/sources/meta-ad-library-web";
+import { createMetaApiClient } from "@/ingestion/sources/meta-ads";
 import {
   createShopifyCatalogAdapter,
   createStoreLookupAdapter,
@@ -16,7 +17,13 @@ import type { RunnerDeps } from "./runner/deps";
 type Env = Record<string, string | undefined>;
 
 /** Per-attempt timeouts, so one hung socket cannot hold a tick. */
-export const TIMEOUTS = { adLibrary: 30_000, shopify: 20_000, ecb: 15_000, cj: 15_000 } as const;
+export const TIMEOUTS = {
+  adLibrary: 30_000,
+  metaApi: 30_000,
+  shopify: 20_000,
+  ecb: 15_000,
+  cj: 15_000,
+} as const;
 
 /**
  * Where requests leave from: Meta blocking Vercel's (or GitHub's) IPs must not stop the user's
@@ -39,6 +46,7 @@ export function createLiveDeps(
 ): RunnerDeps {
   const profile = env.SHOPIFY_UCP_AGENT_PROFILE || undefined;
   const cjKey = env.CJ_API_KEY?.trim() || undefined;
+  const metaToken = env.META_ACCESS_TOKEN?.trim() || undefined;
   return {
     egress: pipelineEgress(env),
     async fetchFxRates(signal) {
@@ -58,6 +66,17 @@ export function createLiveDeps(
         maxRequests: 1,
         retry: { timeoutMs: TIMEOUTS.adLibrary, retries: 0, fetchImpl },
       }),
+    // Official Ad Library API (ADR-015): one attempt per request, the token only in the
+    // environment (never in errors, logs or stored URLs).
+    ...(metaToken
+      ? {
+          metaApi: () =>
+            createMetaApiClient({
+              token: metaToken,
+              retry: { timeoutMs: TIMEOUTS.metaApi, retries: 0, fetchImpl },
+            }),
+        }
+      : {}),
     // The key stays in the environment; the cached token is encrypted with it (ADR-014).
     ...(cjKey
       ? {

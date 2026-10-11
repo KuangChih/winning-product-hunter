@@ -16,7 +16,8 @@ describe("parseMetaAd", () => {
     });
 
     expect(item).toMatchObject({
-      externalId: "123",
+      // Its own namespace: never overwrites the website's record of the same ad (ADR-015).
+      externalId: "api|123",
       kind: "ad",
       title: "Posture Corrector",
       region: "EU",

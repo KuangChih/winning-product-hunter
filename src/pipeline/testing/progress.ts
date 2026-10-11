@@ -76,6 +76,7 @@ export function pipelineStatus(over: Partial<PipelineStatus> = {}): PipelineStat
     disabled: false,
     cronConfigured: true,
     cjConfigured: true,
+    metaApiConfigured: true,
     canStart: true,
     startBlockedReason: null,
     ...over,

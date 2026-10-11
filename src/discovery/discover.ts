@@ -61,8 +61,13 @@ export function groupAdsByLanding(items: FetchedItem[]): DiscoveryGroup[] {
 }
 
 export function isPromising(group: DiscoveryGroup, now: Date): boolean {
-  if (group.ads.length >= DISCOVERY_RULES.minAds) return true;
-  return group.ads.some((ad) => {
+  return isPromisingAds(group.ads, now);
+}
+
+/** The `DISCOVERY_RULES` test on the ads of one product (any grouping). */
+export function isPromisingAds(ads: FetchedItem[], now: Date): boolean {
+  if (ads.length >= DISCOVERY_RULES.minAds) return true;
+  return ads.some((ad) => {
     const variants = ad.metrics.find((m) => m.metric === "creative_variants")?.value ?? 1;
     const days = ad.startedAt ? (now.getTime() - ad.startedAt.getTime()) / DAY : 0;
     return (

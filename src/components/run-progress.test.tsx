@@ -24,8 +24,10 @@ describe("RunProgressView", () => {
 
     const steps = within(screen.getByRole("list", { name: "Steps" })).getAllByRole("listitem");
     expect(steps).toHaveLength(8);
-    expect(rowOf("Search Meta ads")).toHaveAttribute("data-status", "running");
-    expect(within(rowOf("Search Meta ads")).getByText("In progress · 12/50")).toBeInTheDocument();
+    expect(rowOf("Search Meta ads (Ad Library website)")).toHaveAttribute("data-status", "running");
+    expect(
+      within(rowOf("Search Meta ads (Ad Library website)")).getByText("In progress · 12/50"),
+    ).toBeInTheDocument();
     expect(within(rowOf("Update exchange rates")).getByText("Done")).toBeInTheDocument();
     // The runner's English summary is shown on English pages.
     expect(screen.getByText("31 rates for 2026-10-10")).toBeInTheDocument();
@@ -52,9 +54,11 @@ describe("RunProgressView", () => {
     });
     render(<RunProgressView run={run} labels={zh} locale="zh-TW" />);
 
-    expect(within(rowOf("搜尋 Meta 廣告")).getByText("已跳過")).toBeInTheDocument();
     expect(
-      within(rowOf("搜尋 Meta 廣告")).getByText("Meta 暫時擋下這台伺服器"),
+      within(rowOf("搜尋 Meta 廣告（Ad Library 網站）")).getByText("已跳過"),
+    ).toBeInTheDocument();
+    expect(
+      within(rowOf("搜尋 Meta 廣告（Ad Library 網站）")).getByText("Meta 暫時擋下這台伺服器"),
     ).toBeInTheDocument();
     expect(
       within(rowOf("到 Shopify 查售價與競爭狀況")).getByText("失敗 · 3/20"),
@@ -82,7 +86,7 @@ describe("RunProgressView", () => {
       ),
     });
     const { unmount } = render(<RunProgressView run={run} labels={zh} locale="zh-TW" />);
-    const row = rowOf("搜尋 Meta 廣告");
+    const row = rowOf("搜尋 Meta 廣告（Ad Library 網站）");
     expect(within(row).getByText(/^頁面沒有內嵌廣告資料。這不一定是被擋/)).toBeInTheDocument();
     expect(within(row).queryByText(/被擋）/)).toBeNull();
     expect(within(row).getByText("技術細節")).toBeInTheDocument();

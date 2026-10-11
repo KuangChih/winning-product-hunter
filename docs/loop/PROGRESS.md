@@ -289,3 +289,23 @@
 - 限制：CJ 訂單數只算經由 CJ 下的單、期間未公開，不是整個市場；`listedNum` 是累計上架數（偏向老商品）；只有 CJ 證據的產品沒有廣告類子分數、最高 50 分；CJ 商品頁有反爬驗證頁，連結格式無法自動驗證；CJ 產品在 Shopify collect 排在最後（還沒分數）；CJ ToS 尚未確認（個人研究使用）。
 - 需要使用者：push、在 Vercel Production 加 `CJ_API_KEY` 並 Redeploy，然後按一次「開始探索」回報（HUMAN_TODO 第 0 節）。
 - 下一步：CJ 產品的 collect 排序、CJ 運費試算（到岸毛利）、Meta 官方 Ad Library API（需要 token）。
+
+## 2026-10-11 — Meta 官方 Ad Library API 探索（英國／歐盟，ADR-015）
+
+- 背景：Meta 網站擋了 Vercel（HTTP 403），不繞過。使用者要求 Meta 資料優先、用盡合規方法 → 官方 Ad Library API（Graph API v26.0 `/ads_archive`）：Vercel 可用、免費、第一手，但只有英國＋歐盟。**還沒有 `META_ACCESS_TOKEN`**：全部依官方文件格式做 fixture 測試，沒有任何真實請求。
+- 研究（`docs/research/meta-ad-library-api.md`）：對照 ads_archive、ArchivedAd、Ad Library API、Graph API 速率限制文件。使用的欄位：`id`（Library ID）、`page_id`／`page_name`、`ad_creation_time`、`ad_delivery_start_time`／`stop_time`、`ad_creative_bodies`、`ad_creative_link_titles`／`_captions`／`_descriptions`、`publisher_platforms`、`languages`、`eu_total_reach`、`total_reach_by_location`（文件鍵名 `UK`）。不再請求 `ad_snapshot_url`（網址含 token）。Ad Library API 沒有公開速率數字；user token 的上限也不公開。
+- 做了什麼：
+  - `meta-ads.ts`：`createMetaApiClient`（一次一個請求、不重試、錯誤分成 token／rate_limited／request／service、訊息不含 token 與網址）；`externalId = api|<id>`；一次查多國時只有 UK 觸及 > 0 才標 `GB`；UK 觸及只接受文件的 `{key:"UK", value}` 形狀。`meta-api-failure.ts` 給探索頁解釋錯誤。
+  - `src/discovery/meta-api.ts`：網域（`link_caption`）＋正規化標題（`link_title`）分組，鍵 `meta-api:<網域>|<標題>`；門檻沿用 `DISCOVERY_RULES`；掛到網站版產品：同一 Library ID 優先 → 同店家＋同 handle → 同店家＋標題 Jaccard ≥ 0.6 且唯一；多個候選一樣像就略過、也不另建。
+  - Runner 新步驟「搜尋 Meta 官方 API（英國／歐盟）」（`meta_api` → `meta_api_finalize`，網站版之後、CJ 之前，不受網站版退避或每日上限影響）：每 run ≤ 10 次、間隔 2 秒、先記帳再送出、回應暫存（重試不重送）；190 停止不退避、613 等限流停止並退避（provider `ad_library_api`）、其他 4xx 停止、5xx 繼續；沒有 token → 「未設定」跳過；舊狀態用 `upgradeState` 補欄位。
+  - 去重：評分 `dedupeAds`（來源＋Library ID，網站版為主、API 補國家與觸及）、廣告動能 SQL、詳情頁廣告數與列表（`dedupeAdRecords`）、廣告頁（API 紀錄有網站版雙胞胎就不列）。觸及人數只顯示不計分。
+  - 介面：來源標示「Meta 官方 API（英國／歐盟）」、詳情頁「歐盟觸及／英國觸及」或「歐盟／英國觸及 —」與說明、同一則廣告兩筆合併成一列（「Meta Ad Library + Meta 官方 API（英國／歐盟）」）；探索頁新步驟、跳過原因、錯誤說明；網站被擋／今日已用完提示加上「官方 API（英國／歐盟）照常」或「未設定 META_ACCESS_TOKEN，加了能換到什麼」；網站版步驟改名「搜尋 Meta 廣告（Ad Library 網站）」。
+- 成效（示範資料庫複本兩份，模擬網站被擋，關鍵字 3 個；API 回應是依文件格式做的 fixture：5 個網站版產品的 9 則廣告用真實 Library ID 當雙胞胎、3 則同店家同標題的新廣告、5 則虛構英國／德國／法國店家的廣告）：
+  - 3 次請求、14 則廣告（13 則有網域＋產品標題）→ 10 組：**7 組掛到網站版既有產品**（5 組靠同一 Library ID、2 組靠同店家＋標題）、**2 個新產品**（各 2 則廣告）、1 組單則 3 天的廣告不達門檻；12 則廣告存成 `api|` 紀錄，網站版紀錄完全沒動。
+  - 第一次量測發現：同一家店（jovs.com）有「4d Laser Light Therapy Mask」與「Jovs 4d Laser Light Therapy Mask Fda Certification」兩個網站版產品，標題比對兩個都過門檻 → 原本判為不確定並**另建一個重複產品**。改成 handle 相同優先、仍不確定就略過不建：掛上 6 → 7、新產品 3 → 2、重複產品 1 → 0。
+  - 評分：沒有官方 API 證據的 **206 個產品，評分輸入完全相同**（7 個子分數原始值、來源、飽和懲罰輸入、可信度）；分數最多差 0.3 分，來自 2 個新產品改變百分位排名。有 API 證據的 7 個產品：雙胞胎廣告沒有重複計算（擴量與廣告主數不變），市場覆蓋因 UK 觸及 > 0 多了 GB（0.2 → 0.4 的 2 個）；新產品 28、30 分，可信度低。
+  - 這些數字只證明「程式行為正確」，**不代表真實探索成效**；真實數字要等 token。
+- 驗證：format ✅ lint ✅ typecheck ✅ test ✅（69 檔 424 個；新增官方 API client 4、分組規則 5、runner 7、live deps 1、評分去重 1、廣告事實 1、證據列表 1、廣告列表 1，修改既有 5 個）build ✅ e2e ✅（47，4 個 worker、示範資料庫複本）。瀏覽器（`next start` + 量測後的複本 + `PIPELINE_DISABLED=1` + 假 token 字串只為顯示「已設定」）：詳情頁中英文、合併的廣告列與觸及、375px 無橫向捲動、探索頁新步驟與提示，server log 無錯誤。
+- 限制：沒有真實請求，`link_caption` 是否為網域、`total_reach_by_location` 形狀、網站與 API 的 Library ID 是否相同、多國 `ad_reached_countries` 都待實測；歐盟國家標不出來（只標得出英國）；官方 API 產品沒有圖片與商品頁網址（照片去重無效、詳情頁「廣告連到的網域」是「—」）；美加澳紐、挪威仍然沒有 Meta 資料。
+- 需要使用者：申請 `META_ACCESS_TOKEN`，加進 `.env.local` 與 Vercel Production（HUMAN_TODO 第 0 節，最優先）。
+- 下一步：token 到手 → 少量真實請求實測（research 第五節）→ 複本量測 → Vercel 實測；在那之前回到 Phase 4C（CJ 產品的 collect 排序等）。

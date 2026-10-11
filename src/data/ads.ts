@@ -106,6 +106,12 @@ export async function getAds(db: AnyDatabase, options: AdQueryOptions = {}): Pro
   const where = and(
     eq(sourceItems.kind, "ad"),
     includeSample ? undefined : ne(sourceItems.provider, "fixture"),
+    // An official-API record of an ad already collected from the website is the same ad
+    // (ADR-015): list it once.
+    sql`not (${sourceItems.provider} = 'ad_library_api' and exists (
+      select 1 from source_items w
+      where w.source = ${sourceItems.source} and w.provider = 'ad_library_web'
+        and 'api|' || w.external_id = ${sourceItems.externalId}))`,
     platform ? eq(sourceItems.source, platform) : undefined,
     market ? arrayContains(sourceItems.countries, [market]) : undefined,
     status === "active"

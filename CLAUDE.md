@@ -131,3 +131,4 @@
 - Tick 預算維持 120–250 秒（預設 200 秒）：預算 + 50 秒硬中止必須小於 Vercel 的 300 秒上限，一個 Meta 單位最長 45 秒、collect 單位 60 秒；調低會讓每個 tick 只做一個單位、撞到 40 個 tick 上限。測試或本機量測要強制分段時才用小預算。
 - 本機量測 pipeline 或跑 e2e 一律用示範資料庫的**複本**（`DATABASE_URL=pglite:<複本路徑>`），不要直接寫 `.data/dev`；e2e 伺服器設了 `PIPELINE_DISABLED=1`，不會送出真實請求。
 - CJ API（ADR-014、`docs/research/cj-api.md`）跟文件不一樣：`productDetail/query` 欄位全小寫、文件寫的 90 天銷量 `soldOut` 實測全是 null（用 `orderCount`，期間未公開）、`listV2` 的 `createAt` 是 null（上架時間在詳情的 `createdate` 字串）。`getAccessToken` 有頻率限制：token 存在 `api_tokens`（加密）重複使用，**不要**在測試或腳本裡反覆向 CJ 取 token；本機量測用複本時第一次會取一次。
+- Meta 廣告有兩種紀錄（ADR-015）：網站版 `externalId = <Library ID>`（provider `ad_library_web`）、官方 API `externalId = api|<Library ID>`（provider `ad_library_api`）。同一則廣告兩筆都會存；計算廣告數、廣告主、持久度或列表時要依「來源＋Library ID」去重（`dedupeAds`、`dedupeAdRecords`、`metaLibraryId`），不要用 `source_items.id` 直接數。官方 API 不要請求或儲存 `ad_snapshot_url`（網址含 token）。

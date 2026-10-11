@@ -9,6 +9,7 @@ import {
   type ItemInput,
 } from "./features";
 import { SCORING_VERSION, scoreProducts } from "./score";
+import { metaLibraryId } from "@/ingestion/sources/meta-ads";
 
 type Snapshot = ItemInput["snapshots"][number];
 
@@ -61,7 +62,8 @@ async function loadSnapshots(db: AnyDatabase) {
           count(*) over (partition by product_id) as total
         from (
           select si.product_id, (ss.observed_at at time zone 'UTC')::date as day,
-            count(distinct si.id) as ads
+            -- The same Meta ad from the website and the official API ("api|<id>") counts once.
+            count(distinct si.source || ':' || regexp_replace(si.external_id, '^api[|]', '')) as ads
           from ${signalSnapshots} ss
           join ${sourceItems} si on si.id = ss.source_item_id
           where si.product_id is not null and si.kind = 'ad' and si.started_at is not null
@@ -108,6 +110,7 @@ export async function runScoring(db: AnyDatabase, now: Date = new Date()) {
     .select({
       id: sourceItems.id,
       productId: sourceItems.productId,
+      externalId: sourceItems.externalId,
       source: sourceItems.source,
       provider: sourceItems.provider,
       kind: sourceItems.kind,
@@ -154,6 +157,7 @@ export async function runScoring(db: AnyDatabase, now: Date = new Date()) {
       currency: i.currency,
       countries: i.countries,
       snapshots: snapsByItem.get(i.id) ?? [],
+      ...(i.kind === "ad" ? { adKey: `${i.source}:${metaLibraryId(i.externalId)}` } : {}),
     };
     const list = itemsByProduct.get(i.productId!);
     if (list) list.push(input);

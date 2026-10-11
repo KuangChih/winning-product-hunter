@@ -75,6 +75,20 @@ describe("ad facts", () => {
     });
   });
 
+  it("counts an ad from the website and the official API once", () => {
+    const url = "https://www.facebook.com/ads/library/?id=7";
+    const facts = adFacts(
+      [
+        ad({ url, provider: "ad_library_api", startedAt: day(3), advertiserId: "p" }),
+        ad({ url, provider: "ad_library_web", startedAt: day(3), advertiserId: "p" }),
+        ad({ url: "https://www.facebook.com/ads/library/?id=8", provider: "ad_library_api" }),
+      ],
+      NOW,
+    );
+    expect(facts.totalAds).toBe(2);
+    expect(facts.activeAds).toBe(2);
+  });
+
   it("gives no numbers it does not have", () => {
     expect(adFacts([], NOW)).toEqual({
       totalAds: 0,

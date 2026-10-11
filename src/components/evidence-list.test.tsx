@@ -25,6 +25,52 @@ const base: EvidenceItem = {
   series: {},
 };
 
+describe("EvidenceList: official Meta API (ADR-015)", () => {
+  it("labels API ads, shows their reach or a dash, and shows an ad seen twice once", () => {
+    const url = "https://www.facebook.com/ads/library/?id=1";
+    render(
+      <EvidenceList
+        now={NOW}
+        locale="zh-TW"
+        evidence={[
+          {
+            ...base,
+            id: "w",
+            provider: "ad_library_web",
+            url,
+            advertiserName: "Glow",
+            countries: ["US"],
+          },
+          {
+            ...base,
+            id: "a",
+            provider: "ad_library_api",
+            url,
+            advertiserName: "Glow",
+            countries: ["GB"],
+            metrics: { eu_total_reach: 5000, uk_total_reach: 1200 },
+          },
+          {
+            ...base,
+            id: "b",
+            provider: "ad_library_api",
+            url: "https://www.facebook.com/ads/library/?id=2",
+            advertiserName: "Rücken",
+          },
+        ]}
+      />,
+    );
+    expect(screen.getByText("廣告（2）")).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        "Meta Ad Library + Meta 官方 API（英國／歐盟） · US, GB · 歐盟觸及 5,000 · 英國觸及 1,200",
+      ),
+    ).toBeInTheDocument();
+    expect(screen.getByText("Meta 官方 API（英國／歐盟） · 歐盟／英國觸及 —")).toBeInTheDocument();
+    expect(screen.getByText(/觸及人數是 Meta 自己估計/)).toBeInTheDocument();
+  });
+});
+
 describe("EvidenceList", () => {
   it("shows ad running days and status, the trend sparkline and supplier price", () => {
     render(

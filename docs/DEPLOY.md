@@ -2,16 +2,16 @@
 
 說明如何把 Winning Product Hunter 部署到 Vercel，並在網站上蒐集真實資料。架構背景見 ADR-003、ADR-013（[`loop/DECISIONS.md`](loop/DECISIONS.md)）。
 
-> **目前狀態**：適合使用者個人研究使用。網站有密碼保護（ADR-008），真實資料由「探索」頁（`/discover`）的「開始探索」按鈕與每日 Vercel Cron 蒐集（Meta Ad Library 公開網站、CJ Dropshipping 官方 API、Shopify Global Catalog、ECB 匯率）。網站不顯示任何樣本資料。尚未有多使用者帳號與付費功能；Meta 公開網頁資料限個人研究（ADR-006），對外開放前必須重新評估。
+> **目前狀態**：適合使用者個人研究使用。網站有密碼保護（ADR-008），真實資料由「探索」頁（`/discover`）的「開始探索」按鈕與每日 Vercel Cron 蒐集（Meta Ad Library 公開網站、Meta 官方 Ad Library API（英國／歐盟）、CJ Dropshipping 官方 API、Shopify Global Catalog、ECB 匯率）。網站不顯示任何樣本資料。尚未有多使用者帳號與付費功能；Meta 公開網頁資料限個人研究（ADR-006），對外開放前必須重新評估。
 
 **快速檢查清單**（細節在後面各節）：
 
 1. Vercel 匯入 GitHub repo（第 1 節）
 2. 加入 Neon 整合，取得 `DATABASE_URL`（第 2 節）
-3. Production 設定 `SITE_PASSWORD`、`CRON_SECRET` 與 `CJ_API_KEY`（第 4 節）
+3. Production 設定 `SITE_PASSWORD`、`CRON_SECRET`、`META_ACCESS_TOKEN` 與 `CJ_API_KEY`（第 4 節）
 4. 確認 **Fluid compute 開啟**（第 5 節）
 5. 部署（migration 自動套用，第 3 節）→ 登入 → `/discover` 按「開始探索」→ 看進度（第 6 節）
-6. Meta 擋了 Vercel 的話：Meta 搜尋自動退避，CJ 探索照常（第 7 節）
+6. Meta 擋了 Vercel 的話：Meta 網站搜尋自動退避，Meta 官方 API（英國／歐盟）與 CJ 探索照常（第 7 節）
 
 ## 1. 在 Vercel 匯入專案
 
@@ -52,6 +52,7 @@ npm run db:migrate
 | `DATABASE_URL`              | Production、Preview、Development | Neon 整合會自動設定                                                                                                                                                                                                            |
 | `SITE_PASSWORD`             | Production、Preview              | **必設**。設定後所有頁面都要輸入密碼；請用**至少 16 個隨機字元**。同一來源 15 分鐘內輸錯 10 次、或全站累計輸錯 100 次，會暫停登入 15 分鐘（ADR-010）。改密碼會讓所有裝置登出。**Production 沒設時「開始探索」一律拒絕**（fail closed）。本機開發可留空 |
 | `CRON_SECRET`               | Production                       | **建議設定**。每日自動探索（Vercel Cron）需要；至少 16 個隨機字元（建議 `openssl rand -hex 32`）。沒設時 cron 不執行（回 503）、探索頁顯示「每日自動探索尚未啟用」，按鈕仍可用。段與段之間的接續 token 也由它衍生（沒設時改用 `DATABASE_URL`） |
+| `META_ACCESS_TOKEN`         | Production                       | **建議設定**。Meta 官方 Ad Library API 的長效 user access token（申請步驟見 HUMAN_TODO 第 0 節，約 60 天過期）。有了它，探索會用官方 API 查英國＋歐盟目標國的 Meta 廣告（網站被擋時也照常，ADR-015）；沒設時「搜尋 Meta 官方 API（英國／歐盟）」步驟顯示「未設定」並跳過。token 只放在環境變數，不寫進資料庫或錯誤訊息 |
 | `CJ_API_KEY`                | Production                       | **建議設定**。CJ Dropshipping 官方 API 金鑰（CJ 後台 Apps → API → Add API）。有了它，探索會從 CJ 找有訂單的商品（Meta 被擋時也照常）並補上供貨價；沒設時「搜尋 CJ 熱銷商品」步驟顯示「未設定」並跳過。access token 由程式取得並加密存在資料庫（ADR-014） |
 | `PIPELINE_TICK_BUDGET_MS`   | Production                       | 選填，通常不用設。每段 tick 的軟性時間預算（毫秒，預設 200000）；要改請維持在 120000–250000 之間（見第 5 節）                                                                                                                   |
 | `PIPELINE_DISABLED`         | 任何                             | 選填。設為 `1` 關閉這個環境的 pipeline（緊急停止開關；探索頁顯示「這個部署已關閉探索功能」）                                                                                                                                       |
@@ -109,7 +110,9 @@ npm run db:migrate
 
 Vercel 對外是 AWS 機房 IP，Meta 可能直接擋（2026-10-11 實際回 HTTP 403）。依 ADR-006 我們不繞過，只退避：Meta 搜尋暫停 6 → 12 → 24 小時…（最多 7 天），時間到了自動再試，解封後資料自然補上。
 
-暫停期間探索照常進行（ADR-014）：「搜尋 CJ 熱銷商品」步驟用 CJ 官方 API 找 CJ 上有訂單、最近還在賣的商品並建立產品，接著照常查 Shopify、合併重複、評分。需要 Production 有 `CJ_API_KEY`（第 4 節）；設定或修改後要 Redeploy 才生效。
+暫停的只有網站版。「搜尋 Meta 官方 API（英國／歐盟）」步驟（ADR-015）是另一個服務，不受網站版退避影響：用 Production 的 `META_ACCESS_TOKEN` 查英國、德國、法國、瑞典、比利時、西班牙的 Meta 廣告，依「廣告顯示的網域＋廣告標題」分組成產品。美國、加拿大、澳洲、紐西蘭官方 API 沒有資料。官方 API 回「token 無效」時要換新的 token（約 60 天過期）；回速率限制（613）時官方 API 自己退避。
+
+暫停期間探索也照常進行（ADR-014）：「搜尋 CJ 熱銷商品」步驟用 CJ 官方 API 找 CJ 上有訂單、最近還在賣的商品並建立產品，接著照常查 Shopify、合併重複、評分。需要 Production 有 `CJ_API_KEY`（第 4 節）；設定或修改後要 Redeploy 才生效。
 
 - 只有 CJ 證據的產品，廣告相關的子分數會顯示「—」、可信度低，而且最高 50 分（只量到一個訊號）；詳情頁的「供應商報價」顯示 CJ 訂單數與上架數（CJ 平台計數，不是整個市場）。
 - CJ 回「點數用完」或「請求太多」時 CJ 也會退避，不重試；回「金鑰無效」時請檢查 `CJ_API_KEY`。
@@ -130,6 +133,7 @@ GitHub Actions 的「Pipeline (manual)」（`.github/workflows/daily-pipeline.ym
 | 每日自動探索沒有執行                                                                 | 沒設 `CRON_SECRET`（cron route 回 503）、今天已經掃過 Meta，或 Hobby 的 cron 還沒到觸發時間。到 Vercel → **Settings → Cron Jobs** 看執行紀錄。                                 |
 | Build log 出現 `DATABASE_URL is not set; skipping migrations.`                       | 該環境沒有設定資料庫，migration 被略過。                                                                                                                                       |
 | Meta 搜尋步驟被跳過（Meta 暫時擋下這台伺服器）                                         | 依 ADR-006 不繞過、自動退避；CJ 探索照常（第 7 節）。                                                                                                                          |
+| 「搜尋 Meta 官方 API（英國／歐盟）」被跳過或失敗 | 「未設定」：Production 沒有 `META_ACCESS_TOKEN`（設定後 Redeploy）。「Meta 拒絕了存取權杖」：token 過期或錯誤，換新的。「Meta 拒絕了這個請求」：app 可能還沒有 Ad Library API 權限（身分驗證）。速率限制：自動退避，之後會再試。 |
 | 「搜尋 CJ 熱銷商品」被跳過或失敗                                                       | 「未設定」：Production 沒有 `CJ_API_KEY`（設定後 Redeploy）。「CJ 拒絕了 API 金鑰」：金鑰錯或已刪除。「點數用完／請求太多」：CJ 自動退避，之後會再試。                                    |
 
 > 網站不顯示樣本資料（fixture 只留給自動測試，`npm run seed` 已移除）。

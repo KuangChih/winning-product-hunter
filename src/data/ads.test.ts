@@ -58,6 +58,29 @@ describe("getAds", () => {
   const titles = async (opts: Parameters<typeof getAds>[1]) =>
     (await getAds(t.db, { now: NOW, ...opts })).ads.map((a) => a.title);
 
+  it("lists an ad stored by both the website and the official API once (ADR-015)", async () => {
+    await t.db.insert(sourceItems).values([
+      ad({ externalId: "777", title: "Neck fan", startedAt: day(5) }),
+      ad({
+        externalId: "api|777",
+        provider: "ad_library_api",
+        title: "Neck fan",
+        startedAt: day(5),
+      }),
+      ad({
+        externalId: "api|778",
+        provider: "ad_library_api",
+        title: "Neck fan UK",
+        startedAt: day(4),
+      }),
+    ]);
+    const page = await getAds(t.db, { now: NOW, q: "neck" });
+    expect(page.ads.map((a) => [a.title, a.provider])).toEqual([
+      ["Neck fan", "ad_library_web"],
+      ["Neck fan UK", "ad_library_api"],
+    ]);
+  });
+
   it("lists real ads only, longest-running first, with the matched product", async () => {
     const page = await getAds(t.db, { now: NOW });
     expect(page.total).toBe(4);

@@ -80,6 +80,8 @@ export interface PipelineStatus extends Nullable<PipelineProgress> {
   cronConfigured: boolean;
   /** CJ discovery can run (`CJ_API_KEY` is set). Never the key itself. */
   cjConfigured: boolean;
+  /** The official Meta Ad Library API step can run (`META_ACCESS_TOKEN` is set). Never the token. */
+  metaApiConfigured: boolean;
   canStart: boolean;
   startBlockedReason: StartBlockedReason | null;
 }
@@ -99,6 +101,7 @@ export function toStatus(
     disabled: pipelineGate(env) !== null,
     cronConfigured: isCronConfigured(env),
     cjConfigured: !!env.CJ_API_KEY?.trim(),
+    metaApiConfigured: !!env.META_ACCESS_TOKEN?.trim(),
     canStart: blocked === null,
     startBlockedReason: blocked,
   };

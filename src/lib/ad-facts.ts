@@ -39,9 +39,46 @@ export function urlHost(url: string | null | undefined): string | null {
   return href ? new URL(href).hostname.toLowerCase().replace(/^www\./, "") : null;
 }
 
+/**
+ * The same Meta ad can be stored twice: from the Ad Library website and from the official API
+ * (ADR-015). Both records link to the same public Ad Library page, so source + link identify
+ * the real ad. Keeps one record per real ad (the website's when there are both: it has the
+ * format and the countries outside the UK/EU) and lists every provider that saw it; `merge`
+ * combines a twin into the kept record.
+ */
+export function dedupeAdRecords<
+  T extends { kind: string; source: string; url: string | null; provider?: string },
+>(
+  records: T[],
+  merge: (kept: T, twin: T) => T = (kept) => kept,
+): Array<T & { providers: string[] }> {
+  const out: Array<T & { providers: string[] }> = [];
+  const at = new Map<string, number>();
+  const apiLast = (r: T) => (r.provider === "ad_library_api" ? 1 : 0);
+  for (const r of [...records].sort((a, b) => apiLast(a) - apiLast(b))) {
+    const key = r.kind === "ad" && r.url ? `${r.source}|${r.url}` : null;
+    const i = key === null ? undefined : at.get(key);
+    if (i === undefined) {
+      if (key !== null) at.set(key, out.length);
+      out.push({ ...r, providers: r.provider ? [r.provider] : [] });
+      continue;
+    }
+    const kept = out[i];
+    out[i] = {
+      ...merge(kept, r),
+      providers:
+        r.provider && !kept.providers.includes(r.provider)
+          ? [...kept.providers, r.provider]
+          : kept.providers,
+    };
+  }
+  return out;
+}
+
 export interface FactsAd extends AdTiming {
   kind: string;
   source: string;
+  provider?: string;
   url: string | null;
   advertiserId: string | null;
   advertiserName: string | null;
@@ -63,7 +100,7 @@ export interface AdFacts {
 }
 
 export function adFacts(evidence: FactsAd[], now: Date): AdFacts {
-  const ads = evidence.filter((e) => e.kind === "ad");
+  const ads = dedupeAdRecords(evidence.filter((e) => e.kind === "ad"));
   const active = ads.filter((a) => isAdActive(a, now));
 
   const runs = ads.map((a) => adRunDays(a, now)).filter((d): d is number => d !== null);

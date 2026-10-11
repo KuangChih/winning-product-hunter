@@ -31,6 +31,7 @@ import {
   recordAttempts,
 } from "../targets";
 import { CJ_UNITS } from "./cj-units";
+import { META_API_UNITS } from "./meta-api-units";
 import type { Clock, RunnerDeps } from "./deps";
 import {
   AD_LIBRARY_PROVIDER,
@@ -133,8 +134,11 @@ const start: UnitDef = {
 
 // --- Ad Library requests ---------------------------------------------------------------------
 
+/** Ad Library website sweeps (the official API stages under "meta_api", see meta-api-units). */
+type AdBucket = Exclude<StageBucket, "meta_api">;
+
 const BUCKET: Record<
-  StageBucket,
+  AdBucket,
   {
     step: "discover" | "advertisers";
     progress: "keyword" | "advertiser";
@@ -167,7 +171,7 @@ const BUCKET: Record<
  * before anything else, and a retry of a request whose answer was already staged reuses it,
  * so Meta is never asked again after it refused us.
  */
-async function adRequest(ctx: UnitCtx, bucket: StageBucket): Promise<RunState> {
+async function adRequest(ctx: UnitCtx, bucket: AdBucket): Promise<RunState> {
   const { db, deps, clock, runId, signal } = ctx;
   const b = BUCKET[bucket];
   let s = ctx.state;
@@ -279,7 +283,7 @@ async function adRequest(ctx: UnitCtx, bucket: StageBucket): Promise<RunState> {
 }
 
 /** An Ad Library request interrupted 3 times: end the sweep there (never hammer Meta). */
-function poisonAdRequest(bucket: StageBucket) {
+function poisonAdRequest(bucket: AdBucket) {
   return ({ state: s }: UnitCtx, unit: UnitName): RunState => {
     const b = BUCKET[bucket];
     if (s.plan[b.plan] === null) return failUnit(s, unit, new Error("Interrupted 3 times"));
@@ -357,7 +361,7 @@ const advertisers: UnitDef = {
 
     const skip = (patch: Parameters<typeof setStep<"advertisers">>[2]): RunState => ({
       ...setStep({ ...s, plan: { ...s.plan, advertiserRequests: [] } }, "advertisers", patch),
-      cursor: "cj",
+      cursor: "meta_api",
     });
     if (!deps.adLibrary || options.advertisers === 0) {
       return skip({ status: "skipped", skipReason: "not_configured" });
@@ -395,7 +399,7 @@ const advertisers: UnitDef = {
  * Groups everything the sweep staged (across all its requests) and stores it. When the run was
  * wrapped up early (stall, tick limit), the next step is already skipped: go to the wrap-up.
  */
-function finalize(bucket: StageBucket, nextUnit: UnitName): UnitDef {
+function finalize(bucket: AdBucket, nextUnit: UnitName): UnitDef {
   const b = BUCKET[bucket];
   const nextStep = STEP_OF_UNIT[nextUnit]!;
   return {
@@ -774,7 +778,8 @@ export const UNITS: Record<Exclude<UnitName, "done">, UnitDef> = {
   discover,
   discover_finalize: finalize("keyword", "advertisers"),
   advertisers,
-  advertisers_finalize: finalize("advertiser", "cj"),
+  advertisers_finalize: finalize("advertiser", "meta_api"),
+  ...META_API_UNITS,
   ...CJ_UNITS,
   collect: collectUnit(COLLECT),
   stores: collectUnit(STORES),

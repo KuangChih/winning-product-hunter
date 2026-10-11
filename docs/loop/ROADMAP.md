@@ -29,8 +29,10 @@
   - [x] Meta 回應診斷：分成驗證碼 / 要求登入 / 403 / 429（被擋、退避）與頁面沒有內嵌結果 / 讀不出來（不算被擋、只停這次執行），診斷寫進 `ingestion_runs.error`、步驟錯誤與退避原因，探索頁白話說明 + 技術細節
   - [ ] [blocked: human — 需要下一次 Vercel 執行的「技術細節」] 依實際分類決定 Vercel 上的 Meta 策略（HUMAN_TODO 第 1 項）
   - [x] 2026-10-11：Vercel 實際回 HTTP 403。CJ 官方 API 探索（ADR-014）：Meta 被擋時照常從 CJ 找有訂單的商品並建立產品（`cj:<pid>`）、token 加密快取、點數／限流退避、探索頁步驟與提示、評分 v1.2（CJ 訂單數 + 證據太少上限 50 分）
-  - [ ] [blocked: human — 需要在 Vercel Production 加 `CJ_API_KEY` 並 Redeploy] 正式站實測 CJ 步驟（HUMAN_TODO 第 0 節）
-  - [ ] Meta 官方 Ad Library API 探索（英國／歐盟，計畫第 5 節）[blocked: human — 需要 `META_ACCESS_TOKEN`]
+  - [ ] [blocked: human — 需要在 Vercel Production 加 `CJ_API_KEY` 並 Redeploy] 正式站實測 CJ 步驟（HUMAN_TODO 第 0.1 節）
+  - [x] Meta 官方 Ad Library API 探索（英國／歐盟，ADR-015）：runner 步驟「搜尋 Meta 官方 API（英國／歐盟）」（不受網站版退避影響、每 run ≤ 10 次、613 退避／190 停止）、網域＋標題分組成產品（`meta-api:`）、保守掛到網站版產品、`api|<id>` 不覆蓋網站版、評分與介面依 Library ID 去重、觸及人數顯示；全部依官方文件格式的 fixture 測試
+  - [ ] [blocked: human — 需要 `META_ACCESS_TOKEN`（HUMAN_TODO 第 0 節）] 官方 API 真實請求實測（`docs/research/meta-ad-library-api.md` 第五節：`link_caption` 是否為網域、`total_reach_by_location` 形狀、網站與 API 的 ID 是否相同、多國查詢），在複本量測新增／掛上／略過的產品數，再到 Vercel 實測
+  - [ ] 官方 API 後續（實測之後）：依 `target_locations` 判斷歐盟國家（現在一次查多國只標得出英國）；觸及人數是否納入評分（先累積資料、回測）；需要時取第二頁（`after` 游標）
 
 ## Phase 4C — 找爆品能力強化（最優先；使用者 2026-10-10 要求：要能客觀、實質找到爆品）
 
@@ -67,7 +69,7 @@
 - [ ] [blocked: human — 需要 Pinterest 開發者 app] Pinterest Trends API adapter（US、CA、GB、AU+NZ）
 - [ ] [blocked: human — 需要 developer token] Google Ads API Keyword Planner adapter：關鍵字月搜尋量與趨勢
 - [x] Meta Ad Library API adapter（UK + EU，fixture 測試）：`createMetaAdsApiAdapter`，token 不進任何儲存或錯誤訊息（2026-10-11；官方 API 沒有 landing page 與創意變體數，不能取代網站版探索）
-- [ ] [blocked: human — 需要 `META_ACCESS_TOKEN`] 官方 API 補強觸及人數：對網站版找到、投放到 UK / EU 的廣告主用 `search_page_ids` 查 API，把 `eu_total_reach` / UK 觸及寫成 metric（新增「只補 metric、不覆蓋 raw 與 provider」的寫入路徑），先用 token 實測 `total_reach_by_location` 的形狀與速率限制
+- [ ] [blocked: human — 需要 `META_ACCESS_TOKEN`] 官方 API 補強觸及人數（廣告主）：對網站版找到、投放到 UK / EU 的廣告主用 `search_page_ids` 查 API。寫入路徑已由 ADR-015 解決（`api|<id>` 獨立紀錄、評分依 Library ID 去重），剩下的是挑選廣告主與請求預算
 - [ ] [blocked: human — 需要 TikTok API 核准] TikTok Commercial Content API adapter（UK + EU）
 - [ ] [blocked: 決策] TikTok 美國資料：公開 Creative Center 需頁面簽章（不偽造）且缺少商品識別；見 HUMAN_TODO 的選項
 - [ ] [blocked: 部署] 改用自己的 Shopify UCP agent profile（`SHOPIFY_UCP_AGENT_PROFILE`）

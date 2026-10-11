@@ -1,6 +1,7 @@
 import type { AnyDatabase } from "@/db/client";
 import type { RetryOptions, Sleep } from "@/ingestion/http";
 import type { CjClient } from "@/ingestion/sources/cj";
+import type { MetaApiClient } from "@/ingestion/sources/meta-ads";
 import type { SourceAdapter } from "@/ingestion/types";
 import type { FxRates } from "@/lib/fx";
 
@@ -23,6 +24,11 @@ export interface RunnerDeps {
    * `wait`). Absent: discovery and advertiser following are skipped.
    */
   adLibrary?(o: { mode: "keyword" | "advertiser"; countries: string[] }): SourceAdapter;
+  /**
+   * Official Meta Ad Library API client (ADR-015), one request per call. Absent (no
+   * `META_ACCESS_TOKEN`): the official-API step is skipped as not configured.
+   */
+  metaApi?(): MetaApiClient;
   /**
    * CJ Dropshipping API client (ADR-014); its access token is cached in `db`. Absent (no
    * `CJ_API_KEY`): the CJ step is skipped as not configured.

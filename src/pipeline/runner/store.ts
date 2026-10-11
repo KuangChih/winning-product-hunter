@@ -256,7 +256,7 @@ export async function recordKickResult(
 
 // --- Staged Ad Library results ---------------------------------------------------------------
 
-export type StageBucket = "keyword" | "advertiser";
+export type StageBucket = "keyword" | "advertiser" | "meta_api";
 
 export async function upsertStage(
   db: AnyDatabase,

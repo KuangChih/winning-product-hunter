@@ -9,7 +9,7 @@ import { createTestDb } from "@/db/testing/pglite";
 import { fixtureAdapters } from "@/ingestion/fixtures";
 import { runIngestion } from "@/ingestion/run";
 import { runMatching } from "@/matching/run";
-import { adDaysOf, extractFeatures, type ItemInput } from "./features";
+import { adDaysOf, dedupeAds, extractFeatures, type ItemInput } from "./features";
 import { runScoring } from "./run";
 import { SCORING_VERSION, scoreProducts } from "./score";
 import type { ProductFeatures } from "./features";
@@ -154,6 +154,30 @@ describe("extractFeatures", () => {
     // 2000 GBP → 3000 USD; median of [2000, 3000, 4000].
     expect(f.retailUsdCents).toBe(3000);
     expect(f.longevity).toBeNull();
+  });
+
+  it("counts an ad stored by both the website and the official API once (ADR-015)", () => {
+    const web = ad(20, { provider: "ad_library_web", adKey: "meta_ads:1", countries: ["US"] });
+    const api = ad(20, {
+      provider: "ad_library_api",
+      adKey: "meta_ads:1",
+      format: null,
+      countries: ["GB"],
+      snapshots: [{ metric: "eu_total_reach", value: 900, observedAt: NOW }],
+    });
+    const other = ad(2, { provider: "ad_library_api", adKey: "meta_ads:2", advertiserId: "a2" });
+    const once = extractFeatures([web, other], NOW, NOW);
+    const both = extractFeatures([api, web, other], NOW, NOW);
+    expect(both.activeAds).toBe(2);
+    expect(both.newAdActivity14d).toBe(once.newAdActivity14d);
+    expect(both.longevity).toBe(once.longevity);
+    // The API record adds the UK to the markets the ad reached.
+    expect(both.marketReach).toBeGreaterThan(once.marketReach!);
+    expect(dedupeAds([api, web])).toEqual([
+      { ...web, countries: ["US", "GB"], snapshots: api.snapshots },
+    ]);
+    // Without an ad key (e.g. other sources) nothing is merged.
+    expect(dedupeAds([ad(1), ad(1)])).toHaveLength(2);
   });
 });
 

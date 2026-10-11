@@ -240,7 +240,12 @@ const en = {
     showFewer: "Show fewer",
     unknownAdvertiser: "Unknown advertiser",
     metaWeb: "Meta Ad Library",
-    metaApi: "Meta Ads (EU API)",
+    metaApi: "Meta official API (UK/EU)",
+    euReach: "EU reach {n}",
+    ukReach: "UK reach {n}",
+    reachMissing: "EU/UK reach —",
+    reachNote:
+      "Reach is Meta's own estimate of accounts reached in the EU or the UK (official Ad Library API). The API reports no reach for other countries, so other markets show no number.",
     formats: { video: "video", image: "image", carousel: "carousel" } as Record<string, string>,
     sharedCreative: "{n} ads use this creative",
     started: "started {date}",
@@ -331,6 +336,7 @@ const en = {
       shopify_catalog: "Global Catalog",
       shopify_catalog_lookup: "Global Catalog (advertiser stores)",
       cj_api: "CJ Dropshipping API",
+      ad_library_api: "Ad Library API (UK/EU)",
     } as Record<string, string>,
     columns: {
       source: "Source",
@@ -373,8 +379,9 @@ const en = {
     stepsLabel: "Steps",
     steps: {
       fx: "Update exchange rates",
-      discover: "Search Meta ads",
+      discover: "Search Meta ads (Ad Library website)",
       advertisers: "Check advertisers' latest ads",
+      meta_api: "Search the official Meta API (UK/EU)",
       cj: "Search CJ best-selling products",
       collect: "Look up prices and competition on Shopify",
       stores: "Look up the advertisers' own store prices",
@@ -403,6 +410,20 @@ const en = {
     cjSkipReasons: {
       backoff: "CJ refused requests recently (rate or points limit), so CJ is paused for now",
       not_configured: "CJ is not set up (CJ_API_KEY is missing)",
+    } as Partial<Record<string, string>>,
+    /** Skip reasons of the official Meta API step. */
+    metaApiSkipReasons: {
+      backoff: "Meta's API asked us to slow down recently (rate limit), so it is paused for now",
+      not_configured: "The official Meta API is not set up (META_ACCESS_TOKEN is missing)",
+    } as Partial<Record<string, string>>,
+    metaApiFailures: {
+      token:
+        "Meta refused the access token (invalid or expired). Renew META_ACCESS_TOKEN in the settings; official API searches stopped for this run.",
+      rate_limited:
+        "Meta's API asked us to slow down (rate limit), so official API searches are paused.",
+      request:
+        "Meta refused the request. The app may not have Ad Library API access yet (identity confirmation); official API searches stopped for this run.",
+      service: "Meta's API had a temporary problem. It is tried again next run.",
     } as Partial<Record<string, string>>,
     cjFailures: {
       auth: "CJ refused the API key. Check CJ_API_KEY in the settings; CJ searches stopped for this run.",
@@ -455,9 +476,13 @@ const en = {
     blockedBody:
       "Meta refused requests from this server, so Meta searches are paused until {time}. We never try to get around a block; Meta is tried again automatically after that.",
     metaPausedCj:
-      "Discovery still runs without Meta: it searches CJ for products with real supplier sales, refreshes prices, merges duplicates and updates scores.",
+      "Discovery keeps running without the website: it searches CJ for products with real supplier sales, refreshes prices, merges duplicates and updates scores.",
     metaPausedNoCj:
       "Until then the button only refreshes prices, merges duplicates and updates scores. Adding CJ_API_KEY in the Vercel project settings lets discovery find products from CJ supplier sales while Meta is paused.",
+    metaApiOn:
+      "This pause is for the Ad Library website (the US and other markets). The official Meta API (UK/EU) is a separate service and keeps running.",
+    metaApiOff:
+      "The official Meta API (UK/EU) is not set up: adding META_ACCESS_TOKEN in the Vercel project settings gets UK and EU Meta ads even while the website is blocked.",
     dailyCapTitle: "Today's Meta searches are used up",
     dailyCapBody:
       "{used} of {cap} full Meta searches have run today, the daily automatic run included. The count resets at midnight UTC.",
@@ -738,7 +763,12 @@ const zhTW: Dictionary = {
     showFewer: "收合",
     unknownAdvertiser: "未知的廣告主",
     metaWeb: "Meta Ad Library",
-    metaApi: "Meta Ads（歐盟 API）",
+    metaApi: "Meta 官方 API（英國／歐盟）",
+    euReach: "歐盟觸及 {n}",
+    ukReach: "英國觸及 {n}",
+    reachMissing: "歐盟／英國觸及 —",
+    reachNote:
+      "觸及人數是 Meta 自己估計的歐盟或英國觸及帳號數（官方 Ad Library API）。API 不提供其他國家的觸及，所以其他市場沒有數字。",
     formats: { video: "影片", image: "圖片", carousel: "輪播" } as Record<string, string>,
     sharedCreative: "{n} 則廣告使用這個素材",
     started: "{date} 開始",
@@ -826,6 +856,7 @@ const zhTW: Dictionary = {
       shopify_catalog: "Global Catalog",
       shopify_catalog_lookup: "Global Catalog（廣告主商店）",
       cj_api: "CJ Dropshipping API",
+      ad_library_api: "Ad Library API（英國／歐盟）",
     } as Record<string, string>,
     columns: {
       source: "來源",
@@ -864,8 +895,9 @@ const zhTW: Dictionary = {
     stepsLabel: "步驟",
     steps: {
       fx: "更新匯率",
-      discover: "搜尋 Meta 廣告",
+      discover: "搜尋 Meta 廣告（Ad Library 網站）",
       advertisers: "查看廣告主的最新廣告",
+      meta_api: "搜尋 Meta 官方 API（英國／歐盟）",
       cj: "搜尋 CJ 熱銷商品",
       collect: "到 Shopify 查售價與競爭狀況",
       stores: "查廣告主自己商店的售價",
@@ -893,6 +925,18 @@ const zhTW: Dictionary = {
     cjSkipReasons: {
       backoff: "CJ 最近拒絕了請求（速率或點數上限），所以 CJ 暫停",
       not_configured: "尚未設定 CJ（缺少 CJ_API_KEY）",
+    },
+    metaApiSkipReasons: {
+      backoff: "Meta 官方 API 最近要求放慢（速率上限），所以暫停",
+      not_configured: "尚未設定 Meta 官方 API（缺少 META_ACCESS_TOKEN）",
+    },
+    metaApiFailures: {
+      token:
+        "Meta 拒絕了存取權杖（無效或過期）。請在設定中更新 META_ACCESS_TOKEN；這次執行已停止官方 API 搜尋。",
+      rate_limited: "Meta 官方 API 要求放慢速度（速率上限），所以官方 API 搜尋暫停。",
+      request:
+        "Meta 拒絕了這個請求，可能是 app 還沒有 Ad Library API 權限（身分驗證）；這次執行已停止官方 API 搜尋。",
+      service: "Meta 官方 API 暫時出了問題，下次執行會再試。",
     },
     cjFailures: {
       auth: "CJ 拒絕了 API 金鑰。請檢查設定中的 CJ_API_KEY；這次執行已停止 CJ 搜尋。",
@@ -942,9 +986,13 @@ const zhTW: Dictionary = {
     blockedBody:
       "Meta 拒絕了這台伺服器的請求，所以 Meta 搜尋會暫停到 {time}，我們不會嘗試繞過封鎖；時間到了會自動再試。",
     metaPausedCj:
-      "沒有 Meta 也會繼續探索：會到 CJ 搜尋有真實供應商銷量的產品，並更新售價、合併重複產品、重新評分。",
+      "沒有 Meta 網站也會繼續探索：會到 CJ 搜尋有真實供應商銷量的產品，並更新售價、合併重複產品、重新評分。",
     metaPausedNoCj:
       "在那之前按下按鈕只會更新售價、合併重複產品並重新評分。在 Vercel 專案設定加入 CJ_API_KEY 後，Meta 暫停期間也能從 CJ 的供應商銷量找到產品。",
+    metaApiOn:
+      "暫停的是 Meta Ad Library 網站的搜尋（美國等市場）。Meta 官方 API（英國／歐盟）是另一個服務，照常執行。",
+    metaApiOff:
+      "Meta 官方 API（英國／歐盟）尚未設定：在 Vercel 專案設定加入 META_ACCESS_TOKEN 後，網站被擋時仍能取得英國與歐盟的 Meta 廣告。",
     dailyCapTitle: "今天的 Meta 搜尋次數已用完",
     dailyCapBody:
       "今天已經做了 {used}/{cap} 次完整的 Meta 搜尋（含每日自動執行）。次數在 UTC 午夜（台灣時間早上 8 點）重新計算。",

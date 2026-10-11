@@ -160,6 +160,10 @@ describe("DiscoveryPanel", () => {
       screen.getByText(/searches CJ for products with real supplier sales/),
     ).toBeInTheDocument();
     expect(screen.queryByText(/own computer/)).not.toBeInTheDocument();
+    // The official API (UK/EU) is a separate service: it keeps running.
+    expect(
+      screen.getByText(/official Meta API \(UK\/EU\) is a separate service and keeps running/),
+    ).toBeInTheDocument();
     // Which case it was, in plain words, with the diagnostic folded away.
     expect(
       screen.getByText(/Meta asked to log in \(it sent us to a login page\)/),
@@ -181,9 +185,12 @@ describe("DiscoveryPanel", () => {
           dailySweepCap: 3,
         },
         cjConfigured: false,
+        metaApiConfigured: false,
       }),
       zh,
     );
+    // Without a token the page says what the official API would add.
+    expect(screen.getByText(/加入 META_ACCESS_TOKEN 後/)).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "今天的 Meta 搜尋次數已用完" })).toBeInTheDocument();
     expect(screen.getByText(/今天已經做了 3\/3 次/)).toBeInTheDocument();
     // Without a CJ key the page says what CJ would add instead of promising it.

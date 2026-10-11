@@ -24,7 +24,16 @@ export interface RunOptions {
 
 /** User-facing steps, in order. */
 export type StepName =
-  "fx" | "discover" | "advertisers" | "cj" | "collect" | "stores" | "dedupe" | "match" | "score";
+  | "fx"
+  | "discover"
+  | "advertisers"
+  | "meta_api"
+  | "cj"
+  | "collect"
+  | "stores"
+  | "dedupe"
+  | "match"
+  | "score";
 
 /** Units of work; `discover` and `advertisers` are one Ad Library request per unit. */
 export type UnitName =
@@ -33,6 +42,8 @@ export type UnitName =
   | "discover_finalize"
   | "advertisers"
   | "advertisers_finalize"
+  | "meta_api"
+  | "meta_api_finalize"
   | "cj"
   | "cj_details"
   | "cj_finalize"
@@ -46,7 +57,10 @@ export type UnitName =
   | "done";
 
 export type SkipReason =
-  /** The source (Meta, or CJ for the CJ step) blocked this egress recently (ADR-006 back-off). */
+  /**
+   * The source (Meta, the official Meta API or CJ for their steps) blocked this egress recently
+   * (ADR-006 back-off).
+   */
   | "backoff"
   /** Today's Meta sweeps are used up. */
   | "daily_cap"
@@ -138,6 +152,23 @@ export interface CjStepState extends StepState {
   stopped: { at: string; reason: string } | null;
 }
 
+/** One official Meta Ad Library API request: a keyword in the UK/EU target markets (ADR-015). */
+export interface MetaApiRequest {
+  query: string;
+  countries: string[];
+}
+
+export interface MetaApiStepState extends StepState {
+  /** Requests made (each counted before it is sent). */
+  requests: number;
+  /** Ads returned (with repeats across keywords). */
+  ads: number;
+  /** Requests that failed without Meta refusing us (network, Meta server error). */
+  failures: number;
+  /** Meta refused us (token, rate limit, request refused): no more API requests in this run. */
+  stopped: { at: string; reason: string } | null;
+}
+
 export interface DedupeStepState extends StepState {
   hashed: number;
   failed: number;
@@ -178,6 +209,8 @@ export interface RunState {
     stores: ProductQuery[] | null;
     /** CJ list requests (null until planned; absent in states saved before CJ existed). */
     cj?: CjListRequest[] | null;
+    /** Official Meta API requests (null until planned; absent in states saved before it). */
+    metaApi?: MetaApiRequest[] | null;
   };
   progress: {
     keyword: number;
@@ -188,6 +221,8 @@ export interface RunState {
     /** CJ list requests and detail requests done. */
     cjList?: number;
     cjDetail?: number;
+    /** Official Meta API requests done. */
+    metaApi?: number;
   };
   /** The unit in flight, written before it starts (a retry finds it). */
   unit: {
@@ -198,7 +233,12 @@ export interface RunState {
     ingestionRunId?: number;
   } | null;
   /** Next allowed request time per rate-limited source (epoch ms). */
-  rate: { adLibraryNextAt: number | null; shopifyNextAt: number | null; cjNextAt?: number | null };
+  rate: {
+    adLibraryNextAt: number | null;
+    shopifyNextAt: number | null;
+    cjNextAt?: number | null;
+    metaApiNextAt?: number | null;
+  };
   /** CJ products kept for details, best first (absent in states saved before CJ existed). */
   cjCandidates?: CjCandidate[];
   adLibrary: {
@@ -216,6 +256,8 @@ export interface RunState {
     fx: StepState;
     discover: StepState;
     advertisers: StepState;
+    /** Absent in states saved before the official Meta API step existed (see `upgradeState`). */
+    meta_api: MetaApiStepState;
     /** Absent in states saved before CJ existed (see `upgradeState`). */
     cj: CjStepState;
     collect: CollectStepState;
@@ -229,6 +271,8 @@ export interface RunState {
     newProducts: number;
     /** Products created from CJ in this run (absent in older states). */
     cjProducts?: number;
+    /** Products created from the official Meta API in this run (absent in older states). */
+    metaApiProducts?: number;
     /** Products created by matching other evidence. */
     matchedProducts: number;
     /** Ads seen for the first time in this run. */

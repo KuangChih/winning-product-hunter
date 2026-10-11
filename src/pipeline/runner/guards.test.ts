@@ -144,6 +144,19 @@ describe("live sources", () => {
     expect(isAdLibraryBlock(failure)).toBe(true);
   });
 
+  it("offers the official Meta API only with a token, and never retries it (ADR-015)", async () => {
+    expect(createLiveDeps({}).metaApi).toBeUndefined();
+    expect(createLiveDeps({ META_ACCESS_TOKEN: " " }).metaApi).toBeUndefined();
+    const fetchImpl = vi.fn<typeof fetch>(async () => new Response("", { status: 503 }));
+    const deps = createLiveDeps({ META_ACCESS_TOKEN: "guard-test-meta-token" }, { fetchImpl });
+    const err = await deps.metaApi!()
+      .search({ query: "neck fan", countries: ["GB"] })
+      .catch((e: unknown) => e);
+    expect(fetchImpl).toHaveBeenCalledTimes(1);
+    expect(String(err)).toMatch(/Meta Ad Library API HTTP 503/);
+    expect(String(err)).not.toContain("guard-test-meta-token");
+  });
+
   it("offers CJ only with a key, and never retries a CJ answer (ADR-014)", async () => {
     expect(createLiveDeps({}).cj).toBeUndefined();
     expect(createLiveDeps({ CJ_API_KEY: "  " }).cj).toBeUndefined();

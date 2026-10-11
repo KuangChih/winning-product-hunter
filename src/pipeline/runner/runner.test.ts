@@ -112,6 +112,7 @@ describe("pipeline runner (recorded responses)", () => {
       fx: "done",
       discover: "done",
       advertisers: "skipped",
+      meta_api: "skipped",
       cj: "skipped",
       collect: "done",
       stores: "done",

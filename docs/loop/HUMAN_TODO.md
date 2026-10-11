@@ -3,7 +3,21 @@
 Loop 遇到只有你能做的事（申請金鑰、建立帳號、付費、決策、部署）會寫在這裡，然後繼續做其他項目。
 處理完後打勾，把金鑰填進 `.env.local`（不要 commit），下一輪 loop 會自動接手。
 
-## 0. 在 Vercel 加入 CJ 金鑰（2026-10-11 新增，最優先）
+## 0. 申請 Meta 官方 Ad Library API 權杖 `META_ACCESS_TOKEN`（2026-10-11 新增，最優先）
+
+Meta 網站擋了 Vercel（HTTP 403），我們不繞過。合規又能在 Vercel 上拿到 Meta 廣告的方法只有官方 Ad Library API：探索已經加上「搜尋 Meta 官方 API（英國／歐盟）」步驟（ADR-015），**只差 token**。沒有 token 時這個步驟顯示「未設定」並跳過。
+
+- [ ] 1. 到 [facebook.com/ID](https://www.facebook.com/ID) 完成身分與所在地確認（刊登社會議題／政治廣告用的那一種；審核可能要幾天）。
+- [ ] 2. 到 [Meta for Developers](https://developers.facebook.com/) 按 Get Started 建立開發者帳號（同意 Platform Policy）。
+- [ ] 3. 回到 [Ad Library API](https://www.facebook.com/ads/library/api/) 按「Access the API」→ My Apps → Create App。
+- [ ] 4. 用 [Graph API Explorer](https://developers.facebook.com/tools/explorer/) 選這個 app 產生 User access token，**換成長效 token**（約 60 天過期；過期時探索頁會顯示「Meta 拒絕了存取權杖」，再換一次即可）。
+- [ ] 5. 把 token 加進**本機 `.env.local`** 的 `META_ACCESS_TOKEN=`（不要 commit），**也加進 Vercel → Settings → Environment Variables → Production**，然後 Redeploy。
+- [ ] 6. 告訴我已經加好：下一輪會先用少量真實請求實測（`docs/research/meta-ad-library-api.md` 第五節：網域欄位、觸及的格式、ID 是否與網站相同），在示範資料庫複本量測新增幾個英國／歐盟產品，再請你在 Vercel 按一次「開始探索」。
+- 能換到：Meta 網站被擋時，仍能從**英國＋德國、法國、瑞典、比利時、西班牙**的 Meta 廣告找到正在投放的產品（每次探索最多 10 次請求），並看到 Meta 自己估計的**歐盟／英國觸及人數**（網站版沒有）。已存在的網站版產品會掛上同一則廣告的官方紀錄，不會重複計算。
+- 費用：$0。
+- 限制：美國、加拿大、澳洲、紐西蘭、挪威的商業廣告官方 API 沒有；官方 API 沒有商品頁網址與圖片，所以產品是用「廣告顯示的網域＋廣告標題」分組，比網站版粗。
+
+## 0.1 在 Vercel 加入 CJ 金鑰（2026-10-11 新增）
 
 Meta 擋了 Vercel（HTTP 403），所以正式站一直沒有產品。現在探索多了「搜尋 CJ 熱銷商品」步驟（ADR-014），Meta 被擋時照常從 CJ 找有訂單的商品。
 
@@ -32,7 +46,7 @@ Meta 擋了 Vercel（HTTP 403），所以正式站一直沒有產品。現在探
   - (a) Meta 有沒有擋：探索頁是否出現「Meta 擋下了這台伺服器」，或「搜尋 Meta 廣告」步驟是失敗 / 已跳過；
   - (b) 段與段的接續有沒有失敗：是否出現「交接給下一段失敗」，或 `/api/pipeline/status` 的 `run.lastKickError` 不是 `null`（特別是 `HTTP 508`）；
   - (c) 最後狀態（完成 / 部分完成 / 失敗）、新增幾個產品，以及「產品」頁有沒有出現產品。
-  - 如果 Meta 擋了：Meta 搜尋自動退避（不繞過），CJ 探索照常（需要第 0 節的 `CJ_API_KEY`）。
+  - 如果 Meta 擋了：Meta 網站搜尋自動退避（不繞過），Meta 官方 API（英國／歐盟，需要第 0 節的 `META_ACCESS_TOKEN`）與 CJ 探索（需要第 0.1 節的 `CJ_API_KEY`）照常。
 - [ ] 7. **（2026-10-11 新增）Vercel 上 Meta 回了什麼**：第一次探索顯示「Meta 擋下了這台伺服器」，但舊版程式分不出原因。push 這次的更新並等退避結束（探索頁會寫暫停到幾點）後，再按一次「開始探索」，然後把探索頁「搜尋 Meta 廣告」步驟（或「Meta 擋下了這台伺服器」提示）裡的**「技術細節」整段貼給我**。內容只有 HTTP 狀態、最終網址（不含查詢字串）、頁面標題與幾個是/否標記，沒有個人資料。
   - 能換到：知道是「要求登入 / 驗證碼 / 403 / 429」（真的被擋，美國等市場靠 CJ 探索與 Meta 官方 API（英國／歐盟），或評估付費資料商）還是「頁面沒有內嵌廣告資料」（不算被擋，可能有別的作法），不再用猜的。費用 $0。
 - 成果：網站上有真實產品；每天 06:00 UTC（台灣 14:00）左右自動探索新產品、補證據、重新評分（07–09 點的 cron 只負責接續卡住的探索），開始累積評分回測需要的歷史（廣告動能需要 5 天以上、回測需要 4–8 週）。
@@ -46,7 +60,7 @@ Meta 擋了 Vercel（HTTP 403），所以正式站一直沒有產品。現在探
 
 ## 2. 申請帳號與金鑰（依優先順序，皆免費）
 
-1. [x] **CJ Dropshipping** → `CJ_API_KEY`（2026-10-11 已提供，本機 `.env.local`；Vercel 見第 0 節）
+1. [x] **CJ Dropshipping** → `CJ_API_KEY`（2026-10-11 已提供，本機 `.env.local`；Vercel 見第 0.1 節）
    - 已接上：CJ 探索步驟、CJ 訂單數與上架數、供貨價（ADR-014、`docs/research/cj-api.md`）。運費試算（到岸毛利）還沒接。
    - [ ] **CJ 服務條款確認**：API 資料（供貨價、訂單數）目前只給你個人研究使用；若之後對外開放或收費，要先讀 CJ Terms of Service 中關於 API 資料展示給第三方的條款，或寄信 `developer@cjdropshipping.com` 確認。
 2. [ ] **Google Cloud 專案 + OAuth client**：下面三個 Google 服務共用
@@ -56,10 +70,7 @@ Meta 擋了 Vercel（HTTP 403），所以正式站一直沒有產品。現在探
    - 成果：US、CA、GB、AU+NZ 的搜尋趨勢與成長率
 5. [ ] **Google Ads 管理員帳號 + developer token**（需申請 Basic access）→ `GOOGLE_ADS_DEVELOPER_TOKEN`
    - 成果：產品關鍵字的月搜尋量與趨勢
-6. [ ] **Meta 身分驗證（facebook.com/ID）+ Meta 開發者 app** → `META_ACCESS_TOKEN`
-   - 步驟：(1) 到 [facebook.com/ID](https://www.facebook.com/ID) 完成身分與所在地確認（刊登政治廣告用的那一種，可能要幾天）；(2) 到 [Meta for Developers](https://developers.facebook.com/) 按 Get Started 建立開發者帳號；(3) 回到 [Ad Library API](https://www.facebook.com/ads/library/api/) 按「Access the API」→ My Apps → Create App；(4) 用 [Graph API Explorer](https://developers.facebook.com/tools/explorer/) 選這個 app 產生 User access token，**換成長效 token**（約 60 天會過期，過期時探索會顯示 token 無效），填進 `.env.local` 與 Vercel 的 `META_ACCESS_TOKEN`。
-   - 成果：官方、從 Vercel 也能用的 UK + EU 廣告資料，**獨有的是觸及人數**（`eu_total_reach`、UK 觸及）——比「廣告數」更接近真實曝光的訊號。adapter 已寫好（fixture 測試），拿到 token 後先實測再接進 pipeline 當作補強。
-   - 限制：官方 API 沒有 landing page 網址與創意變體數，所以不能取代網站版的產品探索；美國、加拿大、澳洲、紐西蘭的商業廣告 API 完全沒有。費用 $0。
+6. [ ] **Meta 身分驗證（facebook.com/ID）+ Meta 開發者 app** → `META_ACCESS_TOKEN`：已移到第 0 節（最優先），探索步驟已寫好（ADR-015）。
 7. [ ] **TikTok for Developers + Commercial Content API 申請**（需審核）→ `TIKTOK_CLIENT_KEY`、`TIKTOK_CLIENT_SECRET`
    - 成果：UK + EU 的 TikTok 廣告資料
 8. [ ] **Google Trends API alpha 申請**（審核時間不定，先申請放著）

@@ -21,6 +21,46 @@ export interface ItemInput {
   countries: string[];
   /** Snapshots for this item, any order. */
   snapshots: Array<{ metric: string; value: number; observedAt: Date }>;
+  /**
+   * Ads only: which real ad this is (source + Ad Library ID). The same Meta ad can be stored
+   * twice, from the Ad Library website and from the official API (ADR-015); it counts once.
+   */
+  adKey?: string;
+}
+
+/**
+ * One item per real ad: records sharing an `adKey` become one ad. The website's record leads
+ * (it has the format and the creative-variant count); the official API's record adds its
+ * countries, snapshots (reach) and, when the website has none, its delivery dates.
+ */
+export function dedupeAds(items: ItemInput[]): ItemInput[] {
+  const out: ItemInput[] = [];
+  const byKey = new Map<string, number>();
+  const apiFirst = (i: ItemInput) => (i.provider === "ad_library_api" ? 1 : 0);
+  // Website records first, so they lead whatever the order of the input.
+  const ordered = [...items].sort((a, b) => apiFirst(a) - apiFirst(b));
+  for (const item of ordered) {
+    if (item.kind !== "ad" || !item.adKey) {
+      out.push(item);
+      continue;
+    }
+    const at = byKey.get(item.adKey);
+    if (at === undefined) {
+      byKey.set(item.adKey, out.length);
+      out.push(item);
+      continue;
+    }
+    const lead = out[at];
+    out[at] = {
+      ...lead,
+      startedAt: lead.startedAt ?? item.startedAt,
+      endedAt: lead.startedAt ? lead.endedAt : item.endedAt,
+      advertiserId: lead.advertiserId ?? item.advertiserId,
+      countries: [...new Set([...lead.countries, ...item.countries])],
+      snapshots: [...lead.snapshots, ...item.snapshots],
+    };
+  }
+  return out;
 }
 
 /**
@@ -123,6 +163,7 @@ export function extractFeatures(
    */
   adDays?: AdDays,
 ): ProductFeatures {
+  items = dedupeAds(items);
   const ads = items.filter((i) => i.kind === "ad" && i.startedAt);
   const active = ads.filter((a) => !a.endedAt || a.endedAt > now);
 
