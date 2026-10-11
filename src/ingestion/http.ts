@@ -23,6 +23,11 @@ export interface RetryOptions {
   timeoutMs?: number;
   sleep?: Sleep;
   fetchImpl?: typeof fetch;
+  /**
+   * Statuses returned to the caller as they are (no retry, no HttpError), e.g. so a caller can
+   * diagnose a 403 page itself.
+   */
+  acceptStatus?: (status: number) => boolean;
 }
 
 export const defaultSleep: Sleep = (ms, signal) =>
@@ -67,6 +72,7 @@ export async function fetchWithRetry(
     timeoutMs,
     sleep = defaultSleep,
     fetchImpl = fetch,
+    acceptStatus,
   } = opts;
   const outer = init.signal ?? undefined;
 
@@ -90,6 +96,7 @@ export async function fetchWithRetry(
     if (res.ok || (init.redirect === "manual" && res.status >= 300 && res.status < 400)) {
       return res;
     }
+    if (acceptStatus?.(res.status)) return res;
     if (!isRetryable(res.status) || attempt >= retries) {
       throw new HttpError(res.status, url, await res.text().catch(() => ""));
     }

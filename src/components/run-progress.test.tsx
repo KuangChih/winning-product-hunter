@@ -66,4 +66,50 @@ describe("RunProgressView", () => {
     expect(screen.getByText("2026-10-11 06:45 UTC 完成")).toBeInTheDocument();
     expect(screen.getByText("你的關鍵字：posture corrector")).toBeInTheDocument();
   });
+
+  it("says which Meta case happened (page without ad data is not called a block)", () => {
+    const error =
+      'Meta Ad Library [results_not_embedded] page has no embedded ad results (status=200; final=https://www.facebook.com/ads/library/; redirected=no; bytes=655040; title="Ad Library"; markers=ad_library_app)';
+    const run = runProgress({
+      status: "partial",
+      currentStep: null,
+      steps: STEPS.map((n) =>
+        n === "discover"
+          ? step(n, { status: "failed", error })
+          : n === "advertisers"
+            ? step(n, { status: "skipped", skipReason: "meta_unusable" })
+            : step(n, { status: "done" }),
+      ),
+    });
+    const { unmount } = render(<RunProgressView run={run} labels={zh} locale="zh-TW" />);
+    const row = rowOf("搜尋 Meta 廣告");
+    expect(within(row).getByText(/^頁面沒有內嵌廣告資料。這不一定是被擋/)).toBeInTheDocument();
+    expect(within(row).queryByText(/被擋）/)).toBeNull();
+    expect(within(row).getByText("技術細節")).toBeInTheDocument();
+    expect(within(row).getByText(error)).toBeInTheDocument();
+    expect(
+      within(rowOf("查看廣告主的最新廣告")).getByText(
+        "這次執行時 Meta 的頁面沒有可用的廣告資料，已停止 Meta 搜尋",
+      ),
+    ).toBeInTheDocument();
+    unmount();
+
+    render(
+      <RunProgressView
+        run={runProgress({
+          steps: STEPS.map((n) =>
+            n === "discover"
+              ? step(n, {
+                  status: "failed",
+                  error: "Meta Ad Library [captcha] Meta asks for a CAPTCHA (status=200)",
+                })
+              : step(n),
+          ),
+        })}
+        labels={en}
+        locale="en"
+      />,
+    );
+    expect(screen.getByText(/^Meta asked for a CAPTCHA/)).toBeInTheDocument();
+  });
 });

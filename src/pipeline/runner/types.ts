@@ -49,6 +49,8 @@ export type SkipReason =
   | "daily_cap"
   /** Meta blocked a request earlier in this run. */
   | "blocked"
+  /** Meta served a page without ad data earlier in this run (not a block): Meta stopped. */
+  | "meta_unusable"
   /** No adapter or nothing asked for (e.g. --advertisers=0). */
   | "not_configured"
   /** The run made no progress for too long and was wrapped up. */
@@ -141,6 +143,12 @@ export interface RunState {
     /** Requests reserved so far (counted before each one is sent). */
     requests: number;
     blocked: { at: string; reason: string } | null;
+    /**
+     * Meta answered with a page we could not use but did not refuse us (no embedded results,
+     * unreadable results): no back-off, but no more Meta requests in this run. Absent in
+     * states saved before it existed.
+     */
+    stopped?: { at: string; reason: string } | null;
   };
   steps: {
     fx: StepState;

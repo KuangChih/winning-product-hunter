@@ -37,6 +37,8 @@ import {
   clearBackoff,
   getBackoff,
   isAdLibraryBlock,
+  isAdLibraryStop,
+  isAdLibraryStopMessage,
   recordBlock,
 } from "./guards";
 import {
@@ -191,6 +193,15 @@ async function adRequest(ctx: UnitCtx, bucket: StageBucket): Promise<RunState> {
     if (staged.failure === null) {
       return idx + 1 >= requests.length ? { ...s, cursor: b.finalize } : s;
     }
+    if (isAdLibraryStopMessage(staged.failure) && !s.adLibrary.stopped) {
+      s = {
+        ...s,
+        adLibrary: {
+          ...s.adLibrary,
+          stopped: { at: new Date(clock.now()).toISOString(), reason: staged.failure },
+        },
+      };
+    }
     const backoff = await getBackoff(db, AD_LIBRARY_PROVIDER, deps.egress);
     if (backoff && backoff.until.getTime() > clock.now() && !s.adLibrary.blocked) {
       s = {
@@ -248,6 +259,14 @@ async function adRequest(ctx: UnitCtx, bucket: StageBucket): Promise<RunState> {
         adLibrary: {
           ...s.adLibrary,
           blocked: { at: blockedAt.toISOString(), reason: failureText! },
+        },
+      };
+    } else if (isAdLibraryStop(failure)) {
+      s = {
+        ...s,
+        adLibrary: {
+          ...s.adLibrary,
+          stopped: { at: new Date(clock.now()).toISOString(), reason: failureText! },
         },
       };
     }
@@ -343,6 +362,7 @@ const advertisers: UnitDef = {
       return skip({ status: "skipped", skipReason: "not_configured" });
     }
     if (s.adLibrary.blocked) return skip({ status: "skipped", skipReason: "blocked" });
+    if (s.adLibrary.stopped) return skip({ status: "skipped", skipReason: "meta_unusable" });
     if (!s.plan.adLibrary?.allowed) {
       return skip({ status: "skipped", skipReason: s.plan.adLibrary?.reason ?? "not_configured" });
     }

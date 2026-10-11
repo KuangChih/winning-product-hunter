@@ -25,6 +25,9 @@
 - [x] M6 詳情頁、廣告、收藏（摘要卡 + 重點數字 + 分數直條列 + 證據分區收合；詳情資料查詢中位數 16.4→10.5 ms；廣告卡片、收藏響應式清單、子分數縮寫說明）
 - [x] M7 文件收尾（ADR-013 最終行為、DEPLOY 端到端步驟、HUMAN_TODO、CLAUDE.md 已知陷阱、整體 review）
 - [ ] [blocked: human — 需要部署] 部署後實測：Meta 是否擋 Vercel 機房 IP、tick 自我接續是否遇到 508、Neon HTTP driver 下的 lease / 競態（見 HUMAN_TODO 第 1 項）
+  - 2026-10-11：Vercel 第一次探索顯示「Meta 擋下了這台伺服器」，但當時不知道 Meta 實際回了什麼
+  - [x] Meta 回應診斷：分成驗證碼 / 要求登入 / 403 / 429（被擋、退避）與頁面沒有內嵌結果 / 讀不出來（不算被擋、只停這次執行），診斷寫進 `ingestion_runs.error`、步驟錯誤與退避原因，探索頁白話說明 + 技術細節
+  - [ ] [blocked: human — 需要下一次 Vercel 執行的「技術細節」] 依實際分類決定 Vercel 上的 Meta 策略（HUMAN_TODO 第 1 項）
 
 ## Phase 4C — 找爆品能力強化（最優先；使用者 2026-10-10 要求：要能客觀、實質找到爆品）
 
@@ -54,7 +57,8 @@
 - [ ] [blocked: human — 需要 Merchant Center] Google Merchant API Best sellers adapter：每週 / 每月熱銷排名、`relative_demand` 與變化（11 國）
 - [ ] [blocked: human — 需要 Pinterest 開發者 app] Pinterest Trends API adapter（US、CA、GB、AU+NZ）
 - [ ] [blocked: human — 需要 developer token] Google Ads API Keyword Planner adapter：關鍵字月搜尋量與趨勢
-- [ ] [blocked: human — 需要 `META_ACCESS_TOKEN`] Meta Ad Library API adapter（UK + EU）：廣告持續天數、創意變體、觸及人數
+- [x] Meta Ad Library API adapter（UK + EU，fixture 測試）：`createMetaAdsApiAdapter`，token 不進任何儲存或錯誤訊息（2026-10-11；官方 API 沒有 landing page 與創意變體數，不能取代網站版探索）
+- [ ] [blocked: human — 需要 `META_ACCESS_TOKEN`] 官方 API 補強觸及人數：對網站版找到、投放到 UK / EU 的廣告主用 `search_page_ids` 查 API，把 `eu_total_reach` / UK 觸及寫成 metric（新增「只補 metric、不覆蓋 raw 與 provider」的寫入路徑），先用 token 實測 `total_reach_by_location` 的形狀與速率限制
 - [ ] [blocked: human — 需要 TikTok API 核准] TikTok Commercial Content API adapter（UK + EU）
 - [ ] [blocked: 決策] TikTok 美國資料：公開 Creative Center 需頁面簽章（不偽造）且缺少商品識別；見 HUMAN_TODO 的選項
 - [ ] [blocked: 部署] 改用自己的 Shopify UCP agent profile（`SHOPIFY_UCP_AGENT_PROFILE`）

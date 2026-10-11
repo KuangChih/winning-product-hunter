@@ -164,10 +164,15 @@ describe("pipeline runner (recorded responses)", () => {
     const run = await driveRun(t.db, deps(), (await newRun({ advertisers: 5 })).id);
     expect(run.status).toBe("partial");
     expect(run.state.steps.discover.status).toBe("failed");
-    expect(run.state.steps.discover.error).toMatch(/blocked/);
+    expect(run.state.steps.discover.error).toMatch(/\[login_wall\]/);
     expect(run.state.steps.advertisers).toMatchObject({ status: "skipped", skipReason: "blocked" });
     expect(run.state.steps.score.status).toBe("done");
-    expect(run.state.adLibrary.blocked?.reason).toMatch(/blocked the request/);
+    expect(run.state.adLibrary.blocked?.reason).toMatch(/\[login_wall\] Meta asks to log in/);
+    // The diagnostic is kept with the back-off and the ingestion run.
+    const [ingestion] = (await t.db.select().from(ingestionRuns)).filter(
+      (r) => r.provider === "ad_library_web",
+    );
+    expect(ingestion.error).toMatch(/status=200; .*title="Log in"; markers=login_title/);
 
     const [backoff] = await t.db.select().from(sourceBackoff);
     expect(backoff).toMatchObject({ provider: "ad_library_web", egress: "local", strikes: 1 });
@@ -185,6 +190,43 @@ describe("pipeline runner (recorded responses)", () => {
     // Another egress (the user's machine) is not blocked by it.
     const third = await driveRun(t.db, deps({ egress: "vercel" }), (await newRun()).id);
     expect(third.state.steps.discover.status).not.toBe("skipped");
+  });
+
+  it("a page without embedded results stops Meta for the run but is not a block (no back-off)", async () => {
+    const shell =
+      '<html><head><title>Ad Library</title></head><script type="application/json">' +
+      '{"ad_library_main":{"country_details":{}}}</script></html>';
+    adFetch.mockImplementation(async () => new Response(shell));
+    const run = await driveRun(
+      t.db,
+      deps(),
+      (await newRun({ keywords: ["a", "b"], advertisers: 5 })).id,
+    );
+    // One request, then Meta is left alone for the rest of the run.
+    expect(adFetch).toHaveBeenCalledTimes(1);
+    expect(run.status).toBe("partial");
+    expect(run.state.steps.discover.status).toBe("failed");
+    expect(run.state.steps.discover.error).toMatch(
+      /\[results_not_embedded\].*markers=ad_library_app/,
+    );
+    expect(run.state.adLibrary.blocked).toBeNull();
+    expect(run.state.adLibrary.stopped?.reason).toMatch(/results_not_embedded/);
+    expect(run.state.steps.advertisers).toMatchObject({
+      status: "skipped",
+      skipReason: "meta_unusable",
+    });
+    expect(run.state.steps.score.status).toBe("done");
+    // No egress back-off: the next run may ask Meta again (within the daily cap).
+    expect(await t.db.select().from(sourceBackoff)).toHaveLength(0);
+    const [ingestion] = (await t.db.select().from(ingestionRuns)).filter(
+      (r) => r.provider === "ad_library_web",
+    );
+    expect(ingestion).toMatchObject({ status: "failed" });
+    expect(ingestion.error).toMatch(/\[results_not_embedded\]/);
+
+    adFetch.mockImplementation(async () => new Response(adHtml));
+    const second = await driveRun(t.db, deps(), (await newRun()).id);
+    expect(second.state.steps.discover.status).toBe("done");
   });
 
   it("does not re-collect a product that already has fresh evidence", async () => {

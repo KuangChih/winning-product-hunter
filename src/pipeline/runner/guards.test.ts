@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createTestDb } from "@/db/testing/pglite";
 import { fetchDiscoveryItems } from "@/discovery/discover";
 import { HttpError } from "@/ingestion/http";
-import { AdLibraryBlockedError } from "@/ingestion/sources/meta-ad-library-web";
+import { AdLibraryBlockedError, adLibraryError } from "@/ingestion/sources/meta-ad-library-web";
 import { cliRunAction, parsePipelineArgs } from "@/jobs/pipeline";
 import { createLiveDeps, pipelineEgress, pipelineEnv } from "@/pipeline/live-deps";
 import {
@@ -11,6 +11,7 @@ import {
   clearBackoff,
   getBackoff,
   isAdLibraryBlock,
+  isAdLibraryStop,
   recordBlock,
 } from "./guards";
 import { DEFAULT_RUN_OPTIONS, parseKeywords, parseRunOptions, RunOptionsError } from "./options";
@@ -49,7 +50,15 @@ describe("Meta back-off", () => {
   });
 
   it("treats CAPTCHA, login walls and 403/429 as blocks", () => {
-    expect(isAdLibraryBlock(new AdLibraryBlockedError("CAPTCHA required"))).toBe(true);
+    expect(isAdLibraryBlock(new AdLibraryBlockedError("captcha", null))).toBe(true);
+    expect(isAdLibraryBlock(adLibraryError("login_wall", null))).toBe(true);
+    expect(isAdLibraryBlock(adLibraryError("http_403", null))).toBe(true);
+    // A page served without the results is not a block: it only stops the run.
+    expect(isAdLibraryBlock(adLibraryError("results_not_embedded", null))).toBe(false);
+    expect(isAdLibraryStop(adLibraryError("results_not_embedded", null))).toBe(true);
+    expect(isAdLibraryStop(adLibraryError("parse_error", null))).toBe(true);
+    expect(isAdLibraryStop(adLibraryError("captcha", null))).toBe(false);
+    expect(isAdLibraryStop(new Error("socket hang up"))).toBe(false);
     expect(isAdLibraryBlock(new HttpError(429, "https://www.facebook.com/ads/library/", ""))).toBe(
       true,
     );

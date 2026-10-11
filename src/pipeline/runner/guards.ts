@@ -5,7 +5,11 @@
 import { and, count, eq, gt, gte, lt, ne, sql } from "drizzle-orm";
 import type { AnyDatabase } from "@/db/client";
 import { pipelineRuns, sourceBackoff } from "@/db/schema";
-import { AdLibraryBlockedError } from "@/ingestion/sources/meta-ad-library-web";
+import {
+  AdLibraryBlockedError,
+  AdLibraryResponseError,
+} from "@/ingestion/sources/meta-ad-library-web";
+import { adLibraryFailureKind, isBlockKind } from "@/ingestion/sources/meta-ad-library-failure";
 import { HttpError } from "@/ingestion/http";
 import { DAILY_SWEEP_CAP } from "./options";
 import type { AdLibraryPlan } from "./types";
@@ -24,12 +28,28 @@ export function backoffMs(strikes: number): number {
   return Math.min(BACKOFF_FIRST_HOURS * 2 ** Math.max(0, strikes - 1), BACKOFF_MAX_HOURS) * HOUR;
 }
 
-/** Meta refused us (CAPTCHA, login wall, no results data, 403/429): stop and back off. */
+/** Meta refused us (CAPTCHA, login wall, 403/429): stop and back off. */
 export function isAdLibraryBlock(err: unknown): boolean {
   return (
     err instanceof AdLibraryBlockedError ||
     (err instanceof HttpError && (err.status === 403 || err.status === 429))
   );
+}
+
+/**
+ * Meta served a page we could not use without refusing us (no embedded results, unreadable
+ * results). Not a block, so no egress back-off: the run sends no more Meta requests, and the
+ * daily sweep cap (3 runs, each stopping at its first such page) bounds the requests to a few
+ * a day while the cause is looked into.
+ */
+export function isAdLibraryStop(err: unknown): boolean {
+  return err instanceof AdLibraryResponseError && !isAdLibraryBlock(err);
+}
+
+/** The same for a stored failure message (a retried request reuses its staged answer). */
+export function isAdLibraryStopMessage(message: string): boolean {
+  const kind = adLibraryFailureKind(message);
+  return kind !== null && !isBlockKind(kind);
 }
 
 export async function getBackoff(db: AnyDatabase, provider: string, egress: string) {

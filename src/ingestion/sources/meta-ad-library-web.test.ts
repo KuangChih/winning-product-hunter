@@ -69,7 +69,7 @@ describe("parseAdLibraryHtml (recorded real page, trimmed)", () => {
     expect(() => parseAdLibraryHtml("<html><title>Log in to Facebook</title></html>")).toThrow(
       AdLibraryBlockedError,
     );
-    expect(() => parseAdLibraryHtml("<html></html>")).toThrow(/no search results/);
+    expect(() => parseAdLibraryHtml("<html></html>")).toThrow(/results_not_embedded/);
   });
 });
 
@@ -126,7 +126,7 @@ describe("Ad Library web adapter", () => {
     const result = await runIngestion(t.db, adapter, { queries: ["x"], limit: 10 });
 
     expect(result.status).toBe("failed");
-    expect(result.error).toMatch(/blocked/);
+    expect(result.error).toMatch(/\[login_wall\]/);
     const [run] = await t.db.select().from(ingestionRuns);
     expect(run.status).toBe("failed");
   });

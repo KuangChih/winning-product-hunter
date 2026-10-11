@@ -1,5 +1,14 @@
 import { fetchWithRetry, type RetryOptions } from "../http";
 import type { FetchContext, FetchedItem, SourceAdapter } from "../types";
+import {
+  classifyAdLibraryResponse,
+  diagnoseAdLibraryResponse,
+  formatFailure,
+  isBlockKind,
+  type AdLibraryDiagnostic,
+  type AdLibraryFailureKind,
+  type ResponseFacts,
+} from "./meta-ad-library-failure";
 
 /**
  * Public Meta Ad Library website (facebook.com/ads/library), the only source of commercial
@@ -7,17 +16,42 @@ import type { FetchContext, FetchedItem, SourceAdapter } from "../types";
  * as JSON, so a single plain GET per query and country is enough: no browser, no login.
  *
  * Collection rules (ADR-006): honest User-Agent, one request every few seconds, a hard cap per
- * run, and stop immediately when Meta asks for a CAPTCHA, a login or returns no results data.
+ * run, and stop immediately when Meta asks for a CAPTCHA, a login, refuses (403/429) or serves a
+ * page without the results data (see `meta-ad-library-failure.ts` for the cases).
  */
 
 export const AD_LIBRARY_URL = "https://www.facebook.com/ads/library/";
 export const USER_AGENT = "WinningProductHunter/0.1 (personal research)";
 
-export class AdLibraryBlockedError extends Error {
-  constructor(reason: string) {
-    super(`Meta Ad Library blocked the request: ${reason}`);
+/**
+ * A Meta Ad Library page that could not be used, with its kind and a privacy-safe diagnostic
+ * (status, final URL without query, title, markers; never the page itself).
+ */
+export class AdLibraryResponseError extends Error {
+  constructor(
+    readonly kind: AdLibraryFailureKind,
+    readonly diagnostic: AdLibraryDiagnostic | null,
+  ) {
+    super(formatFailure(kind, diagnostic));
+    this.name = "AdLibraryResponseError";
+  }
+}
+
+/** Meta refused us (CAPTCHA, login wall, 403, 429): stop and back off (ADR-006). */
+export class AdLibraryBlockedError extends AdLibraryResponseError {
+  constructor(kind: AdLibraryFailureKind, diagnostic: AdLibraryDiagnostic | null) {
+    super(kind, diagnostic);
     this.name = "AdLibraryBlockedError";
   }
+}
+
+export function adLibraryError(
+  kind: AdLibraryFailureKind,
+  diagnostic: AdLibraryDiagnostic | null,
+): AdLibraryResponseError {
+  return isBlockKind(kind)
+    ? new AdLibraryBlockedError(kind, diagnostic)
+    : new AdLibraryResponseError(kind, diagnostic);
 }
 
 interface AdSnapshot {
@@ -101,34 +135,45 @@ function findKey(value: unknown, key: string): { owner: Record<string, unknown> 
   return undefined;
 }
 
-/** Extracts the embedded search results from the Ad Library search page HTML. */
-export function parseAdLibraryHtml(html: string): AdLibrarySearch {
+/**
+ * Extracts the embedded search results from the Ad Library search page HTML. A page without
+ * usable results throws an `AdLibraryResponseError` saying which case it is (`res`: the HTTP
+ * status, final URL and redirect flag, for the diagnostic).
+ */
+export function parseAdLibraryHtml(html: string, res: ResponseFacts = {}): AdLibrarySearch {
+  const fail = (kind?: AdLibraryFailureKind) => {
+    const d = diagnoseAdLibraryResponse(html, res);
+    return adLibraryError(kind ?? classifyAdLibraryResponse(d), d);
+  };
+  // An error page (403, 429) is never read as results, whatever it contains.
+  if (res.status != null && res.status >= 400) throw fail();
   const scripts = html.matchAll(/<script type="application\/json"[^>]*>([\s\S]*?)<\/script>/g);
   for (const [, text] of scripts) {
     if (!text.includes("search_results_connection")) continue;
-    const json: unknown = JSON.parse(text);
+    let json: unknown;
+    try {
+      json = JSON.parse(text);
+    } catch {
+      throw fail("parse_error");
+    }
     // Meta flags CAPTCHA challenges in the page data; we never try to solve them.
     const captcha = findKey(json, "xfb_ad_library_is_captcha_required");
-    if (captcha?.owner.xfb_ad_library_is_captcha_required === true) {
-      throw new AdLibraryBlockedError("CAPTCHA required");
-    }
+    if (captcha?.owner.xfb_ad_library_is_captcha_required === true) throw fail("captcha");
     const found = findKey(json, "search_results_connection");
     if (!found) continue;
     const conn = found.owner.search_results_connection as {
       count?: number;
       edges?: Array<{ node?: { collated_results?: LibraryAd[] } }>;
       page_info?: { has_next_page?: boolean };
-    };
+    } | null;
+    if (!conn || typeof conn !== "object") throw fail("parse_error");
     return {
       count: conn.count ?? 0,
       ads: (conn.edges ?? []).flatMap((e) => e.node?.collated_results ?? []),
       hasNextPage: conn.page_info?.has_next_page ?? false,
     };
   }
-  if (/login|checkpoint/i.test(html.slice(0, 5000))) {
-    throw new AdLibraryBlockedError("login or checkpoint page");
-  }
-  throw new AdLibraryBlockedError("no search results data in page");
+  throw fail();
 }
 
 const FORMATS: Record<string, string> = { VIDEO: "video", IMAGE: "image", DCO: "dynamic" };
@@ -225,11 +270,16 @@ export function createAdLibraryWebAdapter(opts: AdLibraryWebOptions): SourceAdap
               headers: { "User-Agent": USER_AGENT, "Accept-Language": "en-US,en;q=0.9" },
               signal: ctx.signal,
             },
-            // Do not hammer on 429: one retry at most, honoring Retry-After.
-            { retries: 1, ...opts.retry },
+            // 403 and 429 come back as pages to diagnose: never retried (stop and back off).
+            { retries: 1, ...opts.retry, acceptStatus: (st) => st === 403 || st === 429 },
           );
-          // A block ends the whole run (stop and back off); it is recorded in ingestion_runs.
-          const search = parseAdLibraryHtml(await res.text());
+          // An unusable page ends the whole run (a block also backs off); the diagnostic is
+          // recorded in ingestion_runs. Redirects are followed: `res.url` is where we ended up.
+          const search = parseAdLibraryHtml(await res.text(), {
+            status: res.status,
+            url: res.url,
+            redirected: res.redirected,
+          });
           const items = toFetchedItems(search, query, country, { summary: !target });
           for (const item of items) {
             if (emitted >= ctx.limit) return;

@@ -144,6 +144,8 @@ describe("DiscoveryPanel", () => {
           pausedUntil: "2026-10-11T18:00:00.000Z",
           reason: "backoff",
           strikes: 1,
+          blockReason:
+            'Meta Ad Library [login_wall] Meta asks to log in (status=200; final=https://www.facebook.com/login/; redirected=yes; bytes=40213; title="Log into Facebook"; markers=login_form,login_url)',
           sweepsToday: 1,
           dailySweepCap: 3,
         },
@@ -154,6 +156,12 @@ describe("DiscoveryPanel", () => {
     ).toBeInTheDocument();
     expect(screen.getByText(/paused until 2026-10-11 18:00 UTC/)).toBeInTheDocument();
     expect(screen.getByText(/run discovery on your own computer/)).toBeInTheDocument();
+    // Which case it was, in plain words, with the diagnostic folded away.
+    expect(
+      screen.getByText(/Meta asked to log in \(it sent us to a login page\)/),
+    ).toBeInTheDocument();
+    expect(screen.getByText("Technical details")).toBeInTheDocument();
+    expect(screen.getByText(/final=https:\/\/www\.facebook\.com\/login\//)).toBeInTheDocument();
     // The button still works (it refreshes prices and scores).
     expect(screen.getByRole("button", { name: "Start discovery" })).toBeEnabled();
     unmount();
@@ -164,6 +172,7 @@ describe("DiscoveryPanel", () => {
           pausedUntil: null,
           reason: "daily_cap",
           strikes: 0,
+          blockReason: null,
           sweepsToday: 3,
           dailySweepCap: 3,
         },

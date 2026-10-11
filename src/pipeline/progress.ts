@@ -49,6 +49,8 @@ export interface RunProgress {
   stalled: boolean;
   /** Meta blocked a request in this run. */
   blocked: { at: string; reason: string } | null;
+  /** Meta served a page without usable ad data in this run (not a block); Meta stopped. */
+  stopped: { at: string; reason: string } | null;
   /** Which of the day's Meta sweeps this run is (null: it did not sweep). */
   sweep: number | null;
   /** Custom keywords, or the rotation's keywords once planned. */
@@ -70,6 +72,8 @@ export interface PipelineProgress {
     reason: null | "backoff" | "daily_cap";
     /** Blocks in a row (the back-off doubles each time). */
     strikes: number;
+    /** What the last block was (stored error text with its diagnostic), while paused. */
+    blockReason: string | null;
     sweepsToday: number;
     dailySweepCap: number;
   };
@@ -78,7 +82,7 @@ export interface PipelineProgress {
 export interface ProgressInput {
   latest: PipelineRunRow | null;
   lastFinished: PipelineRunRow | null;
-  backoff: { until: Date; strikes: number } | null;
+  backoff: { until: Date; strikes: number; reason?: string | null } | null;
   sweepsToday: number;
   now: number;
 }
@@ -115,6 +119,7 @@ export function toRunProgress(run: PipelineRunRow, now: number): RunProgress {
     steps: state ? stepProgress(state) : [],
     stalled: isStalled(run, now),
     blocked: state?.adLibrary.blocked ?? null,
+    stopped: state?.adLibrary.stopped ?? null,
     sweep: state?.plan.adLibrary?.sweep ?? null,
     keywords: run.options.keywords ?? state?.plan.keywords ?? null,
     customKeywords: !!run.options.keywords,
@@ -140,6 +145,7 @@ export function toProgress(input: ProgressInput): PipelineProgress {
       pausedUntil: paused ? paused.until.toISOString() : null,
       reason: paused ? "backoff" : input.sweepsToday >= DAILY_SWEEP_CAP ? "daily_cap" : null,
       strikes: input.backoff?.strikes ?? 0,
+      blockReason: paused?.reason ?? null,
       sweepsToday: input.sweepsToday,
       dailySweepCap: DAILY_SWEEP_CAP,
     },

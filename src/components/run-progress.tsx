@@ -2,12 +2,19 @@ import { Check, Circle, CircleMinus, CircleX, LoaderCircle } from "lucide-react"
 import type { Dictionary } from "@/i18n/dictionaries";
 import { fill } from "@/i18n/format";
 import type { Locale } from "@/i18n/locales";
+import { adLibraryFailureKind } from "@/ingestion/sources/meta-ad-library-failure";
 import { classifyError } from "@/lib/discovery-client";
 import { formatUtc } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import type { RunProgress, StepProgress } from "@/pipeline/progress";
 
 export type DiscoverLabels = Dictionary["discover"];
+
+/** A Meta Ad Library page failure says which case it was; other errors say their kind. */
+export function explainError(message: string, labels: DiscoverLabels): string {
+  const meta = adLibraryFailureKind(message);
+  return meta ? labels.metaFailures[meta] : labels.errorKinds[classifyError(message)];
+}
 
 /**
  * A raw error from a source or the runner, explained in the page's language; the original
@@ -24,7 +31,7 @@ export function ErrorText({
 }) {
   return (
     <div className={cn("text-red-700 dark:text-red-400", className)}>
-      <p>{labels.errorKinds[classifyError(message)]}</p>
+      <p>{explainError(message, labels)}</p>
       <details className="text-muted-foreground">
         <summary className="cursor-pointer select-none">{labels.technicalDetails}</summary>
         <p lang="en" className="font-mono break-words">

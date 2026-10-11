@@ -20,7 +20,7 @@ import { formatUtc } from "@/lib/format";
 import type { RunProgress } from "@/pipeline/progress";
 import type { PipelineStatus } from "@/pipeline/web";
 import { Notice } from "./notice";
-import { RunProgressView, type DiscoverLabels } from "./run-progress";
+import { explainError, RunProgressView, type DiscoverLabels } from "./run-progress";
 import { buttonVariants } from "./ui/button";
 import { fieldClass } from "./ui/field";
 
@@ -48,6 +48,20 @@ export function DiscoveryNotices({
     notices.push(
       <Notice key="backoff" tone="warning" heading="h3" title={labels.blockedTitle}>
         <p>{fill(labels.blockedBody, { time: formatUtc(ad.pausedUntil) })}</p>
+        {ad.blockReason && (
+          <>
+            <p>
+              <span className="font-medium">{labels.blockedCause}</span>{" "}
+              {explainError(ad.blockReason, labels)}
+            </p>
+            <details className="text-muted-foreground">
+              <summary className="cursor-pointer select-none">{labels.technicalDetails}</summary>
+              <p lang="en" className="font-mono break-words">
+                {ad.blockReason}
+              </p>
+            </details>
+          </>
+        )}
       </Notice>,
     );
   } else if (ad?.reason === "daily_cap") {

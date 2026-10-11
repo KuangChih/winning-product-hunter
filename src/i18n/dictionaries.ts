@@ -382,6 +382,7 @@ const en = {
       backoff: "Meta is blocking this server for now",
       daily_cap: "Today's Meta searches are used up",
       blocked: "Meta blocked a request in this run",
+      meta_unusable: "Meta's page had no usable ad data in this run, so Meta searches stopped",
       not_configured: "Nothing to do this time",
       stalled: "No progress for too long",
       tick_limit: "Ran out of time",
@@ -415,6 +416,19 @@ const en = {
       service: "The site had a temporary problem on its side. It is retried next time.",
       other: "Something unexpected went wrong.",
     },
+    metaFailures: {
+      captcha:
+        "Meta asked for a CAPTCHA. Discovery never solves CAPTCHAs, so Meta searches are paused.",
+      login_wall:
+        "Meta asked to log in (it sent us to a login page). Discovery never logs in, so Meta searches are paused.",
+      http_403: "Meta answered HTTP 403 (access refused), so Meta searches are paused.",
+      http_429: "Meta answered HTTP 429 (too many requests), so Meta searches are paused.",
+      results_not_embedded:
+        "Meta's page had no embedded ad data. This is not necessarily a block: Meta searches stopped for this run and are tried again next run.",
+      parse_error:
+        "Meta's page had ad data we could not read (Meta may have changed its page). Meta searches stopped for this run.",
+    },
+    blockedCause: "What happened:",
     blockedTitle: "Meta is blocking this server",
     blockedBody:
       "Meta refused requests from this server, so Meta searches are paused until {time}. We never try to get around a block. Until then the button only refreshes prices, merges duplicates and updates scores. To search sooner, run discovery on your own computer: it writes to the same database (the deployment guide lists the steps).",
@@ -834,6 +848,7 @@ const zhTW: Dictionary = {
       backoff: "Meta 暫時擋下這台伺服器",
       daily_cap: "今天的 Meta 搜尋次數已用完",
       blocked: "這次執行時 Meta 擋下了請求",
+      meta_unusable: "這次執行時 Meta 的頁面沒有可用的廣告資料，已停止 Meta 搜尋",
       not_configured: "這次沒有需要做的項目",
       stalled: "太久沒有進展",
       tick_limit: "執行時間用完",
@@ -867,6 +882,16 @@ const zhTW: Dictionary = {
       service: "對方網站暫時出了問題，下次會再試。",
       other: "發生了預期之外的錯誤。",
     },
+    metaFailures: {
+      captcha: "Meta 要求驗證碼。探索不會代解驗證碼，所以 Meta 搜尋暫停。",
+      login_wall: "Meta 要求登入（被導到登入頁）。探索不會登入，所以 Meta 搜尋暫停。",
+      http_403: "Meta 回 HTTP 403（拒絕存取），所以 Meta 搜尋暫停。",
+      http_429: "Meta 回 HTTP 429（請求太多），所以 Meta 搜尋暫停。",
+      results_not_embedded:
+        "頁面沒有內嵌廣告資料。這不一定是被擋：這次執行停止 Meta 搜尋，下次執行會再試。",
+      parse_error: "頁面有廣告資料但讀不出來（Meta 可能改了頁面），這次執行停止 Meta 搜尋。",
+    },
+    blockedCause: "發生了什麼：",
     blockedTitle: "Meta 擋下了這台伺服器",
     blockedBody:
       "Meta 拒絕了這台伺服器的請求，所以 Meta 搜尋會暫停到 {time}，我們不會嘗試繞過封鎖。在那之前按下按鈕只會更新售價、合併重複產品並重新評分。如果想早點搜尋，可以在自己的電腦上執行探索，結果會寫進同一個資料庫（步驟見部署說明文件）。",

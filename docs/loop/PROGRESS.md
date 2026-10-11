@@ -253,3 +253,18 @@
   - Hobby 的 cron 在該小時內任何時間觸發，用量是否真的在免費額度內要看 Vercel Usage。
 - 其他限制：Meta 請求間隔固定 5 秒（CLAUDE.md 寫隨機間隔，已列 ROADMAP）；照片下載擋不到 DNS 解析到私有 IP 的網域；一天最多 3 次掃描會讓廣告動能偏高；「市場」含同類商品的國家；廣告 `countries` 只留最後一國、`groupAdsByLanding` 跨國重複計數（都已列 ROADMAP）。
 - 下一步：使用者部署並按一次「開始探索」回報結果；loop 回到 Phase 4C（售價覆蓋率）。
+
+## 2026-10-11 — Meta 回應診斷（Vercel 上「被擋」原因不明）＋ 官方 Ad Library API adapter
+
+- 背景：部署後在 Vercel 按「開始探索」，探索頁顯示「Meta 擋下了這台伺服器」（退避到 08:56 UTC）。舊程式只要頁面沒有 `search_results_connection` 就當成被擋，「登入頁」判斷是「前 5000 字含 login / checkpoint」，所以不知道 Meta 實際回了什麼。
+- 做了什麼：
+  - 新增 `src/ingestion/sources/meta-ad-library-failure.ts`：回應診斷（HTTP 狀態、轉址後最終網址只留 origin + path、是否轉址、位元組數、`<title>` ≤120 字、標記 captcha / login_form / login_title / login_url / checkpoint_url / results_json / ad_library_app），不存 HTML、cookie、查詢字串。分類 `captcha`、`login_wall`、`http_403`、`http_429`（被擋）與 `results_not_embedded`、`parse_error`（不算被擋）。
+  - 網站 adapter 用 `res.url` / `res.redirected` / `res.status`；`fetchWithRetry` 新增 `acceptStatus`，403 / 429 頁面交給診斷（不重試）。
+  - runner：被擋照舊依出口退避；`results_not_embedded` / `parse_error` 不退避，但寫入 `adLibrary.stopped`，這次執行不再送 Meta 請求（追蹤廣告主步驟跳過，`meta_unusable`）。理由：不一定是封鎖，誤判會把「做不到」說成「被擋」並擋掉 6 小時；每日 3 次掃描 × 每次第 1 個請求就停，影響受控。
+  - 探索頁：退避提示加「發生了什麼：」白話說明（中英文：Meta 要求登入 / 驗證碼 / HTTP 403 / 429 / 頁面沒有內嵌廣告資料 / 讀不出來）＋「技術細節」原文；步驟錯誤同樣依分類說明；舊格式的訊息也能辨識。
+  - 官方 API：查官方文件（Graph API v26.0；商業廣告只限「過去 1 年在 UK 或 EU 投放」；欄位清單見 research）。`meta-ads.ts` 新增 `createMetaAdsApiAdapter`（provider `ad_library_api`、只查 UK + EU 國家、關鍵字或粉專、游標分頁、請求上限、Graph 錯誤碼 190 / 613、錯誤訊息不含 token 與網址），`parseMetaAd` 不再保存含 access token 的 `ad_snapshot_url`。**沒有接進 runner**：官方 API 沒有 landing page 與創意變體數，而且同一則廣告（同 id）會覆蓋網站版的紀錄、弄掉 `landing_url`；正確做法是「補強觸及人數」，已寫進 ROADMAP（需要 token）。
+- 成效（真實資料）：本機住宅 IP 3 個真實請求（US、GB、AU，間隔 ≥6 秒，誠實 UA）都正常：HTTP 200、無轉址、約 655 KB、title「Ad Library」、有 results_json 與 ad_library_app、無 captcha / 登入標記；新解析器在 AU「neck fan」解析出 30 則廣告，沒有誤判。正常頁面全文有 11 個 `login`、2 個 `checkpoint`，證實舊的字串判斷可能誤判。Vercel 上的實際分類要等下一次執行（HUMAN_TODO 第 1 節第 7 項）。探索、比對、評分的數字不受影響（只改失敗時的分類與記錄）。
+- 驗證：format ✅ lint ✅ typecheck ✅ test ✅（63 檔 387 個；新增診斷 12、官方 API 4、runner 1、UI 2 個測試）build ✅ e2e ✅（47，示範資料庫複本）。瀏覽器實測（`next start` + 插入一筆 login_wall 退避的複本）：中英文提示與技術細節正確、375px 無橫向捲動、server log 無錯誤。
+- 踩到的坑：在 Git Bash 用 `DATABASE_URL=pglite:/c/Users/...` 會被 Node 當成 `C:\c\Users\...`，開出空資料庫，e2e 出現 2 個假失敗（「No products yet」strict mode）；要用 `pglite:C:/Users/...`。
+- 限制：診斷只能看到 Meta 回給我們的頁面，不能證明原因；`login_title` 依英文標題判斷；`total_reach_by_location` 的 JSON 形狀（`{key, value}`）與 UK 鍵名要拿到 token 後實測。
+- 下一步：使用者 push 後在 Vercel 再跑一次並貼上「技術細節」；loop 回到 Phase 4C。

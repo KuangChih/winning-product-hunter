@@ -21,6 +21,8 @@ Loop 遇到只有你能做的事（申請金鑰、建立帳號、付費、決策
   - (b) 段與段的接續有沒有失敗：是否出現「交接給下一段失敗」，或 `/api/pipeline/status` 的 `run.lastKickError` 不是 `null`（特別是 `HTTP 508`）；
   - (c) 最後狀態（完成 / 部分完成 / 失敗）、新增幾個產品，以及「產品」頁有沒有出現產品。
   - 如果 Meta 擋了：照 DEPLOY 第 7 節在自己電腦用 Production 的 Neon 連線字串跑 `npm run pipeline`（本機的退避與 Vercel 分開），網站就會有資料。
+- [ ] 7. **（2026-10-11 新增）Vercel 上 Meta 回了什麼**：第一次探索顯示「Meta 擋下了這台伺服器」，但舊版程式分不出原因。push 這次的更新並等退避結束（探索頁會寫暫停到幾點）後，再按一次「開始探索」，然後把探索頁「搜尋 Meta 廣告」步驟（或「Meta 擋下了這台伺服器」提示）裡的**「技術細節」整段貼給我**。內容只有 HTTP 狀態、最終網址（不含查詢字串）、頁面標題與幾個是/否標記，沒有個人資料。
+  - 能換到：知道是「要求登入 / 驗證碼 / 403 / 429」（真的被擋，美國等市場改在自己電腦跑或評估付費資料商）還是「頁面沒有內嵌廣告資料」（不算被擋，可能有別的作法），不再用猜的。費用 $0。
 - 成果：網站上有真實產品；每天 06:00 UTC（台灣 14:00）左右自動探索新產品、補證據、重新評分（07–09 點的 cron 只負責接續卡住的探索），開始累積評分回測需要的歷史（廣告動能需要 5 天以上、回測需要 4–8 週）。
 - 費用：預期在 Vercel Hobby 與 Neon 免費額度內，$0（每天最多 3 次探索、每次最多 40 段 function；實際用量部署後在 Vercel → Usage 確認）。
 - 不再需要：GitHub Actions 的每日排程（已移除，只保留手動執行，當作 Meta 擋 Vercel 時的另一個出口）。
@@ -43,7 +45,9 @@ Loop 遇到只有你能做的事（申請金鑰、建立帳號、付費、決策
 5. [ ] **Google Ads 管理員帳號 + developer token**（需申請 Basic access）→ `GOOGLE_ADS_DEVELOPER_TOKEN`
    - 成果：產品關鍵字的月搜尋量與趨勢
 6. [ ] **Meta 身分驗證（facebook.com/ID）+ Meta 開發者 app** → `META_ACCESS_TOKEN`
-   - 成果：UK + EU 廣告的持續天數、創意變體數、觸及人數（官方 API 獨有）
+   - 步驟：(1) 到 [facebook.com/ID](https://www.facebook.com/ID) 完成身分與所在地確認（刊登政治廣告用的那一種，可能要幾天）；(2) 到 [Meta for Developers](https://developers.facebook.com/) 按 Get Started 建立開發者帳號；(3) 回到 [Ad Library API](https://www.facebook.com/ads/library/api/) 按「Access the API」→ My Apps → Create App；(4) 用 [Graph API Explorer](https://developers.facebook.com/tools/explorer/) 選這個 app 產生 User access token，**換成長效 token**（約 60 天會過期，過期時探索會顯示 token 無效），填進 `.env.local` 與 Vercel 的 `META_ACCESS_TOKEN`。
+   - 成果：官方、從 Vercel 也能用的 UK + EU 廣告資料，**獨有的是觸及人數**（`eu_total_reach`、UK 觸及）——比「廣告數」更接近真實曝光的訊號。adapter 已寫好（fixture 測試），拿到 token 後先實測再接進 pipeline 當作補強。
+   - 限制：官方 API 沒有 landing page 網址與創意變體數，所以不能取代網站版的產品探索；美國、加拿大、澳洲、紐西蘭的商業廣告 API 完全沒有。費用 $0。
 7. [ ] **TikTok for Developers + Commercial Content API 申請**（需審核）→ `TIKTOK_CLIENT_KEY`、`TIKTOK_CLIENT_SECRET`
    - 成果：UK + EU 的 TikTok 廣告資料
 8. [ ] **Google Trends API alpha 申請**（審核時間不定，先申請放著）

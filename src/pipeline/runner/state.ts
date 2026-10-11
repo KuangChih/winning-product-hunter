@@ -106,7 +106,7 @@ export function initialState(now: Date, createdAt: Date = new Date()): RunState 
     progress: { keyword: 0, advertiser: 0, collect: 0, stores: 0, hashAttempted: 0 },
     unit: null,
     rate: { adLibraryNextAt: null, shopifyNextAt: null },
-    adLibrary: { requests: 0, blocked: null },
+    adLibrary: { requests: 0, blocked: null, stopped: null },
     steps: {
       fx: step(),
       discover: step(),
