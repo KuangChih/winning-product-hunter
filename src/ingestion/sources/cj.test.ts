@@ -173,7 +173,7 @@ describe("CJ client (recorded answers)", () => {
       kind: "listing",
       currency: "USD",
       // Discounted "0.52-3.89" → lowest price.
-      priceCents: 52,
+      priceCents: 389, // "0.52-3.89": the highest variant price (ADR-016)
       metrics: [
         { metric: "stores_listed", value: 23657 },
         { metric: "orders_total", value: 137 },

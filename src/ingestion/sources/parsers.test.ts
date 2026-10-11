@@ -115,12 +115,15 @@ describe("CJ Dropshipping parsers", () => {
         { metric: "orders_total", value: 1040 },
       ],
     });
-    // Variant price ranges use the lowest price; missing details mean no sales metrics.
-    expect(items[1]).toMatchObject({ priceCents: 247, metrics: [] });
+    // Variant price ranges use the highest price (never overstates a margin); missing details
+    // mean no sales metrics.
+    expect(items[1]).toMatchObject({ priceCents: 310, metrics: [] });
   });
 
   it("parses prices and throws on API errors", () => {
     expect(parseCjPriceCents("12")).toBe(1200);
+    expect(parseCjPriceCents("0.52-3.89")).toBe(389);
+    expect(parseCjPriceCents("0.74 -- 6.48")).toBe(648);
     expect(parseCjPriceCents(undefined)).toBeUndefined();
     expect(() =>
       parseCjProducts({ code: 1600001, result: false, message: "Invalid token", data: null }),

@@ -2,6 +2,7 @@ import { and, desc, eq, exists, inArray, not, sql } from "drizzle-orm";
 import type { AnyDatabase } from "@/db/client";
 import { productScores, products, signalSnapshots, sourceItems } from "@/db/schema";
 import type { FxRates } from "@/lib/fx";
+import { SEARCH_LISTING_PROVIDER, samePhotoOf } from "@/matching/same-photo";
 import type { ScoreBreakdown } from "@/scoring/score";
 import { getLatestFxRates } from "./fx";
 
@@ -28,6 +29,11 @@ export interface EvidenceItem {
   endedAt: Date | null;
   priceCents: number | null;
   currency: string | null;
+  /**
+   * Shopify search results: true when the result shows this product's own photo (the same
+   * product sold by another store, ADR-016); null when not compared; absent for other evidence.
+   */
+  samePhoto?: boolean | null;
   /** Latest value per metric. */
   metrics: Record<string, number>;
   /** Full history for metrics with more than one observation (e.g. search interest). */
@@ -140,6 +146,7 @@ export async function getProductDetail(
         endedAt: sourceItems.endedAt,
         priceCents: sourceItems.priceCents,
         currency: sourceItems.currency,
+        imageHash: sourceItems.imageHash,
       })
       .from(sourceItems)
       .where(eq(sourceItems.productId, product.id)),
@@ -164,7 +171,7 @@ export async function getProductDetail(
     else snapshotsByItem.set(s.sourceItemId, [s]);
   }
 
-  const evidence: EvidenceItem[] = items.map((i) => {
+  const evidence: EvidenceItem[] = items.map(({ imageHash, ...i }) => {
     const metrics: Record<string, number> = {};
     const series: Record<string, SeriesPoint[]> = {};
     for (const s of snapshotsByItem.get(i.id) ?? []) {
@@ -172,7 +179,15 @@ export async function getProductDetail(
       (series[s.metric] ??= []).push({ observedAt: s.observedAt, value: s.value });
     }
     for (const k of Object.keys(series)) if (series[k].length < 2) delete series[k];
-    return { ...i, landingUrl: i.kind === "ad" ? i.landingUrl : null, metrics, series };
+    return {
+      ...i,
+      landingUrl: i.kind === "ad" ? i.landingUrl : null,
+      ...(i.provider === SEARCH_LISTING_PROVIDER && i.kind === "store_product"
+        ? { samePhoto: samePhotoOf(product, { imageHash, title: i.title }) }
+        : {}),
+      metrics,
+      series,
+    };
   });
 
   const isSample = items.some((i) => i.provider === "fixture");

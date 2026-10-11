@@ -273,7 +273,10 @@ export function EvidenceList({
     .sort((a, b) => countryOrder(a) - countryOrder(b));
   const storeProducts = evidence.filter((e) => e.kind === "store_product");
   const ownListings = storeProducts.filter((e) => e.provider === OWN_LISTING_PROVIDER);
-  const similar = storeProducts.filter((e) => e.provider !== OWN_LISTING_PROVIDER);
+  const samePhoto = storeProducts.filter((e) => e.samePhoto === true);
+  const similar = storeProducts.filter(
+    (e) => e.provider !== OWN_LISTING_PROVIDER && e.samePhoto !== true,
+  );
   const listings = evidence.filter((e) => e.kind === "listing");
 
   const first = ads.slice(0, ADS_SHOWN_FIRST);
@@ -314,6 +317,19 @@ export function EvidenceList({
           <p className="text-muted-foreground text-xs">{t.ownStoresNote}</p>
           <StoreProducts
             items={ownListings}
+            supply={[]}
+            fxRates={fxRates}
+            t={t}
+            locale={locale}
+            newTab={newTab}
+          />
+        </Section>
+      )}
+      {samePhoto.length > 0 && (
+        <Section title={fill(t.samePhotoHeading, { n: samePhoto.length })} open>
+          <p className="text-muted-foreground text-xs">{t.samePhotoNote}</p>
+          <StoreProducts
+            items={samePhoto}
             supply={[]}
             fxRates={fxRates}
             t={t}

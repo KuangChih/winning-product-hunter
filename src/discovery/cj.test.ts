@@ -23,7 +23,7 @@ describe("CJ discovery rules", () => {
     );
     // B is listed by too few CJ users, D is not on sale; C and A are the two most listed.
     expect(first.map((c) => c.id)).toEqual(["C", "A"]);
-    expect(first[1]).toMatchObject({ priceCents: 247, foundBy: ["trending"], detail: null });
+    expect(first[1]).toMatchObject({ priceCents: 310, foundBy: ["trending"], detail: null });
     // A keyword finding A again only notes it; only its first `window` results count.
     const second = addCandidates(first, [p("A", 300), p("E", 2000), p("G", 5000)], "cat toy", {
       take: 3,

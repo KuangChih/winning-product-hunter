@@ -102,6 +102,12 @@ export const sourceItems = pgTable(
     title: text("title"),
     url: text("url"),
     imageUrl: text("image_url"),
+    /**
+     * dHash of `image_url` (Shopify search results only, ADR-016): tells same-photo listings
+     * (the same product sold by another store) from similar products. `-` = the photo could
+     * not be used; reset to null when `image_url` changes.
+     */
+    imageHash: text("image_hash"),
     /** Region as reported by the source: ISO 3166-1 alpha-2 country or a code such as "EU". */
     region: text("region"),
     /** ISO 3166-1 alpha-2 countries this item applies to (see src/lib/markets.ts). */

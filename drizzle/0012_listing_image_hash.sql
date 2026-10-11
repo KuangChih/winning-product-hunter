@@ -1,0 +1,1 @@
+ALTER TABLE "source_items" ADD COLUMN "image_hash" text;

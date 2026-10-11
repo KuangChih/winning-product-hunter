@@ -21,14 +21,16 @@ export function MarginEstimate({ estimate, t }: { estimate: Estimate; t: Diction
     <div className="space-y-3">
       <div className="grid gap-3 sm:grid-cols-3">
         <Figure
-          label={t.retail}
+          label={e.retailBasis === "same_photo" ? t.retailSamePhoto : t.retail}
           value={e.retailUsdCents === null ? "—" : usd(e.retailUsdCents)}
           note={
             e.retailUsdCents === null
               ? undefined
-              : e.retailOffers === 1
-                ? t.retailNoteOne
-                : fill(t.retailNote, { n: e.retailOffers })
+              : e.retailBasis === "same_photo"
+                ? fill(t.retailNoteSamePhoto, { n: e.retailOffers })
+                : e.retailOffers === 1
+                  ? t.retailNoteOne
+                  : fill(t.retailNote, { n: e.retailOffers })
           }
         />
         <Figure

@@ -1,7 +1,7 @@
 import type { Source } from "@/ingestion/types";
 import type { FxRates } from "@/lib/fx";
 import { MARKETS, marketWeight } from "@/lib/markets";
-import { marketRetailPrice, OWN_LISTING_PROVIDER } from "@/lib/retail-price";
+import { productRetailPrice, type RetailBasis } from "@/lib/retail-price";
 import { median, robustZ, theilSenSlope } from "./stats";
 
 const DAY = 86_400_000;
@@ -26,6 +26,12 @@ export interface ItemInput {
    * twice, from the Ad Library website and from the official API (ADR-015); it counts once.
    */
   adKey?: string;
+  /**
+   * Shopify search results only: true when the result shows this product's own photo (the same
+   * product sold by another store, ADR-016), false when compared and different, null/absent
+   * when not compared yet.
+   */
+  samePhoto?: boolean | null;
 }
 
 /**
@@ -88,8 +94,19 @@ export interface ProductFeatures {
   marketReach: number | null;
   /** Distinct stores selling it (Shopify Global Catalog sellers). */
   sellingStores: number | null;
-  /** The product's own retail price: the advertiser's store listing, in USD cents (ECB). */
+  /**
+   * The product's own retail price in USD cents (ECB): the advertiser's store listing, else the
+   * median of stores selling the same photo (`retailBasis`, ADR-016).
+   */
   retailUsdCents: number | null;
+  retailBasis: RetailBasis | null;
+  /** Stores behind a same-photo retail price (0 for the advertiser's own listing). */
+  retailStores: number;
+  /**
+   * Other stores selling this very product (search results with the product's own photo); null
+   * until at least one search result's photo was compared.
+   */
+  samePhotoStores: number | null;
   /** Theil-Sen slope of search interest per week, relative to the series median. */
   trendSlope: number | null;
   /**
@@ -222,16 +239,17 @@ export function extractFeatures(
   const sellingStores = storeProducts.length
     ? new Set(storeProducts.map((s) => s.advertiserId).filter(Boolean)).size
     : null;
-  // Only the advertiser's own listing is this product; search results are similar products.
-  const retail = marketRetailPrice(
-    storeProducts
-      .filter((s) => s.provider === OWN_LISTING_PROVIDER)
-      .flatMap((s) =>
-        s.priceCents === null ? [] : [{ priceCents: s.priceCents, currency: s.currency }],
-      ),
-    "US",
-    fx,
-  );
+  // The advertiser's own listing, else stores selling the same photo; never similar products.
+  const retail = productRetailPrice(storeProducts, fx);
+  const compared = storeProducts.filter((s) => s.samePhoto === true || s.samePhoto === false);
+  const samePhotoStores = compared.length
+    ? new Set(
+        compared
+          .filter((s) => s.samePhoto)
+          .map((s) => s.advertiserId)
+          .filter(Boolean),
+      ).size
+    : null;
 
   let trendSlope: number | null = null;
   const trendPoints = items
@@ -268,6 +286,9 @@ export function extractFeatures(
     marketReach,
     sellingStores,
     retailUsdCents: retail?.medianCents ?? null,
+    retailBasis: retail?.basis ?? null,
+    retailStores: retail?.stores ?? 0,
+    samePhotoStores,
     trendSlope,
     marketplaceOrders: orders.length
       ? Math.max(...orders)

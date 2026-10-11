@@ -1,8 +1,9 @@
-import { and, asc, desc, eq, inArray, isNull, notExists, sql } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, isNotNull, isNull, notExists, or, sql } from "drizzle-orm";
 import type { AnyDatabase } from "@/db/client";
 import { productScores, products, sourceItems } from "@/db/schema";
 import { sortByMarketPriority } from "@/lib/markets";
-import { marketRetailPrice, OWN_LISTING_PROVIDER } from "@/lib/retail-price";
+import { OWN_LISTING_PROVIDER, productRetailPrice, type RetailItem } from "@/lib/retail-price";
+import { SEARCH_LISTING_PROVIDER, samePhotoOf } from "@/matching/same-photo";
 import { getLatestFxRates } from "./fx";
 import { type ScoreBreakdown, SUB_SCORE_ORDER, type SubScoreName } from "@/scoring/score";
 
@@ -166,6 +167,7 @@ export async function getRankedProducts(
         title: products.title,
         category: products.category,
         imageUrl: products.imageUrl,
+        imageHash: products.imageHash,
         firstSeenAt: products.firstSeenAt,
       })
       .from(productScores)
@@ -189,26 +191,47 @@ export async function getRankedProducts(
     db
       .select({
         productId: sourceItems.productId,
+        provider: sourceItems.provider,
         priceCents: sourceItems.priceCents,
         currency: sourceItems.currency,
+        advertiserId: sourceItems.advertiserId,
+        countries: sourceItems.countries,
+        title: sourceItems.title,
+        imageHash: sourceItems.imageHash,
       })
       .from(sourceItems)
       .where(
         and(
           inArray(sourceItems.productId, rankedIds),
           eq(sourceItems.kind, "store_product"),
-          eq(sourceItems.provider, OWN_LISTING_PROVIDER),
+          isNotNull(sourceItems.priceCents),
+          // Own listings, and search results whose photo was hashed (same-photo prices).
+          or(
+            eq(sourceItems.provider, OWN_LISTING_PROVIDER),
+            and(
+              eq(sourceItems.provider, SEARCH_LISTING_PROVIDER),
+              isNotNull(sourceItems.imageHash),
+            ),
+          ),
         ),
       ),
     getLatestFxRates(db),
   ]);
   if (top.length === 0) return [];
-  const offersById = new Map<string, Array<{ priceCents: number; currency: string | null }>>();
-  for (const o of offers) {
-    if (o.productId === null || o.priceCents === null) continue;
-    const list = offersById.get(o.productId) ?? [];
-    list.push({ priceCents: o.priceCents, currency: o.currency });
-    offersById.set(o.productId, list);
+  const photoOf = new Map(top.map((p) => [p.productId, p]));
+  const offersById = new Map<string, RetailItem[]>();
+  for (const { productId, title, imageHash, ...o } of offers) {
+    if (productId === null) continue;
+    const list = offersById.get(productId) ?? [];
+    list.push({
+      ...o,
+      kind: "store_product",
+      samePhoto:
+        o.provider === SEARCH_LISTING_PROVIDER
+          ? samePhotoOf(photoOf.get(productId), { imageHash, title })
+          : undefined,
+    });
+    offersById.set(productId, list);
   }
   const evidenceById = new Map(evidence.map((e) => [e.productId, e]));
 
@@ -229,7 +252,7 @@ export async function getRankedProducts(
       markets: sortByMarketPriority(e?.countries ?? []),
       isSample: Number(e?.fixture ?? 0) > 0,
       retailUsdCents:
-        marketRetailPrice(offersById.get(s.productId) ?? [], "US", fx)?.medianCents ?? null,
+        productRetailPrice(offersById.get(s.productId) ?? [], fx)?.medianCents ?? null,
     };
   });
   const ranked = applyRankingFilters(all, filters);

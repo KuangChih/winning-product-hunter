@@ -10,6 +10,7 @@ import {
 } from "./features";
 import { SCORING_VERSION, scoreProducts } from "./score";
 import { metaLibraryId } from "@/ingestion/sources/meta-ads";
+import { SEARCH_LISTING_PROVIDER, samePhotoOf } from "@/matching/same-photo";
 
 type Snapshot = ItemInput["snapshots"][number];
 
@@ -121,6 +122,8 @@ export async function runScoring(db: AnyDatabase, now: Date = new Date()) {
       priceCents: sourceItems.priceCents,
       currency: sourceItems.currency,
       countries: sourceItems.countries,
+      title: sourceItems.title,
+      imageHash: sourceItems.imageHash,
     })
     .from(sourceItems)
     .where(isNotNull(sourceItems.productId));
@@ -130,7 +133,12 @@ export async function runScoring(db: AnyDatabase, now: Date = new Date()) {
     loadSnapshots(db),
     getLatestFxRates(db),
     db
-      .select({ id: products.id, firstSeenAt: products.firstSeenAt })
+      .select({
+        id: products.id,
+        firstSeenAt: products.firstSeenAt,
+        title: products.title,
+        imageHash: products.imageHash,
+      })
       .from(products)
       .where(
         inArray(
@@ -143,6 +151,7 @@ export async function runScoring(db: AnyDatabase, now: Date = new Date()) {
       ),
   ]);
 
+  const productById = new Map(productRows.map((p) => [p.id, p]));
   const itemsByProduct = new Map<string, ItemInput[]>();
   for (const i of items) {
     const input: ItemInput = {
@@ -158,6 +167,9 @@ export async function runScoring(db: AnyDatabase, now: Date = new Date()) {
       countries: i.countries,
       snapshots: snapsByItem.get(i.id) ?? [],
       ...(i.kind === "ad" ? { adKey: `${i.source}:${metaLibraryId(i.externalId)}` } : {}),
+      ...(i.provider === SEARCH_LISTING_PROVIDER && i.kind === "store_product"
+        ? { samePhoto: samePhotoOf(productById.get(i.productId!), i) }
+        : {}),
     };
     const list = itemsByProduct.get(i.productId!);
     if (list) list.push(input);

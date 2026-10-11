@@ -1,7 +1,7 @@
 import { MOMENTUM_MIN_BASELINE_DAYS, type ProductFeatures } from "./features";
 import { clamp, percentileRanks } from "./stats";
 
-export const SCORING_VERSION = "v1.2";
+export const SCORING_VERSION = "v1.3";
 
 /** Weights and parameters from docs/research/scoring.md. Tunable after back-testing. */
 export const SCORING_CONFIG = {
@@ -21,9 +21,10 @@ export const SCORING_CONFIG = {
   saturationMaxPenalty: 0.5,
   singleSourceCap: 70,
   /**
-   * A score measured on less than this share of the weights (one sub-score, e.g. a product
-   * known only from CJ's order count) is capped at `thinEvidenceCap`: one signal cannot put a
-   * product at the top of the ranking (ADR-014).
+   * A score measured on less than this share of the weights of demand signals (one sub-score,
+   * e.g. a product known only from CJ's order count) is capped at `thinEvidenceCap`: one signal
+   * cannot put a product at the top of the ranking (ADR-014). Margin does not count toward it:
+   * cheap to source says nothing about selling (ADR-016).
    */
   minEvidenceWeight: 0.25,
   thinEvidenceCap: 50,
@@ -71,6 +72,7 @@ export type ExplainKey =
   | "marketplace"
   | "marketplaceCjOrders"
   | "margin"
+  | "marginSamePhoto"
   | "marginNeedsRetail"
   | "marginNeedsSupplier";
 
@@ -110,7 +112,10 @@ function rankNullable(values: Array<number | null>): Array<number | null> {
   return out;
 }
 
-/** Gross margin before shipping: (retail − supplier cost) / retail, from Shopify and CJ. */
+/**
+ * Gross margin before shipping: (retail − supplier cost) / retail, from Shopify and CJ. Retail
+ * is the advertiser's own price, else the median of stores selling the same photo (ADR-016).
+ */
 function marginSubScore(f: ProductFeatures, weight: number): SubScore {
   if (f.retailUsdCents === null || f.supplierPriceCents === null || f.retailUsdCents <= 0) {
     return {
@@ -119,24 +124,25 @@ function marginSubScore(f: ProductFeatures, weight: number): SubScore {
       raw: null,
       basis:
         f.retailUsdCents === null
-          ? "Needs the advertiser's own store price (Shopify Global Catalog lookup)."
+          ? "Needs the advertiser's own store price, or stores selling the same photo (Shopify Global Catalog)."
           : "Needs a supplier cost (CJ Dropshipping).",
       explain: { key: f.retailUsdCents === null ? "marginNeedsRetail" : "marginNeedsSupplier" },
     };
   }
   const margin = (f.retailUsdCents - f.supplierPriceCents) / f.retailUsdCents;
+  const retail = (f.retailUsdCents / 100).toFixed(2);
+  const supplier = (f.supplierPriceCents / 100).toFixed(2);
+  const samePhoto = f.retailBasis === "same_photo";
   return {
     value: clamp(margin / SCORING_CONFIG.fullMargin),
     weight,
     raw: Math.round(margin * 1000) / 1000,
-    basis: `Gross margin before shipping: advertiser's price ${(f.retailUsdCents / 100).toFixed(2)} USD vs supplier ${(f.supplierPriceCents / 100).toFixed(2)} USD.`,
-    explain: {
-      key: "margin",
-      params: {
-        retail: (f.retailUsdCents / 100).toFixed(2),
-        supplier: (f.supplierPriceCents / 100).toFixed(2),
-      },
-    },
+    basis: samePhoto
+      ? `Gross margin before shipping: median price ${retail} USD of ${f.retailStores} stores selling the same photo vs supplier ${supplier} USD.`
+      : `Gross margin before shipping: advertiser's price ${retail} USD vs supplier ${supplier} USD.`,
+    explain: samePhoto
+      ? { key: "marginSamePhoto", params: { retail, supplier, stores: f.retailStores } }
+      : { key: "margin", params: { retail, supplier } },
   };
 }
 
@@ -220,10 +226,12 @@ export function scoreProducts(features: ProductFeatures[]): ProductScore[] {
 
     let weighted = 0;
     let available = 0;
-    for (const s of Object.values(subScores)) {
+    let demand = 0;
+    for (const [name, s] of Object.entries(subScores)) {
       if (s.value === null) continue;
       weighted += s.weight * s.value;
       available += s.weight;
+      if (name !== "margin") demand += s.weight;
     }
     const base = available > 0 ? weighted / available : 0;
 
@@ -238,7 +246,7 @@ export function scoreProducts(features: ProductFeatures[]): ProductScore[] {
 
     let score = clamp(100 * base * corroboration * (1 - penalty), 0, 100);
     let cap: { limit: number; reason: "single_source" | "thin_evidence" } | null = null;
-    if (available < SCORING_CONFIG.minEvidenceWeight) {
+    if (demand < SCORING_CONFIG.minEvidenceWeight) {
       cap = { limit: SCORING_CONFIG.thinEvidenceCap, reason: "thin_evidence" };
     } else if (f.sources.length < 2) {
       cap = { limit: SCORING_CONFIG.singleSourceCap, reason: "single_source" };

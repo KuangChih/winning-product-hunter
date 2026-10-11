@@ -116,12 +116,17 @@ function unwrap<T>(res: CjResponse<T>): T {
   return res.data;
 }
 
-/** Lowest USD price in cents from values like "3.80", "2.47 -- 3.10" or "0.52-3.89". */
+/**
+ * USD price in cents from values like "3.80", "2.47 -- 3.10" or "0.52-3.89": the highest price
+ * of a variant range (ADR-016). The lowest is often an accessory or a part (e.g. a plush toy's
+ * empty "shell" at 1.00), which made gross margins look like 96 %; the highest never overstates
+ * a margin. Which variant the stores sell is unknown (no variant matching yet).
+ */
 export function parseCjPriceCents(price: string | number | null | undefined): number | undefined {
   if (price === null || price === undefined || price === "") return undefined;
   if (typeof price === "number") return Math.round(price * 100);
   const numbers = price.match(/\d+(?:\.\d+)?/g)?.map(Number) ?? [];
-  return numbers.length ? Math.round(Math.min(...numbers) * 100) : undefined;
+  return numbers.length ? Math.round(Math.max(...numbers) * 100) : undefined;
 }
 
 /** CJ's public product page (the site asks browsers to pass a check; we never fetch it). */

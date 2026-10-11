@@ -301,6 +301,45 @@ describe("EvidenceList", () => {
     expect(screen.getByText(/shop\.example/)).toBeInTheDocument();
   });
 
+  it("lists search results with the product's own photo as the same product at other stores (ADR-016)", () => {
+    const found = (id: string, title: string, samePhoto: boolean | null): EvidenceItem => ({
+      ...base,
+      id,
+      source: "shopify",
+      provider: "shopify_catalog",
+      kind: "store_product",
+      title,
+      countries: ["US"],
+      advertiserName: id,
+      priceCents: 2500,
+      currency: "USD",
+      samePhoto,
+    });
+    const { container } = render(
+      <EvidenceList
+        now={NOW}
+        locale="zh-TW"
+        evidence={[
+          found("same1", "8 In 1 Mandoline Slicer", true),
+          found("same2", "8-in-1 Mandoline Vegetable Slicer", true),
+          found("other", "Spiral Slicer", false),
+          found("unknown", "Slicer Pro", null),
+        ]}
+      />,
+    );
+    const sections = [...container.querySelectorAll(":scope > div > details")];
+    expect(
+      sections.map((d) => [d.querySelector("h3")!.textContent, d.hasAttribute("open")]),
+    ).toEqual([
+      ["其他店家賣的同款商品（2）", true],
+      ["Shopify 商品目錄中的同類商品（2）", false],
+    ]);
+    expect(
+      within(sections[0] as HTMLElement).getByText("8 In 1 Mandoline Slicer"),
+    ).toBeInTheDocument();
+    expect(within(sections[1] as HTMLElement).getByText("Spiral Slicer")).toBeInTheDocument();
+  });
+
   it("says when there is no evidence", () => {
     render(<EvidenceList now={NOW} evidence={[]} />);
     expect(screen.getByText("No evidence collected yet.")).toBeInTheDocument();

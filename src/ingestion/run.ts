@@ -78,7 +78,12 @@ async function storeItem(db: AnyDatabase, meta: AdapterMeta, item: FetchedItem, 
     .onConflictDoUpdate({
       target: [sourceItems.source, sourceItems.externalId],
       // first_seen_at is deliberately left untouched.
-      set: { ...values, lastSeenAt: observedAt },
+      set: {
+        ...values,
+        lastSeenAt: observedAt,
+        // A new photo needs a new hash (ADR-016).
+        imageHash: sql`case when ${sourceItems.imageUrl} is distinct from excluded.image_url then null else ${sourceItems.imageHash} end`,
+      },
     })
     .returning({ id: sourceItems.id });
 

@@ -111,6 +111,8 @@ function unitKey(s: RunState): string {
       return `${planned(s.plan.stores)}${s.progress.stores}`;
     case "hash":
       return String(s.progress.hashAttempted);
+    case "listing_hash":
+      return String(s.progress.listingHashAttempted ?? 0);
     default:
       return "";
   }

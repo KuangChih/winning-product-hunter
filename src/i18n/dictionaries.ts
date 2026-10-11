@@ -67,7 +67,7 @@ const en = {
     any: "Any",
     minPrice: "Min. price (US$)",
     priceNote:
-      "Prices are the advertiser's own store price; similar products' prices are not used.",
+      "Prices are the advertiser's own store price, else the median of stores selling the same photo; similar products' prices are not used.",
     maxPrice: "Max. price (US$)",
     source: "Evidence",
     anySource: "Any source",
@@ -158,6 +158,7 @@ const en = {
     longestRunValue: "{n} days",
     markets: "Markets",
     retailPrice: "Advertiser's price (US)",
+    retailPriceSamePhoto: "Same-product price (US)",
     domains: "Ad landing domains",
     domainsWarnTitle: "Ads for this product link to {n} different domains",
     domainsWarnBody:
@@ -189,7 +190,8 @@ const en = {
       demandTrend: "Search interest slope per week relative to its median, ranked.",
       marketplace:
         "Sales on the supplier platform (CJ platform count): units sold in 90 days when CJ reports it, otherwise CJ's order count (period not published by CJ), ranked.",
-      margin: "Gross margin before shipping: the advertiser's own price vs supplier cost.",
+      margin:
+        "Gross margin before shipping: the advertiser's own price (else stores selling the same photo) vs supplier cost.",
     },
     /** Explanations stored as codes with each score, filled with that score's numbers. */
     explain: {
@@ -205,7 +207,10 @@ const en = {
         "Orders on CJ (CJ platform count; CJ does not publish the period), ranked against other products.",
       margin:
         "Gross margin before shipping: advertiser's price {retail} USD vs supplier {supplier} USD.",
-      marginNeedsRetail: "Needs the advertiser's own store price (Shopify Global Catalog lookup).",
+      marginSamePhoto:
+        "Gross margin before shipping: median price {retail} USD of {stores} stores selling the same photo vs supplier {supplier} USD.",
+      marginNeedsRetail:
+        "Needs the advertiser's own store price, or stores selling the same photo (Shopify Global Catalog).",
       marginNeedsSupplier: "Needs a supplier cost (CJ Dropshipping).",
     },
     corroboration: "Cross-source boost",
@@ -215,21 +220,24 @@ const en = {
     saturationStores: ", {n} stores selling similar products",
     cap: "Score cap",
     capApplied: "Applied: only one source (max {max})",
-    capAppliedThin: "Applied: only one signal measured (max {max})",
+    capAppliedThin: "Applied: only one demand signal measured, margin aside (max {max})",
     capNotApplied: "Not applied",
   },
   margin: {
     retail: "Advertiser's price (US)",
     retailNote: "Median of {n} advertiser stores",
     retailNoteOne: "From the advertiser's own store",
+    retailSamePhoto: "Same-product price (US)",
+    retailNoteSamePhoto: "Median of {n} stores selling the same photo",
     supplier: "Supplier cost",
     supplierNote: "Cheapest of {n} listings",
-    supplierNoteOne: "Cheapest of 1 listing",
+    supplierNoteOne: "1 listing (CJ: its most expensive variant)",
     grossMargin: "Gross margin",
     perUnit: "{amount} per unit",
     missing: "Not enough data for a margin yet: needs {items}.",
     missingJoin: " and ",
-    missingRetail: "the advertiser's own store price (Shopify Global Catalog lookup)",
+    missingRetail:
+      "the advertiser's own store price, or stores selling the same photo (Shopify Global Catalog)",
     missingSupplier: "a supplier cost (CJ Dropshipping listing)",
     caveat: "Before shipping, ad spend, payment fees and returns.",
   },
@@ -259,6 +267,9 @@ const en = {
     openTrends: "Open in Google Trends",
     ownStoresHeading: "Advertiser stores ({n})",
     ownStoresNote: "The advertisers' own product pages: this product and its real price.",
+    samePhotoHeading: "Same product at other stores ({n})",
+    samePhotoNote:
+      "Shopify search results showing this product's own photo (usually the same supplier photo), so very likely this very product sold by other stores. Their median price stands in when the advertiser's own price is missing. Open the links to check.",
     storesHeading: "Similar products in the Shopify catalog ({n})",
     similarNote:
       "Different products found by searching this product's name, from other stores. A market reference for price and competition, not this product's sales.",
@@ -385,7 +396,7 @@ const en = {
       cj: "Search CJ best-selling products",
       collect: "Look up prices and competition on Shopify",
       stores: "Look up the advertisers' own store prices",
-      dedupe: "Merge duplicate products",
+      dedupe: "Merge duplicates, compare store photos",
       match: "Link evidence to products",
       score: "Score products",
     },
@@ -597,7 +608,8 @@ const zhTW: Dictionary = {
     minScore: "最低分數",
     any: "不限",
     minPrice: "最低售價（US$）",
-    priceNote: "售價是廣告主自己商店的價格，不使用同類商品的價格。",
+    priceNote:
+      "售價是廣告主自己商店的價格，沒有時用賣同款（照片相同）商品的店家中位數；不使用同類商品的價格。",
     maxPrice: "最高售價（US$）",
     source: "證據來源",
     anySource: "不限來源",
@@ -688,6 +700,7 @@ const zhTW: Dictionary = {
     longestRunValue: "{n} 天",
     markets: "市場",
     retailPrice: "廣告主售價（美國）",
+    retailPriceSamePhoto: "同款商品售價（美國）",
     domains: "廣告連到的網域",
     domainsWarnTitle: "這個產品的廣告來自 {n} 個不同網域",
     domainsWarnBody:
@@ -715,7 +728,8 @@ const zhTW: Dictionary = {
       demandTrend: "每週搜尋熱度的斜率（相對於中位數），再排名。",
       marketplace:
         "供應商平台的銷量（CJ 平台計數）：CJ 有提供時用近 90 天售出件數，否則用 CJ 的訂單數（CJ 未公開期間），再排名。",
-      margin: "運費前毛利：廣告主自己的售價與供應商報價的差距。",
+      margin:
+        "運費前毛利：廣告主自己的售價（沒有時用賣同款、照片相同商品的店家售價）與供應商報價的差距。",
     },
     explain: {
       longevity: "投放最久的 3 則廣告的平均存活時間（已停止的廣告算一半）。",
@@ -728,7 +742,10 @@ const zhTW: Dictionary = {
       marketplaceCjOrders:
         "CJ 上的訂單數（CJ 平台計數；CJ 未公開統計期間），再跟其他產品比較排名。",
       margin: "運費前毛利：廣告主售價 {retail} USD，供應商報價 {supplier} USD。",
-      marginNeedsRetail: "需要廣告主自己商店的售價（Shopify Global Catalog 查詢）。",
+      marginSamePhoto:
+        "運費前毛利：{stores} 家賣同款（照片相同）商品的店家售價中位數 {retail} USD，供應商報價 {supplier} USD。",
+      marginNeedsRetail:
+        "需要廣告主自己商店的售價，或賣同款（照片相同）商品的店家售價（Shopify Global Catalog）。",
       marginNeedsSupplier: "需要供應商報價（CJ Dropshipping）。",
     },
     corroboration: "跨來源加成",
@@ -738,21 +755,24 @@ const zhTW: Dictionary = {
     saturationStores: "、{n} 家店賣同類商品",
     cap: "分數上限",
     capApplied: "已套用：只有一個來源（最高 {max} 分）",
-    capAppliedThin: "已套用：只量到一個訊號（最高 {max} 分）",
+    capAppliedThin: "已套用：只量到一個需求訊號，毛利不算（最高 {max} 分）",
     capNotApplied: "未套用",
   },
   margin: {
     retail: "廣告主售價（美國）",
     retailNote: "{n} 個廣告主商店的中位數",
     retailNoteOne: "廣告主自己的商店",
+    retailSamePhoto: "同款商品售價（美國）",
+    retailNoteSamePhoto: "{n} 家賣同款（照片相同）商品的店家中位數",
     supplier: "供貨成本",
     supplierNote: "{n} 個供應商報價中最便宜的",
-    supplierNoteOne: "1 個供應商報價",
+    supplierNoteOne: "1 個供應商報價（CJ 取最貴的規格）",
     grossMargin: "毛利率",
     perUnit: "每件 {amount}",
     missing: "資料還不夠算毛利：需要{items}。",
     missingJoin: "與",
-    missingRetail: "廣告主自己商店的售價（Shopify Global Catalog 查詢）",
+    missingRetail:
+      "廣告主自己商店的售價，或賣同款（照片相同）商品的店家售價（Shopify Global Catalog）",
     missingSupplier: "供應商報價（CJ Dropshipping）",
     caveat: "尚未扣除運費、廣告費、金流手續費與退貨。",
   },
@@ -782,6 +802,9 @@ const zhTW: Dictionary = {
     openTrends: "在 Google Trends 開啟",
     ownStoresHeading: "廣告主商店（{n}）",
     ownStoresNote: "廣告主自己的商品頁，也就是這個產品本身與它的實際售價。",
+    samePhotoHeading: "其他店家賣的同款商品（{n}）",
+    samePhotoNote:
+      "Shopify 搜尋結果中照片與這個產品相同的商品（通常是同一張供應商照片），很可能就是這個產品、由其他店家販售。沒有廣告主自己的售價時，用它們的售價中位數。可以點連結查證。",
     storesHeading: "Shopify 商品目錄中的同類商品（{n}）",
     similarNote:
       "用這個產品名稱搜尋到的其他店家商品，不是同一個產品。只作為售價與競爭程度的市場參考，不代表這個產品的銷量。",
@@ -901,7 +924,7 @@ const zhTW: Dictionary = {
       cj: "搜尋 CJ 熱銷商品",
       collect: "到 Shopify 查售價與競爭狀況",
       stores: "查廣告主自己商店的售價",
-      dedupe: "合併重複的產品",
+      dedupe: "合併重複的產品、比對同款照片",
       match: "把證據對應到產品",
       score: "計算分數",
     },

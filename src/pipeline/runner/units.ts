@@ -21,6 +21,7 @@ import {
 } from "@/ingestion/run";
 import type { SourceAdapter } from "@/ingestion/types";
 import { hashProductImages, mergeDuplicateProducts } from "@/matching/merge";
+import { hashListingPhotos } from "@/matching/listing-photos";
 import { runMatching } from "@/matching/run";
 import { runScoring } from "@/scoring/run";
 import {
@@ -70,6 +71,12 @@ export const STORES_BATCH = 10;
 /** Photos per hash unit, and at most this many per run. */
 export const HASH_BATCH = 30;
 export const HASH_PER_RUN = 100;
+/**
+ * Shopify search-result photos per listing-hash unit and per run (256 px thumbnails, ADR-016).
+ * A collect of 20 products leaves about 37 distinct photos per product (measured: 671 for 18).
+ */
+export const LISTING_HASH_BATCH = 30;
+export const LISTING_HASH_PER_RUN = 800;
 
 const AD_LIBRARY_META: AdapterMeta = { source: "meta_ads", provider: AD_LIBRARY_PROVIDER };
 
@@ -682,6 +689,33 @@ const hash: UnitDef = {
       { hashed: d.hashed + r.hashed, failed: d.failed + r.failed, skipped: d.skipped + r.skipped },
     );
     const more = r.more && attempted < HASH_PER_RUN && r.hashed + r.failed + r.skipped > 0;
+    return more ? s : { ...s, cursor: "listing_hash" };
+  },
+};
+
+/** Shopify search-result photos compared with the product's own photo (ADR-016). */
+const listingHash: UnitDef = {
+  worstMs: 60_000,
+  async run({ db, deps, clock, state, signal, softStop }) {
+    const done = state.progress.listingHashAttempted ?? 0;
+    const remaining = Number.isFinite(softStop) ? Math.max(15_000, softStop - clock.now()) : null;
+    const r = await hashListingPhotos(db, {
+      limit: Math.min(LISTING_HASH_BATCH, LISTING_HASH_PER_RUN - done),
+      retry: deps.imageRetry,
+      until: remaining === null ? undefined : Date.now() + remaining,
+      signal,
+    });
+    const d = state.steps.dedupe;
+    const attempted = done + r.hashed + r.failed;
+    const s = setStep(
+      { ...state, progress: { ...state.progress, listingHashAttempted: attempted } },
+      "dedupe",
+      {
+        listingsHashed: (d.listingsHashed ?? 0) + r.hashed,
+        listingsFailed: (d.listingsFailed ?? 0) + r.failed,
+      },
+    );
+    const more = r.more && attempted < LISTING_HASH_PER_RUN && r.hashed + r.failed > 0;
     return more ? s : { ...s, cursor: "merge" };
   },
 };
@@ -691,7 +725,9 @@ const merge: UnitDef = {
   async run({ db, state }) {
     const { merged } = await mergeDuplicateProducts(db);
     const d = state.steps.dedupe;
-    const detail = `${d.hashed} images hashed (${d.failed} failed), ${merged} duplicates merged`;
+    const detail =
+      `${d.hashed} images hashed (${d.failed} failed), ${merged} duplicates merged, ` +
+      `${d.listingsHashed ?? 0} store listing photos compared`;
     const s = setStep(state, "dedupe", {
       merged,
       detail,
@@ -784,6 +820,7 @@ export const UNITS: Record<Exclude<UnitName, "done">, UnitDef> = {
   collect: collectUnit(COLLECT),
   stores: collectUnit(STORES),
   hash,
+  listing_hash: listingHash,
   merge,
   match,
   score,

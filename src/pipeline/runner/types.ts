@@ -50,6 +50,7 @@ export type UnitName =
   | "collect"
   | "stores"
   | "hash"
+  | "listing_hash"
   | "merge"
   | "match"
   | "score"
@@ -174,6 +175,9 @@ export interface DedupeStepState extends StepState {
   failed: number;
   skipped: number;
   merged: number;
+  /** Shopify search-result photos hashed / unusable (ADR-016; absent in older states). */
+  listingsHashed?: number;
+  listingsFailed?: number;
 }
 
 /** One Ad Library page request: a keyword in one country, or an advertiser target. */
@@ -218,6 +222,8 @@ export interface RunState {
     collect: number;
     stores: number;
     hashAttempted: number;
+    /** Shopify search-result photos tried (absent in states saved before ADR-016). */
+    listingHashAttempted?: number;
     /** CJ list requests and detail requests done. */
     cjList?: number;
     cjDetail?: number;

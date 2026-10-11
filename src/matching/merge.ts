@@ -4,17 +4,11 @@ import { collectionAttempts, productScores, products, sourceItems, watchlist } f
 import { fetchWithRetry, type RetryOptions } from "@/ingestion/http";
 import { OWN_LISTING_PROVIDER } from "@/lib/retail-price";
 import { recordAttempts, type AttemptRow } from "@/pipeline/targets";
-import { dHash, hammingDistance } from "./image-hash";
-import { jaccard, titleTokens } from "./normalize";
+import { dHash } from "./image-hash";
+import { isSamePhoto, SAME_PHOTO_RULES } from "./same-photo";
 
 /** Thresholds for treating two products as the same item (tunable with a labeled set). */
-export const MERGE_RULES = {
-  /** Near-identical photo: same product even if titles differ (different store names). */
-  identicalImage: 2,
-  /** Similar photo: same product only if titles also overlap. */
-  similarImage: 8,
-  minTitleJaccard: 0.25,
-};
+export const MERGE_RULES = SAME_PHOTO_RULES;
 
 export interface HashCandidate {
   id: string;
@@ -36,17 +30,11 @@ export function findDuplicateGroups(candidates: HashCandidate[]): string[][] {
     parent.set(id, root);
     return root;
   };
-  const tokens = new Map(candidates.map((c) => [c.id, titleTokens(c.title)]));
-
   for (let i = 0; i < candidates.length; i++) {
     for (let j = i + 1; j < candidates.length; j++) {
       const a = candidates[i];
       const b = candidates[j];
-      const distance = hammingDistance(a.imageHash, b.imageHash);
-      const same =
-        distance <= MERGE_RULES.identicalImage ||
-        (distance <= MERGE_RULES.similarImage &&
-          jaccard(tokens.get(a.id)!, tokens.get(b.id)!) >= MERGE_RULES.minTitleJaccard);
+      const same = isSamePhoto(a, b);
       if (same) parent.set(find(a.id), find(b.id));
     }
   }
@@ -92,7 +80,7 @@ export function isAllowedImageUrl(url: string): boolean {
   return true;
 }
 
-async function readCapped(res: Response, maxBytes: number): Promise<Buffer> {
+export async function readCapped(res: Response, maxBytes: number): Promise<Buffer> {
   const declared = Number(res.headers.get("content-length"));
   if (declared > maxBytes) throw new Error(`Image too large (${declared} bytes)`);
   if (!res.body) return Buffer.from(await res.arrayBuffer());
@@ -115,7 +103,11 @@ async function readCapped(res: Response, maxBytes: number): Promise<Buffer> {
 const MAX_IMAGE_REDIRECTS = 3;
 
 /** Downloads an image, checking every redirect hop with `isAllowedImageUrl`. */
-async function fetchImage(url: string, init: RequestInit, opts: RetryOptions): Promise<Response> {
+export async function fetchImage(
+  url: string,
+  init: RequestInit,
+  opts: RetryOptions,
+): Promise<Response> {
   let current = url;
   for (let hop = 0; ; hop++) {
     const res = await fetchWithRetry(current, { ...init, redirect: "manual" }, opts);

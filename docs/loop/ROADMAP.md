@@ -31,7 +31,7 @@
   - [x] 2026-10-11：Vercel 實際回 HTTP 403。CJ 官方 API 探索（ADR-014）：Meta 被擋時照常從 CJ 找有訂單的商品並建立產品（`cj:<pid>`）、token 加密快取、點數／限流退避、探索頁步驟與提示、評分 v1.2（CJ 訂單數 + 證據太少上限 50 分）
   - [ ] [blocked: human — 需要在 Vercel Production 加 `CJ_API_KEY` 並 Redeploy] 正式站實測 CJ 步驟（HUMAN_TODO 第 0.1 節）
   - [x] Meta 官方 Ad Library API 探索（英國／歐盟，ADR-015）：runner 步驟「搜尋 Meta 官方 API（英國／歐盟）」（不受網站版退避影響、每 run ≤ 10 次、613 退避／190 停止）、網域＋標題分組成產品（`meta-api:`）、保守掛到網站版產品、`api|<id>` 不覆蓋網站版、評分與介面依 Library ID 去重、觸及人數顯示；全部依官方文件格式的 fixture 測試
-  - [ ] [blocked: human — 需要 `META_ACCESS_TOKEN`（HUMAN_TODO 第 0 節）] 官方 API 真實請求實測（`docs/research/meta-ad-library-api.md` 第五節：`link_caption` 是否為網域、`total_reach_by_location` 形狀、網站與 API 的 ID 是否相同、多國查詢），在複本量測新增／掛上／略過的產品數，再到 Vercel 實測
+  - [ ] [blocked: human — app 尚未取得 Ad Library API 權限 (code 10)；`.env.local` 已有 `META_ACCESS_TOKEN`，但請求回 code 10，見 HUMAN_TODO 第 0 節] 官方 API 真實請求實測（`docs/research/meta-ad-library-api.md` 第五節：`link_caption` 是否為網域、`total_reach_by_location` 形狀、網站與 API 的 ID 是否相同、多國查詢），在複本量測新增／掛上／略過的產品數，再到 Vercel 實測
   - [ ] 官方 API 後續（實測之後）：依 `target_locations` 判斷歐盟國家（現在一次查多國只標得出英國）；觸及人數是否納入評分（先累積資料、回測）；需要時取第二頁（`after` 游標）
 
 ## Phase 4C — 找爆品能力強化（最優先；使用者 2026-10-10 要求：要能客觀、實質找到爆品）
@@ -51,6 +51,13 @@
 - [ ] `groupAdsByLanding` 同一則廣告跨國重複計數：同一 ad id 在不同國家的搜尋結果會被算成多則，可能讓「有潛力」門檻與擴量訊號偏高；改成依 ad id 去重並量測受影響的產品數
 - [ ] 廣告動能雜訊：一天最多 3 次 Meta 掃描（ADR-013）會讓「每日觀測到的廣告數」偏高；改成只用每日排程（cron）的觀測或依日去重，並在示範資料庫量測分數差異
 - [ ] Meta 請求間隔加隨機抖動：CLAUDE.md 規則寫「隨機間隔」，目前固定 5 秒（M2 之前也是固定）
+- [ ] **CJ 請求節奏**（2026-10-11 量測發現，資料正確性優先）：同一天第 3 次探索（空資料庫、需要重新取 token）第 2 個請求就收到 `1600200 Too Many Requests, QPS limit is 1 time/1second`，CJ 步驟停止並對 `local` 出口退避。間隔 1.1 秒（從送出算）加上網路延遲抖動，CJ 那邊可能看到不到 1 秒的兩個請求；token 請求也沒有算進間隔。改成較寬的間隔（例如 1.5–2 秒）並把 token 請求納入節奏，在複本實測連續 3 次探索都不被限流；Vercel 上被擋 6 小時的代價遠大於多等幾十秒
+- [x] **同款照片比對 v1（ADR-016）**：Shopify 搜尋結果的照片與產品照片相同（dHash）→「其他店家賣的同款商品」，沒有廣告主售價時用同款店家售價中位數當售價（毛利、排名頁售價、詳情頁）；評分 v1.3「證據太少」上限只算需求訊號；CJ 供貨價改取規格區間最高價。Vercel 情境（只有 CJ 產品）：有毛利 0 → 4 / 18、同款店家 5 家
+- [ ] 同款照片比對後續：
+  - [ ] CJ 規格比對：供貨價現在取規格區間最高價（14 / 18 個 CJ 產品有區間，最高／最低差 1.1–34 倍），改用商品詳情的 variants 與店家售價對應的規格
+  - [ ] 同款店家數是否納入評分（跨店販售 = 需求？）：先累積資料、回測再決定；目前只顯示與用於售價
+  - [ ] 搜尋查詢：CJ 長標題的前 20 筆不一定含同款；評估用前 6 個字或 CJ 商品的關鍵字再查一次（每個產品多 5 次 Shopify 請求），量測同款店家數的增加
+  - [ ] 既有 Meta 產品（示範資料庫 208 個）也跑同款比對，量測有廣告主售價以外多出的售價覆蓋率
 - [ ] CJ 探索後續（ADR-014）：
   - [ ] CJ 產品在 Shopify collect 排在最後（還沒有分數時排序用 -1，200 多個 Meta 產品排在前面），補「跨店販售」證據前要調整挑選順序並量測
   - [ ] CJ 訂單數的統計期間：寄信問 CJ，或每天觀測同一商品的 `orderCount` 變化推算；確認後更新說明文字
@@ -63,7 +70,7 @@
 ## 等待金鑰、決策或資料量
 
 - [x] CJ Dropshipping API v2 adapter（2026-10-11，ADR-014）：Trending 與關鍵字列表、商品詳情（訂單數、上架數、上架時間）、供貨價；`soldOut`（90 天銷量）實測全是 null
-- [ ] CJ 運費試算（`freightCalculate`，10 點／次）與各倉庫存 → 評分 v2 的到岸毛利（CJ 部分已解除 blocked；先在複本量測有毛利的產品數）
+- [ ] CJ 運費試算（`freightCalculate`，10 點／次）與各倉庫存 → 評分 v2 的到岸毛利（CJ 部分已解除 blocked；ADR-016 之後 Vercel 情境已有 4 / 18 個產品有運費前毛利，運費能讓它變成到岸毛利）
 - [ ] [blocked: human — 需要 Pinterest / Merchant Center] 評分 v2：demandTrend 改用 Pinterest / Google Best sellers
 - [ ] [blocked: human — 需要 Merchant Center] Google Merchant API Best sellers adapter：每週 / 每月熱銷排名、`relative_demand` 與變化（11 國）
 - [ ] [blocked: human — 需要 Pinterest 開發者 app] Pinterest Trends API adapter（US、CA、GB、AU+NZ）

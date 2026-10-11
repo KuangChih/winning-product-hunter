@@ -75,6 +75,7 @@ async function ProductDetailView({
         facts={facts}
         markets={markets}
         retailUsdCents={margin.retailUsdCents}
+        retailBasis={margin.retailBasis}
         locale={locale}
       />
 

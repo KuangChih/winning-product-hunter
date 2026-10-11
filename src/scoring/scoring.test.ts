@@ -153,7 +153,45 @@ describe("extractFeatures", () => {
     expect(f.sellingStores).toBe(3);
     // 2000 GBP → 3000 USD; median of [2000, 3000, 4000].
     expect(f.retailUsdCents).toBe(3000);
+    expect(f.retailBasis).toBe("own_listing");
+    expect(f.samePhotoStores).toBeNull();
     expect(f.longevity).toBeNull();
+  });
+
+  it("prices a product without its own listing from stores selling the same photo (ADR-016)", () => {
+    const found = (seller: string, cents: number, samePhoto: boolean | null): ItemInput => ({
+      source: "shopify",
+      provider: "shopify_catalog",
+      kind: "store_product",
+      advertiserId: seller,
+      format: null,
+      startedAt: null,
+      endedAt: null,
+      priceCents: cents,
+      currency: "USD",
+      countries: ["US"],
+      snapshots: [],
+      samePhoto,
+    });
+    const f = extractFeatures(
+      [
+        found("a.com", 1800, true),
+        found("b.com", 2400, true),
+        found("c.com", 3000, true),
+        found("d.com", 99900, false),
+        found("e.com", 99900, null),
+      ],
+      NOW,
+      NOW,
+    );
+    expect(f).toMatchObject({
+      retailUsdCents: 2400,
+      retailBasis: "same_photo",
+      retailStores: 3,
+      samePhotoStores: 3,
+      // Saturation still counts every store selling similar products.
+      sellingStores: 5,
+    });
   });
 
   it("counts an ad stored by both the website and the official API once (ADR-015)", () => {
@@ -196,6 +234,9 @@ describe("scoreProducts", () => {
     marketReach: 0.4,
     sellingStores: null,
     retailUsdCents: null,
+    retailBasis: null,
+    retailStores: 0,
+    samePhotoStores: null,
     ageDays: 30,
     sources: ["cj", "google_trends", "meta_ads"],
   };
@@ -260,6 +301,15 @@ describe("scoreProducts", () => {
     expect(top.breakdown.subScores.longevity.value).toBeNull();
     expect(top.confidenceLabel).toBe("low");
     expect(low.breakdown.capped).toBe(false);
+
+    // A margin (cheap to source) is not a second demand signal: still capped (ADR-016).
+    const [withMargin] = scoreProducts([
+      { ...cjOnly, retailUsdCents: 2500, supplierPriceCents: 300, retailBasis: "same_photo" },
+      { ...cjOnly, marketplaceOrders: 10 },
+    ]);
+    expect(withMargin.breakdown.subScores.margin.value).toBe(1);
+    expect(withMargin.score).toBe(50);
+    expect(withMargin.breakdown.capReason).toBe("thin_evidence");
   });
 
   it("stores a translatable explanation that matches the English sentence", () => {
@@ -267,6 +317,7 @@ describe("scoreProducts", () => {
     const variants = scoreProducts([
       base,
       { ...base, retailUsdCents: 2000 },
+      { ...base, retailUsdCents: 2000, retailBasis: "same_photo", retailStores: 4 },
       { ...base, supplierPriceCents: null },
       { ...base, adMomentum: 1.5, adHistoryDays: 9 },
       { ...base, marketplaceBasis: "cj_orders" },
@@ -277,6 +328,10 @@ describe("scoreProducts", () => {
         expect(fill(en[sub.explain!.key], sub.explain!.params ?? {})).toBe(sub.basis);
       }
     }
+    expect(variants[2].breakdown.subScores.margin.explain).toEqual({
+      key: "marginSamePhoto",
+      params: { retail: "20.00", supplier: "5.00", stores: 4 },
+    });
     expect(variants[0].breakdown.subScores.momentum.explain).toEqual({
       key: "momentumNeedsHistory",
       params: { need: 5, have: 0 },

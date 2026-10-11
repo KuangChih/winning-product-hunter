@@ -1,20 +1,20 @@
 import { convertCents, type FxRates } from "./fx";
-import { marketRetailPrice, OWN_LISTING_PROVIDER } from "./retail-price";
+import { productRetailPrice, type RetailBasis, type RetailItem } from "./retail-price";
 
-export interface MarginInput {
-  kind: string;
+export interface MarginInput extends RetailItem {
   source: string;
-  provider?: string;
-  priceCents: number | null;
-  currency: string | null;
 }
 
 export type MissingMarginInput = "retail" | "supplier";
 
 export interface MarginEstimate {
-  /** The advertiser's own store price (median if several stores), in USD cents. */
+  /**
+   * The product's US price in USD cents: the advertiser's own store (median if several), else
+   * the median of stores selling the same photo (`retailBasis`, ADR-016).
+   */
   retailUsdCents: number | null;
-  /** Advertiser store listings behind that price. */
+  retailBasis: RetailBasis | null;
+  /** Listings behind that price (one per store for same-photo prices). */
   retailOffers: number;
   /** Cheapest supplier listing, in USD cents. */
   supplierUsdCents: number | null;
@@ -28,19 +28,13 @@ export interface MarginEstimate {
 }
 
 /**
- * Gross margin before shipping, same inputs as the scoring margin signal: the US median store
- * price (other currencies converted with ECB rates) against the cheapest supplier listing.
- * Supplier prices without a currency are CJ's, which quotes in USD.
+ * Gross margin before shipping, same inputs as the scoring margin signal: the product's US
+ * price (`productRetailPrice`; other currencies converted with ECB rates) against the cheapest
+ * supplier listing. Supplier prices without a currency are CJ's, which quotes in USD.
  */
 export function estimateMargin(items: MarginInput[], rates: FxRates | null): MarginEstimate {
-  const offers = items
-    // Similar products from a catalog search are not this product's price.
-    .filter(
-      (i) =>
-        i.kind === "store_product" && i.provider === OWN_LISTING_PROVIDER && i.priceCents !== null,
-    )
-    .map((i) => ({ priceCents: i.priceCents!, currency: i.currency }));
-  const retail = marketRetailPrice(offers, "US", rates);
+  // Similar products from a catalog search are not this product's price; same photos are.
+  const retail = productRetailPrice(items, rates);
 
   const supplierPrices = items
     .filter((i) => i.kind === "listing" && i.priceCents !== null)
@@ -61,6 +55,7 @@ export function estimateMargin(items: MarginInput[], rates: FxRates | null): Mar
   const profit = complete ? retailUsdCents - supplier : null;
   return {
     retailUsdCents,
+    retailBasis: retail?.basis ?? null,
     retailOffers: retail?.offers ?? 0,
     supplierUsdCents: supplier,
     supplierListings: supplierPrices.length,

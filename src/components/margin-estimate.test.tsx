@@ -13,6 +13,7 @@ describe("MarginEstimate", () => {
         t={en}
         estimate={{
           retailUsdCents: 2500,
+          retailBasis: "own_listing",
           retailOffers: 3,
           supplierUsdCents: 600,
           supplierListings: 2,
@@ -36,6 +37,7 @@ describe("MarginEstimate", () => {
         t={en}
         estimate={{
           retailUsdCents: 2500,
+          retailBasis: "own_listing",
           retailOffers: 1,
           supplierUsdCents: null,
           supplierListings: 0,
@@ -51,12 +53,33 @@ describe("MarginEstimate", () => {
     ).toBeInTheDocument();
   });
 
+  it("labels a price taken from stores selling the same photo", () => {
+    render(
+      <MarginEstimate
+        t={zh}
+        estimate={{
+          retailUsdCents: 2500,
+          retailBasis: "same_photo",
+          retailOffers: 4,
+          supplierUsdCents: 500,
+          supplierListings: 1,
+          grossProfitUsdCents: 2000,
+          grossMargin: 0.8,
+          missing: [],
+        }}
+      />,
+    );
+    expect(screen.getByText("同款商品售價（美國）")).toBeInTheDocument();
+    expect(screen.getByText("4 家賣同款（照片相同）商品的店家中位數")).toBeInTheDocument();
+  });
+
   it("words everything in Traditional Chinese, joining missing inputs naturally", () => {
     render(
       <MarginEstimate
         t={zh}
         estimate={{
           retailUsdCents: null,
+          retailBasis: null,
           retailOffers: 0,
           supplierUsdCents: null,
           supplierListings: 0,
@@ -69,7 +92,7 @@ describe("MarginEstimate", () => {
     expect(screen.getByText("毛利率")).toBeInTheDocument();
     expect(
       screen.getByText(
-        "資料還不夠算毛利：需要廣告主自己商店的售價（Shopify Global Catalog 查詢）與供應商報價（CJ Dropshipping）。",
+        "資料還不夠算毛利：需要廣告主自己商店的售價，或賣同款（照片相同）商品的店家售價（Shopify Global Catalog）與供應商報價（CJ Dropshipping）。",
       ),
     ).toBeInTheDocument();
   });

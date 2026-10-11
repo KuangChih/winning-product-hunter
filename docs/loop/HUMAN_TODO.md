@@ -7,6 +7,8 @@ Loop 遇到只有你能做的事（申請金鑰、建立帳號、付費、決策
 
 Meta 網站擋了 Vercel（HTTP 403），我們不繞過。合規又能在 Vercel 上拿到 Meta 廣告的方法只有官方 Ad Library API：探索已經加上「搜尋 Meta 官方 API（英國／歐盟）」步驟（ADR-015），**只差 token**。沒有 token 時這個步驟顯示「未設定」並跳過。
 
+> **2026-10-11 狀態**：`.env.local` 已經有 `META_ACCESS_TOKEN`，但請求回 **code 10「app 沒有 Ad Library API 權限」**。token 本身可用，卡在 app 的權限：請確認第 1 步的身分與所在地確認已經**審核通過**，並且第 3 步是從 [Ad Library API](https://www.facebook.com/ads/library/api/) 頁面的「Access the API」建立／連結這個 app（不是一般的 Create App）。通過後重新產生 token 換進 `.env.local` 與 Vercel，再告訴我；在那之前 loop 不會再做 Meta 官方 API 的項目。
+
 - [ ] 1. 到 [facebook.com/ID](https://www.facebook.com/ID) 完成身分與所在地確認（刊登社會議題／政治廣告用的那一種；審核可能要幾天）。
 - [ ] 2. 到 [Meta for Developers](https://developers.facebook.com/) 按 Get Started 建立開發者帳號（同意 Platform Policy）。
 - [ ] 3. 回到 [Ad Library API](https://www.facebook.com/ads/library/api/) 按「Access the API」→ My Apps → Create App。

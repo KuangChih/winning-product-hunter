@@ -38,6 +38,21 @@ describe("estimateMargin", () => {
     expect(m.missing).toEqual(["retail"]);
   });
 
+  it("uses stores selling the same photo when the advertiser's own price is missing", () => {
+    const same = (priceCents: number, seller: string) => ({
+      ...store(priceCents),
+      provider: "shopify_catalog",
+      advertiserId: seller,
+      countries: ["US"],
+      samePhoto: true,
+    });
+    const m = estimateMargin([same(2000, "a.com"), same(3000, "b.com"), listing(500)], RATES);
+    expect(m.retailUsdCents).toBe(2500);
+    expect(m.retailBasis).toBe("same_photo");
+    expect(m.retailOffers).toBe(2);
+    expect(m.grossMargin).toBeCloseTo(0.8);
+  });
+
   it("converts store prices in other currencies with ECB rates", () => {
     // 1700 GBP cents = 20 EUR = 22 USD.
     const m = estimateMargin([store(1700, "GBP"), listing(1100)], RATES);

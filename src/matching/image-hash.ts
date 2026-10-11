@@ -22,12 +22,4 @@ export async function dHash(image: Buffer): Promise<string> {
   return hex;
 }
 
-const BITS_IN_NIBBLE = [0, 1, 1, 2, 1, 2, 2, 3, 1, 2, 2, 3, 2, 3, 3, 4];
-
-export function hammingDistance(a: string, b: string): number {
-  let count = 0;
-  for (let i = 0; i < Math.max(a.length, b.length); i++) {
-    count += BITS_IN_NIBBLE[parseInt(a[i] ?? "0", 16) ^ parseInt(b[i] ?? "0", 16)];
-  }
-  return count;
-}
+export { hammingDistance } from "./same-photo";

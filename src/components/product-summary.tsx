@@ -5,6 +5,7 @@ import { fill } from "@/i18n/format";
 import type { Locale } from "@/i18n/locales";
 import { type AdFacts, externalHref } from "@/lib/ad-facts";
 import { formatUsd } from "@/lib/format";
+import type { RetailBasis } from "@/lib/retail-price";
 import { confidenceLabel } from "@/scoring/score";
 import { Notice } from "./notice";
 import { MarketList } from "./product-table";
@@ -136,11 +137,13 @@ export function KeyFacts({
   facts,
   markets,
   retailUsdCents,
+  retailBasis = null,
   locale,
 }: {
   facts: AdFacts;
   markets: string[];
   retailUsdCents: number | null;
+  retailBasis?: RetailBasis | null;
   locale: Locale;
 }) {
   const t = getDictionary(locale).detail;
@@ -162,7 +165,7 @@ export function KeyFacts({
             ? DASH
             : fill(t.longestRunValue, { n: facts.longestRunDays })}
         </Fact>
-        <Fact label={t.retailPrice}>
+        <Fact label={retailBasis === "same_photo" ? t.retailPriceSamePhoto : t.retailPrice}>
           {retailUsdCents === null ? DASH : formatUsd(retailUsdCents)}
         </Fact>
         <Fact label={t.domains}>
