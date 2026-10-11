@@ -188,6 +188,18 @@ export function sameProductAdsOnly(item: FetchedItem, product: ProductQuery): bo
   return landingKey(url)?.key === product.landingKey;
 }
 
+/** The URL as given plus the same URL with "www." added or removed. */
+export function hostVariants(url: string): string[] {
+  try {
+    const u = new URL(url);
+    const other = new URL(url);
+    other.hostname = u.hostname.startsWith("www.") ? u.hostname.slice(4) : `www.${u.hostname}`;
+    return [u.toString(), other.toString()];
+  } catch {
+    return [url];
+  }
+}
+
 /**
  * Products whose ads link to product pages, with those landing URLs as lookup queries
  * (advertisers' own stores). Discovered products first; never-tried before tried; freshly
@@ -228,7 +240,10 @@ export async function pickLandingPages(
     const url = landingKey(ad.landingUrl)?.url;
     if (!url || skip.has(ad.productId)) continue;
     const set = urlsByProduct.get(ad.productId!) ?? new Set<string>();
-    if (set.size < (opts.maxUrlsPerProduct ?? 10)) set.add(url);
+    // Each landing page is asked with and without "www." (the catalog matches the store's own
+    // host exactly; measured: most ads link to the bare domain of a "www." store).
+    if (set.size < 2 * (opts.maxUrlsPerProduct ?? 10))
+      for (const u of hostVariants(url)) set.add(u);
     urlsByProduct.set(ad.productId!, set);
   }
   const discovered = new Set(productRows.filter((p) => p.landingKey).map((p) => p.id));

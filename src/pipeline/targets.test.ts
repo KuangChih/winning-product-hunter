@@ -5,6 +5,7 @@ import { createTestDb } from "@/db/testing/pglite";
 import type { SourceAdapter } from "@/ingestion/types";
 import {
   collectForTargets,
+  hostVariants,
   pickLandingPages,
   pickProducts,
   recordAttempts,
@@ -123,10 +124,29 @@ describe("collection targets", () => {
       await attempt(b, "empty", 10, "shopify_catalog_lookup");
 
       const picked = await pickLandingPages(t.db, 10, { now: NOW });
+      // With and without "www.": the catalog only knows the store's own host.
       expect(picked).toEqual([
-        { productId: a, query: ["https://a.example/products/a"] },
-        { productId: b, query: ["https://b.example/products/b"] },
+        {
+          productId: a,
+          query: ["https://a.example/products/a", "https://www.a.example/products/a"],
+        },
+        {
+          productId: b,
+          query: ["https://b.example/products/b", "https://www.b.example/products/b"],
+        },
       ]);
+    });
+
+    it("hostVariants adds or removes www.", () => {
+      expect(hostVariants("https://shop.example/products/x")).toEqual([
+        "https://shop.example/products/x",
+        "https://www.shop.example/products/x",
+      ]);
+      expect(hostVariants("https://www.shop.example/products/x")).toEqual([
+        "https://www.shop.example/products/x",
+        "https://shop.example/products/x",
+      ]);
+      expect(hostVariants("not a url")).toEqual(["not a url"]);
     });
   });
 

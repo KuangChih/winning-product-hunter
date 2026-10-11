@@ -137,6 +137,9 @@ describe("pipeline runner (recorded responses)", () => {
     expect(ids.sort()).toEqual([
       "https://axzenia.com/products/instant-posture-corrector",
       "https://corecareshop.com/products/instant-posture-corrector",
+      // The same pages with "www.", in the same request (the catalog matches exact hosts).
+      "https://www.axzenia.com/products/instant-posture-corrector",
+      "https://www.corecareshop.com/products/instant-posture-corrector",
     ]);
     const advertised = (await t.db.select().from(sourceItems)).filter(
       (i) => i.provider === "shopify_catalog_lookup",
