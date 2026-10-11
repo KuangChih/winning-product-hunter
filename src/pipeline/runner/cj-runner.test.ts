@@ -16,6 +16,7 @@ import { createCjClient, CJ_PROVIDER } from "@/ingestion/sources/cj";
 import { createShopifyCatalogAdapter } from "@/ingestion/sources/shopify-catalog";
 import { createDbTokenStore } from "@/ingestion/token-store";
 import { parseEcbDaily } from "@/lib/fx";
+import { CJ_INTERVAL_MS, CJ_QPS_ATTEMPTS } from "./cj-units";
 import type { RunnerDeps } from "./deps";
 import { driveRun } from "./drive";
 import { recordBlock } from "./guards";
@@ -84,8 +85,9 @@ describe("pipeline runner: CJ discovery (ADR-014)", () => {
     adLibrary: () => {
       throw new Error("Meta must not be asked while it blocks this egress");
     },
-    cj: (db) =>
+    cj: (db, o) =>
       createCjClient({
+        ...o,
         apiKey: API_KEY,
         tokens: createDbTokenStore(db, CJ_PROVIDER, API_KEY),
         retry: { fetchImpl: cjFetch },
@@ -130,7 +132,8 @@ describe("pipeline runner: CJ discovery (ADR-014)", () => {
     expect(calls.filter((u) => u.includes("getAccessToken"))).toHaveLength(1);
     expect(calls.filter((u) => u.includes("listV2"))).toHaveLength(2);
     expect(calls.filter((u) => u.includes("productDetail"))).toHaveLength(6);
-    expect(cj.requests).toBe(8);
+    // Every HTTP request is counted and paced, the access token included.
+    expect(cj.requests).toBe(9);
     expect(cj.pointsUsedToday).toBe(150);
     const trending = new URL(calls.find((u) => u.includes("productFlag=0"))!);
     expect(trending.searchParams.get("timeStart")).toBeNull();
@@ -234,6 +237,73 @@ describe("pipeline runner: CJ discovery (ADR-014)", () => {
     const second = await driveRun(t.db, deps(), (await newRun()).id);
     expect(cjFetch).not.toHaveBeenCalled();
     expect(second.state.steps.cj).toMatchObject({ status: "skipped", skipReason: "backoff" });
+  });
+
+  const qpsRefusal = () =>
+    Response.json(
+      {
+        code: 1600200,
+        result: false,
+        message: "Too Many Requests, QPS limit is 1 time/1second",
+        data: null,
+      },
+      { status: 429 },
+    );
+
+  it("spaces every CJ request, the token included, by the interval (send to send)", async () => {
+    let now = Date.parse("2026-10-11T00:00:00Z");
+    const sentAt: number[] = [];
+    const inner = cjFetch.getMockImplementation()!;
+    cjFetch.mockImplementation(async (url, init) => {
+      sentAt.push(now);
+      now += 300; // CJ answers in 0.3 s
+      return inner(url, init);
+    });
+    const clock = {
+      now: () => now,
+      sleep: async (ms: number) => {
+        now += ms;
+      },
+    };
+    await driveRun(t.db, deps({ clock }), (await newRun()).id);
+    expect(sentAt).toHaveLength(9);
+    const gaps = sentAt.slice(1).map((v, i) => v - sentAt[i]);
+    expect(Math.min(...gaps)).toBeGreaterThanOrEqual(CJ_INTERVAL_MS);
+  });
+
+  it("sends a request CJ refused for its per-second limit again after a short wait, without a back-off", async () => {
+    const inner = cjFetch.getMockImplementation()!;
+    let refused = 0;
+    cjFetch.mockImplementation(async (url, init) => {
+      if (String(url).includes("listV2") && refused < 1) {
+        refused++;
+        return qpsRefusal();
+      }
+      return inner(url, init);
+    });
+    const run = await driveRun(t.db, deps(), (await newRun()).id);
+    expect(run.state.steps.cj).toMatchObject({ status: "done", qpsRetries: 1, stopped: null });
+    expect(run.state.results.cjProducts).toBe(2);
+    const backoffs = await t.db.select().from(sourceBackoff);
+    expect(backoffs.filter((b) => b.provider === CJ_PROVIDER)).toHaveLength(0);
+  });
+
+  it("stops CJ for the run when the per-second refusal persists, still without a back-off", async () => {
+    const inner = cjFetch.getMockImplementation()!;
+    cjFetch.mockImplementation(async (url, init) =>
+      String(url).includes("getAccessToken") ? inner(url, init) : qpsRefusal(),
+    );
+    const run = await driveRun(t.db, deps(), (await newRun()).id);
+    const listCalls = cjFetch.mock.calls.filter(([u]) => String(u).includes("listV2"));
+    expect(listCalls).toHaveLength(CJ_QPS_ATTEMPTS);
+    expect(run.state.steps.cj.status).toBe("failed");
+    expect(run.state.steps.cj.stopped?.reason).toMatch(/1600200/);
+    const backoffs = await t.db.select().from(sourceBackoff);
+    expect(backoffs.filter((b) => b.provider === CJ_PROVIDER)).toHaveLength(0);
+    // The next run asks CJ again.
+    cjFetch.mockImplementation(inner);
+    const second = await driveRun(t.db, deps(), (await newRun()).id);
+    expect(second.state.steps.cj.status).toBe("done");
   });
 
   it("a refused key stops CJ without a back-off and drops the stored token", async () => {

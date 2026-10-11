@@ -3,8 +3,11 @@
  * collect, whether or not Meta is blocked. Units: `cj` (plan, then a few list requests per
  * unit), `cj_details` (a few free detail requests per unit), `cj_finalize` (tracks promising
  * products and stores their CJ listings). Every request is counted and the next allowed request
- * time saved before it is sent; a CJ refusal (key, points, rate limit) ends the step's requests
- * (no retries) and points / rate refusals back this egress off like a Meta block (ADR-006).
+ * time saved before it is sent (the access-token request too). CJ's per-second refusal (1600200)
+ * is momentary (measured: the next request a second later goes through), so the request is sent
+ * again after `CJ_QPS_WAIT_MS`, at most `CJ_QPS_ATTEMPTS` times; still refused → no more CJ
+ * requests this run, without a back-off. Points used up → stop and back this egress off; a
+ * refused key → stop (ADR-006, ADR-014).
  */
 import { inArray } from "drizzle-orm";
 import type { AnyDatabase } from "@/db/client";
@@ -34,8 +37,16 @@ import { errorMessage, setStep, WRAP_UP_FROM } from "./state";
 import type { UnitCtx, UnitDef } from "./units";
 import type { CjCandidate, CjListRequest, CjStepState, RunState } from "./types";
 
-/** CJ's free tier allows 1 request per second (docs/research/cj-api.md): keep a margin. */
-export const CJ_INTERVAL_MS = 1_100;
+/**
+ * CJ's free tier allows 1 request per second, counted on CJ's side (docs/research/cj-api.md).
+ * Measured send-to-send: 1.0 s gaps were refused 1 in 6, 0.8 s 2 in 4, 1.25 s and 1.5 s never
+ * (12 requests); 1.5 s leaves room for network jitter.
+ */
+export const CJ_INTERVAL_MS = 1_500;
+/** After a per-second refusal: wait this long and send the same request again… */
+export const CJ_QPS_WAIT_MS = 3_000;
+/** …at most this many attempts in all. */
+export const CJ_QPS_ATTEMPTS = 3;
 /** List requests per run (50 points each): CJ trending + up to 10 keywords. */
 export const MAX_CJ_LIST_REQUESTS = 11;
 /** Products per list request. */
@@ -82,9 +93,13 @@ export function planCjRequests(s: RunState, options: UnitCtx["options"]): CjList
 
 type Outcome = { ok: true; points: CjPointsInfo | null } | { ok: false; error: unknown };
 
+const isQpsRefusal = (err: unknown) => err instanceof CjApiError && err.kind === "rate_limited";
+
 /**
- * Sends one counted CJ request: the count and the next allowed time are saved first, so a
- * killed process never undercounts.
+ * Sends one CJ call. Every HTTP request it makes (the access token included) is paced: the count
+ * and the next allowed send time are saved before it goes out, so a killed process never
+ * undercounts and the spacing holds across ticks. A per-second refusal is sent again after a
+ * short wait (see `CJ_QPS_ATTEMPTS`).
  */
 async function counted<T extends { points: CjPointsInfo | null }>(
   ctx: UnitCtx,
@@ -92,30 +107,52 @@ async function counted<T extends { points: CjPointsInfo | null }>(
   send: (client: CjClient) => Promise<T>,
 ): Promise<{ s: RunState; result?: T; outcome: Outcome }> {
   const { clock, signal } = ctx;
-  const t = clock.now();
-  const startAt = Math.max(t, Math.min(s.rate.cjNextAt ?? 0, t + CJ_INTERVAL_MS));
-  let next: RunState = setStep(
-    { ...s, rate: { ...s.rate, cjNextAt: startAt + CJ_INTERVAL_MS } },
-    "cj",
-    { requests: cjStep(s).requests + 1 },
-  );
-  await ctx.save(next);
-  if (startAt > t) await clock.sleep(startAt - t, signal);
-  try {
-    const result = await send(ctx.deps.cj!(ctx.db));
-    if (result.points) next = setStep(next, "cj", { pointsUsedToday: result.points.usedToday });
-    return { s: next, result, outcome: { ok: true, points: result.points } };
-  } catch (error) {
-    if (signal.aborted) throw error;
-    return { s: next, outcome: { ok: false, error } };
+  let next = s;
+  const beforeRequest = async (sig?: AbortSignal) => {
+    const t = clock.now();
+    const startAt = Math.max(t, Math.min(next.rate.cjNextAt ?? 0, t + CJ_QPS_WAIT_MS));
+    next = setStep({ ...next, rate: { ...next.rate, cjNextAt: startAt + CJ_INTERVAL_MS } }, "cj", {
+      requests: cjStep(next).requests + 1,
+    });
+    await ctx.save(next);
+    if (startAt > t) await clock.sleep(startAt - t, sig ?? signal);
+  };
+  const client = ctx.deps.cj!(ctx.db, { beforeRequest });
+  for (let attempt = 1; ; attempt++) {
+    try {
+      const result = await send(client);
+      if (result.points) next = setStep(next, "cj", { pointsUsedToday: result.points.usedToday });
+      return { s: next, result, outcome: { ok: true, points: result.points } };
+    } catch (error) {
+      if (signal.aborted) throw error;
+      if (!isQpsRefusal(error) || attempt >= CJ_QPS_ATTEMPTS) {
+        return { s: next, outcome: { ok: false, error } };
+      }
+      // Momentary: the next request goes out after the wait (saved, so it holds across ticks).
+      next = setStep(
+        {
+          ...next,
+          rate: {
+            ...next.rate,
+            cjNextAt: Math.max(next.rate.cjNextAt ?? 0, clock.now() + CJ_QPS_WAIT_MS),
+          },
+        },
+        "cj",
+        { qpsRetries: (cjStep(next).qpsRetries ?? 0) + 1 },
+      );
+      await ctx.save(next);
+    }
   }
 }
 
-/** CJ refused us: no more CJ requests this run; points / rate refusals back off this egress. */
+/**
+ * CJ refused us: no more CJ requests this run. Only used-up points back this egress off: a
+ * per-second refusal that outlasted the retries is a momentary limit, not a block.
+ */
 async function stopCj(ctx: UnitCtx, s: RunState, err: unknown): Promise<RunState> {
   const reason = errorMessage(err);
   const at = new Date(ctx.clock.now());
-  if (err instanceof CjApiError && (err.kind === "points" || err.kind === "rate_limited")) {
+  if (err instanceof CjApiError && err.kind === "points") {
     await recordBlock(ctx.db, CJ_PROVIDER, ctx.deps.egress, reason, at);
   }
   const auth = err instanceof CjApiError && err.kind === "auth";

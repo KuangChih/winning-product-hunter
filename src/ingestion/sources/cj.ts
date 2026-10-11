@@ -239,6 +239,12 @@ export interface CjClientOptions {
   /** Defaults to one attempt: a CJ refusal must stop the run, never start a retry storm. */
   retry?: RetryOptions;
   now?: () => number;
+  /**
+   * Awaited before every HTTP request, the access-token request included: CJ counts every call
+   * toward its 1 request/second limit (docs/research/cj-api.md, ADR-014), so the caller paces
+   * them all.
+   */
+  beforeRequest?: (signal?: AbortSignal) => Promise<void>;
 }
 
 /** "2027-04-09T09:09:07+08:00" → Date; unreadable → null. */
@@ -258,6 +264,7 @@ export function createCjClient({
   tokens,
   retry = {},
   now = Date.now,
+  beforeRequest,
 }: CjClientOptions): CjClient {
   const opts: RetryOptions = { retries: 0, timeoutMs: 20_000, ...retry };
   const secrets = [apiKey];
@@ -274,6 +281,7 @@ export function createCjClient({
     init: RequestInit,
     signal?: AbortSignal,
   ): Promise<CjResponse<T>> {
+    await beforeRequest?.(signal);
     let res: Response;
     try {
       res = await fetchWithRetry(

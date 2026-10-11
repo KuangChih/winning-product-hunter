@@ -439,7 +439,8 @@ const en = {
     cjFailures: {
       auth: "CJ refused the API key. Check CJ_API_KEY in the settings; CJ searches stopped for this run.",
       points: "Today's CJ API points are used up, so CJ searches are paused.",
-      rate_limited: "CJ asked us to slow down (too many requests), so CJ searches are paused.",
+      rate_limited:
+        "CJ kept refusing requests for its 1-per-second limit after 3 tries, so CJ searches stopped for this run. They are tried again next run.",
       service: "CJ had a temporary problem. It is tried again next run.",
     } as Partial<Record<string, string>>,
     runStatus: {
@@ -964,7 +965,7 @@ const zhTW: Dictionary = {
     cjFailures: {
       auth: "CJ 拒絕了 API 金鑰。請檢查設定中的 CJ_API_KEY；這次執行已停止 CJ 搜尋。",
       points: "今天的 CJ API 點數用完了，所以 CJ 搜尋暫停。",
-      rate_limited: "CJ 要求放慢速度（請求太多），所以 CJ 搜尋暫停。",
+      rate_limited: "CJ 以每秒 1 次的上限連續拒絕 3 次，這次執行停止 CJ 搜尋，下次執行會再試。",
       service: "CJ 暫時出了問題，下次執行會再試。",
     },
     runStatus: {

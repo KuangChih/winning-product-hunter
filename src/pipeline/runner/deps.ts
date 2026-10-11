@@ -33,7 +33,8 @@ export interface RunnerDeps {
    * CJ Dropshipping API client (ADR-014); its access token is cached in `db`. Absent (no
    * `CJ_API_KEY`): the CJ step is skipped as not configured.
    */
-  cj?(db: AnyDatabase): CjClient;
+  /** `beforeRequest` paces every CJ HTTP request, the token request included (ADR-014). */
+  cj?(db: AnyDatabase, o?: { beforeRequest?: (signal?: AbortSignal) => Promise<void> }): CjClient;
   shopifyCatalog?(o: { countries: string[]; wait: Wait }): SourceAdapter;
   storeLookup?(o: { country: string; wait: Wait }): SourceAdapter;
   imageRetry?: RetryOptions;

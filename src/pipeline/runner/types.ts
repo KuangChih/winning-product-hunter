@@ -139,7 +139,7 @@ export interface CjCandidate {
 }
 
 export interface CjStepState extends StepState {
-  /** List and detail requests made (each counted before it is sent). */
+  /** HTTP requests made: lists, details and the access token (each counted before it is sent). */
   requests: number;
   /** CJ's points used today, from its latest answer (null before any answer). */
   pointsUsedToday: number | null;
@@ -149,6 +149,8 @@ export interface CjStepState extends StepState {
   listFailures?: number;
   /** Detail requests that failed (such a product is never tracked: no sales data). */
   detailFailures: number;
+  /** Requests CJ refused for its per-second limit and that were sent again (absent in older states). */
+  qpsRetries?: number;
   /** CJ refused us (key, points, rate limit): no more CJ requests in this run. */
   stopped: { at: string; reason: string } | null;
 }

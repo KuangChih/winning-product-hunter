@@ -14,7 +14,7 @@
 
 每個回應都帶 `pointsInfo: { total, usedToday, remaining }`。帳號每日 50,000 點（UTC 0 點重置、每分鐘回補 1/1440），`remaining` 在用量很小時一直顯示 50000。
 
-**限速**：免費帳號 1 QPS（每 IP 10 req/s、每 IP 最多 3 個帳號）。我們每次請求間隔 1.1 秒，研究與量測都沒有遇到限流。
+**限速**：免費帳號 1 QPS（每 IP 10 req/s、每 IP 最多 3 個帳號）；`getAccessToken` 文件寫「與其他端點相同，QPS = 1」。原本間隔 1.1 秒，2026-10-11 實際遇到限流，實測與改法見下方「六、每秒上限實測」。
 
 **錯誤碼**（官方全域錯誤表 + 點數規則頁）：`1600001` 無權限 / token 無效、`1600003` refresh token 失效、`1601000` 找不到使用者（金鑰錯）、`1600200` 呼叫超過上限、`1600000` 系統忙碌、HTTP 429 + `code: 429` + 「Insufficient API points」= 點數用完。
 
@@ -62,3 +62,20 @@
 - [CJ Developers — Access Frequency Restrictions](https://developers.cjdropshipping.com/en/api/start/limit.html)
 - [CJ Developers — API Points Resource Rules](https://developers.cjdropshipping.com/en/api/api2/standard/points.html)
 - [CJ Developers — Global Error Codes](https://developers.cjdropshipping.cn/en/api/api2/standard/ps-code.html)
+
+## 六、每秒上限實測（2026-10-11）
+
+- 起因：同一天第 3 次探索（空資料庫，需要先取 token）第 2 個請求就收到 HTTP 429 `code 1600200`「Too Many Requests, QPS limit is 1 time/1second」，舊程式把它當成封鎖，CJ 對這個出口退避 6 小時。原因：間隔從「呼叫前」開始算，取 token 的請求不算在內，token 回來後清單請求立刻送出，與下一個詳情請求在 CJ 那邊相隔不到 1 秒。
+- 官方文件（[Access Frequency Restrictions](https://developers.cjdropshipping.com/en/api/start/limit.html)、[Authentication](https://developers.cjdropshipping.com/en/api/api2/api/auth.html)）：免費／等級 0–1 每秒 1 次（Plus 2、Prime 4、Advanced 6）；每 IP 每秒 10 次、每 IP 最多 3 個使用者；`getAccessToken` 也是 QPS = 1；**沒有寫**超過時的錯誤碼、恢復時間或懲罰。
+- 實測（0 點的商品詳情請求，共 25 次 + 2 次取 token；間隔是本機「送出到送出」）：
+  - 間隔 1.0 秒：6 次中 1 次被拒（前一個回應 1,008 ms，抖動讓 CJ 看到兩個請求不到 1 秒）。
+  - 間隔 0.8 秒：4 次中 2 次被拒，被拒與成功交替出現 → **被拒的請求不佔額度**。
+  - 間隔 1.25 秒、1.5 秒：各 6 次，全部成功。
+  - 被拒後 1 秒再送：成功；再隔 2 秒：成功 → 限流是**當下**的，沒有觀察到冷卻或懲罰。
+  - token 請求回應後立刻送詳情（與 token 送出相隔 1.14 秒）：成功；無法單獨證明 token 是否計入，依文件當作計入。
+  - 回應時間 150 ms–3.2 s（多半 0.4–1.0 s），所以間隔要留抖動空間。
+- 決定（ADR-014 修訂）：
+  - 間隔 1.5 秒，從**每一個** HTTP 請求（含取 token）的送出時間算；下一次允許送出的時間先寫進 run 狀態再送（跨 tick 也成立）。
+  - `1600200`（每秒上限）等 3 秒後重送同一個請求，最多 3 次；仍被拒就停止這次的 CJ 請求，**不退避**（下一次探索照常）。
+  - 只有「點數用完」才對出口退避；金鑰被拒停止、不退避。
+  - 一次探索約 52 個請求 × 1.5 秒 ≈ 80 秒（原本約 57 秒）。

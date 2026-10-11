@@ -80,8 +80,9 @@ export function createLiveDeps(
     // The key stays in the environment; the cached token is encrypted with it (ADR-014).
     ...(cjKey
       ? {
-          cj: (db) =>
+          cj: (db, o) =>
             createCjClient({
+              ...o,
               apiKey: cjKey,
               tokens: createDbTokenStore(db, CJ_PROVIDER, cjKey),
               // One attempt per request: a CJ refusal stops the step (no retry storm).
