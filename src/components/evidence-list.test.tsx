@@ -310,4 +310,29 @@ describe("EvidenceList", () => {
     expect(screen.getByText("售價中位數 19.99 GBP")).toBeInTheDocument();
     expect(screen.getByText("價格 4.50 USD · 90 天售出 1,300 件")).toBeInTheDocument();
   });
+
+  it("shows CJ's own counts as platform counts", () => {
+    render(
+      <EvidenceList
+        now={NOW}
+        locale="zh-TW"
+        evidence={[
+          {
+            ...base,
+            id: "cj",
+            source: "cj",
+            provider: "cj_api",
+            kind: "listing",
+            priceCents: 389,
+            currency: "USD",
+            url: "https://cjdropshipping.com/product/x-p-1.html",
+            metrics: { orders_total: 682, stores_listed: 9158 },
+          },
+        ]}
+      />,
+    );
+    expect(screen.getByText("CJ（供應商銷量）")).toBeInTheDocument();
+    expect(screen.getByText("價格 3.89 USD · CJ 訂單 682 筆 · 9,158 家店上架")).toBeInTheDocument();
+    expect(screen.getByText(/CJ 平台計數：.*不代表整個市場/)).toBeInTheDocument();
+  });
 });

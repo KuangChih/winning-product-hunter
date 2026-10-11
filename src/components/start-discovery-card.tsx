@@ -77,7 +77,8 @@ export function StartDiscoveryCard({
           {fill(labels.dailyCapBody, {
             used: status.adLibrary.sweepsToday,
             cap: status.adLibrary.dailySweepCap,
-          })}
+          })}{" "}
+          {status.cjConfigured ? labels.metaPausedCj : labels.metaPausedNoCj}
         </p>
       )}
     </EmptyState>

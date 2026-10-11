@@ -52,8 +52,12 @@ export interface ProductFeatures {
   retailUsdCents: number | null;
   /** Theil-Sen slope of search interest per week, relative to the series median. */
   trendSlope: number | null;
-  /** Latest recent-orders count on the marketplace. */
+  /**
+   * Supplier-platform sales (CJ platform count): 90-day units sold when CJ reports them, else
+   * CJ's order count (CJ does not publish its period). See `marketplaceBasis`.
+   */
   marketplaceOrders: number | null;
+  marketplaceBasis: "units_90d" | "cj_orders" | null;
   supplierPriceCents: number | null;
   /** Days since the earliest observation of this product anywhere. */
   ageDays: number;
@@ -202,6 +206,12 @@ export function extractFeatures(
   const orders = listings
     .map((l) => latest(l.snapshots, "units_sold_90d"))
     .filter((v): v is number => v !== null);
+  // CJ leaves its documented 90-day sales empty (docs/research/cj-api.md): its order count is
+  // the sales signal it does return, used only when no 90-day count exists.
+  const cjOrders = listings
+    .filter((l) => l.source === "cj")
+    .map((l) => latest(l.snapshots, "orders_total"))
+    .filter((v): v is number => v !== null);
   const prices = listings.map((l) => l.priceCents).filter((v): v is number => v !== null);
 
   // Ads often predate our first crawl, so a product is as old as its oldest ad.
@@ -218,7 +228,12 @@ export function extractFeatures(
     sellingStores,
     retailUsdCents: retail?.medianCents ?? null,
     trendSlope,
-    marketplaceOrders: orders.length ? Math.max(...orders) : null,
+    marketplaceOrders: orders.length
+      ? Math.max(...orders)
+      : cjOrders.length
+        ? Math.max(...cjOrders)
+        : null,
+    marketplaceBasis: orders.length ? "units_90d" : cjOrders.length ? "cj_orders" : null,
     supplierPriceCents: prices.length ? Math.min(...prices) : null,
     ageDays: Math.max(0, (now.getTime() - earliest) / DAY),
     sources: [...new Set(items.map((i) => i.source))].sort(),

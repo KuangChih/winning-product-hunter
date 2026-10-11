@@ -39,8 +39,12 @@ export interface ProductDetail {
   slug: string;
   title: string;
   imageUrl: string | null;
-  /** The advertiser's product page this product was found from (ads' landing page). */
+  /**
+   * The page this product was found from: the advertiser's product page (ads' landing page) or,
+   * for products found on CJ (ADR-014), CJ's product page. See `canonicalKind`.
+   */
   canonicalUrl: string | null;
+  canonicalKind: "advertiser" | "cj";
   firstSeenAt: Date;
   score: { score: number; confidence: number; computedAt: Date; breakdown: ScoreBreakdown } | null;
   scoreHistory: Array<{ score: number; computedAt: Date }>;
@@ -181,6 +185,7 @@ export async function getProductDetail(
     title: product.title,
     imageUrl: product.imageUrl,
     canonicalUrl: product.canonicalUrl,
+    canonicalKind: product.landingKey?.startsWith("cj:") ? "cj" : "advertiser",
     firstSeenAt: product.firstSeenAt,
     score: latest
       ? {

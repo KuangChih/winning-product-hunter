@@ -143,4 +143,22 @@ describe("live sources", () => {
     expect(fetchImpl).toHaveBeenCalledTimes(1);
     expect(isAdLibraryBlock(failure)).toBe(true);
   });
+
+  it("offers CJ only with a key, and never retries a CJ answer (ADR-014)", async () => {
+    expect(createLiveDeps({}).cj).toBeUndefined();
+    expect(createLiveDeps({ CJ_API_KEY: "  " }).cj).toBeUndefined();
+    const fetchImpl = vi.fn<typeof fetch>(async () => new Response("", { status: 503 }));
+    const deps = createLiveDeps({ CJ_API_KEY: "CJ0000000@api@guard-test-key" }, { fetchImpl });
+    const t = await createTestDb();
+    try {
+      const err = await deps.cj!(t.db)
+        .listProducts({})
+        .catch((e: unknown) => e);
+      expect(fetchImpl).toHaveBeenCalledTimes(1);
+      expect(String(err)).toMatch(/CJ API error 503/);
+      expect(String(err)).not.toContain("guard-test-key");
+    } finally {
+      await t.close();
+    }
+  });
 });

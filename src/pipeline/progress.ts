@@ -90,7 +90,8 @@ export interface ProgressInput {
 const iso = (d: Date | null) => (d ? d.toISOString() : null);
 
 function stepProgress(state: RunState): StepProgress[] {
-  return STEP_ORDER.map((name) => {
+  // Runs saved before a step existed (e.g. CJ) simply do not list it.
+  return STEP_ORDER.filter((name) => !!state.steps[name]).map((name) => {
     const st = state.steps[name];
     return {
       name,

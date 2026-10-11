@@ -3,18 +3,20 @@
  * runner, stop on block). No env loading here: routes import it; CLI jobs load `.env.local`.
  */
 import { fetchWithRetry } from "@/ingestion/http";
+import { createCjClient, CJ_PROVIDER } from "@/ingestion/sources/cj";
 import { createAdLibraryWebAdapter } from "@/ingestion/sources/meta-ad-library-web";
 import {
   createShopifyCatalogAdapter,
   createStoreLookupAdapter,
 } from "@/ingestion/sources/shopify-catalog";
+import { createDbTokenStore } from "@/ingestion/token-store";
 import { ECB_DAILY_URL, parseEcbDaily } from "@/lib/fx";
 import type { RunnerDeps } from "./runner/deps";
 
 type Env = Record<string, string | undefined>;
 
 /** Per-attempt timeouts, so one hung socket cannot hold a tick. */
-export const TIMEOUTS = { adLibrary: 30_000, shopify: 20_000, ecb: 15_000 } as const;
+export const TIMEOUTS = { adLibrary: 30_000, shopify: 20_000, ecb: 15_000, cj: 15_000 } as const;
 
 /**
  * Where requests leave from: Meta blocking Vercel's (or GitHub's) IPs must not stop the user's
@@ -36,6 +38,7 @@ export function createLiveDeps(
   { fetchImpl }: { fetchImpl?: typeof fetch } = {},
 ): RunnerDeps {
   const profile = env.SHOPIFY_UCP_AGENT_PROFILE || undefined;
+  const cjKey = env.CJ_API_KEY?.trim() || undefined;
   return {
     egress: pipelineEgress(env),
     async fetchFxRates(signal) {
@@ -55,6 +58,18 @@ export function createLiveDeps(
         maxRequests: 1,
         retry: { timeoutMs: TIMEOUTS.adLibrary, retries: 0, fetchImpl },
       }),
+    // The key stays in the environment; the cached token is encrypted with it (ADR-014).
+    ...(cjKey
+      ? {
+          cj: (db) =>
+            createCjClient({
+              apiKey: cjKey,
+              tokens: createDbTokenStore(db, CJ_PROVIDER, cjKey),
+              // One attempt per request: a CJ refusal stops the step (no retry storm).
+              retry: { timeoutMs: TIMEOUTS.cj, retries: 0, fetchImpl },
+            }),
+        }
+      : {}),
     shopifyCatalog: ({ countries, wait }) =>
       createShopifyCatalogAdapter({
         countries,

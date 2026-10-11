@@ -1,4 +1,6 @@
+import type { AnyDatabase } from "@/db/client";
 import type { RetryOptions, Sleep } from "@/ingestion/http";
+import type { CjClient } from "@/ingestion/sources/cj";
 import type { SourceAdapter } from "@/ingestion/types";
 import type { FxRates } from "@/lib/fx";
 
@@ -21,6 +23,11 @@ export interface RunnerDeps {
    * `wait`). Absent: discovery and advertiser following are skipped.
    */
   adLibrary?(o: { mode: "keyword" | "advertiser"; countries: string[] }): SourceAdapter;
+  /**
+   * CJ Dropshipping API client (ADR-014); its access token is cached in `db`. Absent (no
+   * `CJ_API_KEY`): the CJ step is skipped as not configured.
+   */
+  cj?(db: AnyDatabase): CjClient;
   shopifyCatalog?(o: { countries: string[]; wait: Wait }): SourceAdapter;
   storeLookup?(o: { country: string; wait: Wait }): SourceAdapter;
   imageRetry?: RetryOptions;

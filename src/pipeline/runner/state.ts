@@ -1,5 +1,6 @@
 import type { FetchedItem } from "@/ingestion/types";
 import type {
+  CjStepState,
   RunState,
   RunStatus,
   SkipReason,
@@ -15,6 +16,7 @@ export const STEP_ORDER: StepName[] = [
   "fx",
   "discover",
   "advertisers",
+  "cj",
   "collect",
   "stores",
   "dedupe",
@@ -29,6 +31,9 @@ export const UNIT_ORDER: UnitName[] = [
   "discover_finalize",
   "advertisers",
   "advertisers_finalize",
+  "cj",
+  "cj_details",
+  "cj_finalize",
   "collect",
   "stores",
   "hash",
@@ -45,6 +50,9 @@ export const STEP_OF_UNIT: Record<UnitName, StepName | null> = {
   discover_finalize: "discover",
   advertisers: "advertisers",
   advertisers_finalize: "advertisers",
+  cj: "cj",
+  cj_details: "cj",
+  cj_finalize: "cj",
   collect: "collect",
   stores: "stores",
   hash: "dedupe",
@@ -56,15 +64,19 @@ export const STEP_OF_UNIT: Record<UnitName, StepName | null> = {
 };
 
 /**
- * Where a unit that threw goes next: a failed source never stops the rest (FX, collect,
- * dedupe, match and score always run after a Meta block or failure).
+ * Where a unit that threw goes next: a failed source never stops the rest (FX, CJ, collect,
+ * dedupe, match and score always run after a Meta block or failure). A failed CJ request unit
+ * still stores what it found (cj_finalize).
  */
 export const FAIL_NEXT: Record<UnitName, UnitName> = {
   start: "discover",
   discover: "discover_finalize",
   discover_finalize: "advertisers",
   advertisers: "advertisers_finalize",
-  advertisers_finalize: "collect",
+  advertisers_finalize: "cj",
+  cj: "cj_finalize",
+  cj_details: "cj_finalize",
+  cj_finalize: "collect",
   collect: "stores",
   stores: "hash",
   hash: "merge",
@@ -87,6 +99,14 @@ const FINALIZE_OF: Partial<
 };
 
 const step = (): StepState => ({ status: "pending" });
+const cjStep = (): CjStepState => ({
+  status: "pending",
+  requests: 0,
+  pointsUsedToday: null,
+  listed: 0,
+  detailFailures: 0,
+  stopped: null,
+});
 
 /** `now` is the planning time (fixed in tests); progress is timed from `createdAt`. */
 export function initialState(now: Date, createdAt: Date = new Date()): RunState {
@@ -102,22 +122,61 @@ export function initialState(now: Date, createdAt: Date = new Date()): RunState 
       advertiserRequests: null,
       collect: null,
       stores: null,
+      cj: null,
     },
-    progress: { keyword: 0, advertiser: 0, collect: 0, stores: 0, hashAttempted: 0 },
+    progress: {
+      keyword: 0,
+      advertiser: 0,
+      collect: 0,
+      stores: 0,
+      hashAttempted: 0,
+      cjList: 0,
+      cjDetail: 0,
+    },
     unit: null,
-    rate: { adLibraryNextAt: null, shopifyNextAt: null },
+    rate: { adLibraryNextAt: null, shopifyNextAt: null, cjNextAt: null },
+    cjCandidates: [],
     adLibrary: { requests: 0, blocked: null, stopped: null },
     steps: {
       fx: step(),
       discover: step(),
       advertisers: step(),
+      cj: cjStep(),
       collect: { ...step(), items: 0, failedProducts: 0, errors: [] },
       stores: { ...step(), items: 0, failedProducts: 0, errors: [] },
       dedupe: { ...step(), hashed: 0, failed: 0, skipped: 0, merged: 0 },
       match: step(),
       score: step(),
     },
-    results: { newProducts: 0, matchedProducts: 0, newAds: 0, adsFetched: 0, productsScored: 0 },
+    results: {
+      newProducts: 0,
+      matchedProducts: 0,
+      newAds: 0,
+      adsFetched: 0,
+      productsScored: 0,
+      cjProducts: 0,
+    },
+  };
+}
+
+/**
+ * Fills in what states saved before the CJ step existed lack (same version: they stay
+ * resumable). A run that had already passed the CJ step's place records it as skipped.
+ */
+export function upgradeState(s: RunState): RunState {
+  if (s.steps.cj) return s;
+  const passed = UNIT_ORDER.indexOf(s.cursor) > UNIT_ORDER.indexOf("advertisers_finalize");
+  return {
+    ...s,
+    plan: { ...s.plan, cj: passed ? [] : null },
+    progress: { ...s.progress, cjList: 0, cjDetail: 0 },
+    rate: { ...s.rate, cjNextAt: null },
+    cjCandidates: [],
+    steps: {
+      ...s.steps,
+      cj: passed ? { ...cjStep(), status: "skipped", skipReason: "incompatible_state" } : cjStep(),
+    },
+    results: { ...s.results, cjProducts: 0 },
   };
 }
 
@@ -165,16 +224,27 @@ export function fastForward(s: RunState, reason: SkipReason): RunState {
   const sweep = FINALIZE_OF[s.cursor];
   let next: RunState;
   let keep: StepName | null = null;
-  if (s.cursor === "discover_finalize" || s.cursor === "advertisers_finalize") {
+  if (
+    s.cursor === "discover_finalize" ||
+    s.cursor === "advertisers_finalize" ||
+    s.cursor === "cj_finalize"
+  ) {
     next = s;
     keep = STEP_OF_UNIT[s.cursor];
+  } else if (
+    (s.cursor === "cj" || s.cursor === "cj_details") &&
+    (s.cjCandidates?.length ?? 0) > 0
+  ) {
+    // CJ products already fetched (counted requests) are stored first, as for Meta sweeps.
+    next = { ...s, cursor: "cj_finalize", unit: null };
+    keep = "cj";
   } else if (sweep && s.progress[sweep.progress] > 0) {
     next = { ...s, cursor: sweep.finalize, unit: null };
     keep = STEP_OF_UNIT[s.cursor];
   } else {
     next = { ...s, cursor: WRAP_UP_FROM, unit: null };
   }
-  for (const name of ["fx", "discover", "advertisers", "collect", "stores"] as const) {
+  for (const name of ["fx", "discover", "advertisers", "cj", "collect", "stores"] as const) {
     if (name === keep) continue;
     const st = next.steps[name].status;
     if (st === "pending" || st === "running") {

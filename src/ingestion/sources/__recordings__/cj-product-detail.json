@@ -1,0 +1,28 @@
+{
+  "code": 200,
+  "result": true,
+  "message": "Success",
+  "data": {
+    "id": "5F9B011D-3393-4B82-A414-491ADE80C872",
+    "nameen": "Magic Shadow USB Air Humidifier For Home With Projection Night Lights Ultrasonic Car Mist Maker Mini Office Air Purifier",
+    "sellprice": "0.74 -- 6.48",
+    "nowPrice": "3.89",
+    "saleStatus": "3",
+    "listed": 23657,
+    "soldOut": null,
+    "orderCount": 137,
+    "totalQuantity": 166,
+    "totalRefundQuantity": 8,
+    "qualityDisputeRate": "4.82",
+    "latestPaymentDate": 1789001562000,
+    "createdate": "1588790768000",
+    "bigimg": "https://oss-cf.cjdropshipping.com/product/2026/02/11/01/52741d81-89be-4f22-b1de-3acc0faf5755.jpg",
+    "verifiedWarehouse": 1
+  },
+  "pointsInfo": {
+    "total": 50000,
+    "usedToday": 150,
+    "remaining": 50000
+  },
+  "success": true
+}

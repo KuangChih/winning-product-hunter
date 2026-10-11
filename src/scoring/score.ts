@@ -1,7 +1,7 @@
 import { MOMENTUM_MIN_BASELINE_DAYS, type ProductFeatures } from "./features";
 import { clamp, percentileRanks } from "./stats";
 
-export const SCORING_VERSION = "v1.1";
+export const SCORING_VERSION = "v1.2";
 
 /** Weights and parameters from docs/research/scoring.md. Tunable after back-testing. */
 export const SCORING_CONFIG = {
@@ -20,6 +20,13 @@ export const SCORING_CONFIG = {
   corroborationMax: 1.3,
   saturationMaxPenalty: 0.5,
   singleSourceCap: 70,
+  /**
+   * A score measured on less than this share of the weights (one sub-score, e.g. a product
+   * known only from CJ's order count) is capped at `thinEvidenceCap`: one signal cannot put a
+   * product at the top of the ranking (ADR-014).
+   */
+  minEvidenceWeight: 0.25,
+  thinEvidenceCap: 50,
 };
 
 export type SubScoreName = keyof typeof SCORING_CONFIG.weights;
@@ -62,6 +69,7 @@ export type ExplainKey =
   | "momentumNeedsHistory"
   | "demandTrend"
   | "marketplace"
+  | "marketplaceCjOrders"
   | "margin"
   | "marginNeedsRetail"
   | "marginNeedsSupplier";
@@ -80,6 +88,10 @@ export interface ScoreBreakdown {
   };
   sources: string[];
   capped: boolean;
+  /** The cap applied, when `capped` (absent before v1.2: 70). */
+  capLimit?: number;
+  /** Why: "single_source" or "thin_evidence" (absent before v1.2). */
+  capReason?: "single_source" | "thin_evidence";
 }
 
 export interface ProductScore {
@@ -195,8 +207,13 @@ export function scoreProducts(features: ProductFeatures[]): ProductScore[] {
         value: market[i],
         weight: w.marketplace,
         raw: f.marketplaceOrders,
-        basis: "Units sold by the supplier (CJ) in the last 90 days, ranked.",
-        explain: { key: "marketplace" },
+        basis:
+          f.marketplaceBasis === "cj_orders"
+            ? "Orders on CJ (CJ platform count; CJ does not publish the period), ranked against other products."
+            : "Units sold by the supplier (CJ) in the last 90 days, ranked.",
+        explain: {
+          key: f.marketplaceBasis === "cj_orders" ? "marketplaceCjOrders" : "marketplace",
+        },
       },
       margin: marginSubScore(f, w.margin),
     };
@@ -220,8 +237,14 @@ export function scoreProducts(features: ProductFeatures[]): ProductScore[] {
     const penalty = SCORING_CONFIG.saturationMaxPenalty * sat;
 
     let score = clamp(100 * base * corroboration * (1 - penalty), 0, 100);
-    const capped = f.sources.length < 2 && score > SCORING_CONFIG.singleSourceCap;
-    if (capped) score = SCORING_CONFIG.singleSourceCap;
+    let cap: { limit: number; reason: "single_source" | "thin_evidence" } | null = null;
+    if (available < SCORING_CONFIG.minEvidenceWeight) {
+      cap = { limit: SCORING_CONFIG.thinEvidenceCap, reason: "thin_evidence" };
+    } else if (f.sources.length < 2) {
+      cap = { limit: SCORING_CONFIG.singleSourceCap, reason: "single_source" };
+    }
+    const capped = cap !== null && score > cap.limit;
+    if (capped) score = cap!.limit;
 
     const totalWeight = Object.values(w).reduce((a, b) => a + b, 0);
     const confidence = (available / totalWeight) * Math.min(1, f.sources.length / 3);
@@ -244,6 +267,7 @@ export function scoreProducts(features: ProductFeatures[]): ProductScore[] {
         },
         sources: f.sources,
         capped,
+        ...(capped ? { capLimit: cap!.limit, capReason: cap!.reason } : {}),
       },
     };
   });

@@ -146,6 +146,7 @@ const en = {
     watching: "★ Watching",
     firstSeen: "First seen {date}",
     advertiserPage: "Advertiser's product page",
+    cjPage: "CJ product page",
     metaAd: "Longest-running ad in Meta Ad Library",
     metaAdDays: "running {n} days",
     newTab: "(opens in a new tab)",
@@ -186,7 +187,8 @@ const en = {
       marketReach: "Share of the five priority markets (US, CA, UK, AU, NZ) with active ads.",
       momentum: "Today's observed ads vs the previous days (robust z-score), ranked.",
       demandTrend: "Search interest slope per week relative to its median, ranked.",
-      marketplace: "Units sold by the supplier (CJ) in the last 90 days, ranked.",
+      marketplace:
+        "Sales on the supplier platform (CJ platform count): units sold in 90 days when CJ reports it, otherwise CJ's order count (period not published by CJ), ranked.",
       margin: "Gross margin before shipping: the advertiser's own price vs supplier cost.",
     },
     /** Explanations stored as codes with each score, filled with that score's numbers. */
@@ -199,6 +201,8 @@ const en = {
       momentumNeedsHistory: "Needs {need}+ days of daily ad history (have {have}).",
       demandTrend: "Search interest slope per week relative to its median, ranked.",
       marketplace: "Units sold by the supplier (CJ) in the last 90 days, ranked.",
+      marketplaceCjOrders:
+        "Orders on CJ (CJ platform count; CJ does not publish the period), ranked against other products.",
       margin:
         "Gross margin before shipping: advertiser's price {retail} USD vs supplier {supplier} USD.",
       marginNeedsRetail: "Needs the advertiser's own store price (Shopify Global Catalog lookup).",
@@ -209,8 +213,9 @@ const en = {
     saturation: "Saturation penalty",
     saturationValue: "−{pct}% ({advertisers} active advertisers{stores}, {days} days old)",
     saturationStores: ", {n} stores selling similar products",
-    cap: "Single-source cap",
-    capApplied: "Applied (max 70)",
+    cap: "Score cap",
+    capApplied: "Applied: only one source (max {max})",
+    capAppliedThin: "Applied: only one signal measured (max {max})",
     capNotApplied: "Not applied",
   },
   margin: {
@@ -260,7 +265,10 @@ const en = {
     supplierHeading: "Supplier listings ({n})",
     price: "Price {price}",
     sold90: "{n} sold in 90 days",
+    cjOrders: "{n} orders on CJ",
     listedBy: "listed by {n} stores",
+    cjCountNote:
+      "CJ platform counts: orders placed through CJ (CJ does not publish the period) and how many CJ users list the product. Not the whole market.",
     viewListing: "View listing",
     none: "No evidence collected yet.",
   },
@@ -322,6 +330,7 @@ const en = {
       ad_library_web: "Ad Library website",
       shopify_catalog: "Global Catalog",
       shopify_catalog_lookup: "Global Catalog (advertiser stores)",
+      cj_api: "CJ Dropshipping API",
     } as Record<string, string>,
     columns: {
       source: "Source",
@@ -338,7 +347,8 @@ const en = {
   },
   discover: {
     title: "Discover",
-    intro: "Search public ads and store listings for products that are selling right now.",
+    intro:
+      "Search public ads, supplier sales (CJ) and store listings for products that are selling right now.",
     loading: "Loading discovery status…",
     start: "Start discovery",
     starting: "Starting…",
@@ -365,6 +375,7 @@ const en = {
       fx: "Update exchange rates",
       discover: "Search Meta ads",
       advertisers: "Check advertisers' latest ads",
+      cj: "Search CJ best-selling products",
       collect: "Look up prices and competition on Shopify",
       stores: "Look up the advertisers' own store prices",
       dedupe: "Merge duplicate products",
@@ -388,6 +399,17 @@ const en = {
       tick_limit: "Ran out of time",
       incompatible_state: "Could not continue after a site update",
     },
+    /** Skip reasons of the CJ step, where they differ from the Meta wording above. */
+    cjSkipReasons: {
+      backoff: "CJ refused requests recently (rate or points limit), so CJ is paused for now",
+      not_configured: "CJ is not set up (CJ_API_KEY is missing)",
+    } as Partial<Record<string, string>>,
+    cjFailures: {
+      auth: "CJ refused the API key. Check CJ_API_KEY in the settings; CJ searches stopped for this run.",
+      points: "Today's CJ API points are used up, so CJ searches are paused.",
+      rate_limited: "CJ asked us to slow down (too many requests), so CJ searches are paused.",
+      service: "CJ had a temporary problem. It is tried again next run.",
+    } as Partial<Record<string, string>>,
     runStatus: {
       running: "Running",
       succeeded: "Finished",
@@ -431,10 +453,14 @@ const en = {
     blockedCause: "What happened:",
     blockedTitle: "Meta is blocking this server",
     blockedBody:
-      "Meta refused requests from this server, so Meta searches are paused until {time}. We never try to get around a block. Until then the button only refreshes prices, merges duplicates and updates scores. To search sooner, run discovery on your own computer: it writes to the same database (the deployment guide lists the steps).",
+      "Meta refused requests from this server, so Meta searches are paused until {time}. We never try to get around a block; Meta is tried again automatically after that.",
+    metaPausedCj:
+      "Discovery still runs without Meta: it searches CJ for products with real supplier sales, refreshes prices, merges duplicates and updates scores.",
+    metaPausedNoCj:
+      "Until then the button only refreshes prices, merges duplicates and updates scores. Adding CJ_API_KEY in the Vercel project settings lets discovery find products from CJ supplier sales while Meta is paused.",
     dailyCapTitle: "Today's Meta searches are used up",
     dailyCapBody:
-      "{used} of {cap} full Meta searches have run today, the daily automatic run included. The button still refreshes prices, merges duplicates and updates scores. The count resets at midnight UTC.",
+      "{used} of {cap} full Meta searches have run today, the daily automatic run included. The count resets at midnight UTC.",
     cronOffTitle: "Daily automatic discovery is off",
     cronOffBody:
       "To run discovery automatically every day, the site owner needs to add CRON_SECRET in the Vercel project settings. The button works without it.",
@@ -625,6 +651,7 @@ const zhTW: Dictionary = {
     watching: "★ 已收藏",
     firstSeen: "{date} 首次發現",
     advertiserPage: "廣告主商品頁",
+    cjPage: "CJ 商品頁",
     metaAd: "Meta Ad Library 中投放最久的廣告",
     metaAdDays: "已投放 {n} 天",
     newTab: "（在新分頁開啟）",
@@ -661,7 +688,8 @@ const zhTW: Dictionary = {
       momentum:
         "今天觀察到的廣告數與前幾天比較（robust z-score），再排名；需要至少 5 天的每日紀錄。",
       demandTrend: "每週搜尋熱度的斜率（相對於中位數），再排名。",
-      marketplace: "供應商（CJ）近 90 天的銷售件數，再排名。",
+      marketplace:
+        "供應商平台的銷量（CJ 平台計數）：CJ 有提供時用近 90 天售出件數，否則用 CJ 的訂單數（CJ 未公開期間），再排名。",
       margin: "運費前毛利：廣告主自己的售價與供應商報價的差距。",
     },
     explain: {
@@ -672,6 +700,8 @@ const zhTW: Dictionary = {
       momentumNeedsHistory: "需要至少 {need} 天的每日廣告紀錄（目前 {have} 天）。",
       demandTrend: "每週搜尋熱度的斜率（相對於中位數），再排名。",
       marketplace: "供應商（CJ）近 90 天的銷售件數，再排名。",
+      marketplaceCjOrders:
+        "CJ 上的訂單數（CJ 平台計數；CJ 未公開統計期間），再跟其他產品比較排名。",
       margin: "運費前毛利：廣告主售價 {retail} USD，供應商報價 {supplier} USD。",
       marginNeedsRetail: "需要廣告主自己商店的售價（Shopify Global Catalog 查詢）。",
       marginNeedsSupplier: "需要供應商報價（CJ Dropshipping）。",
@@ -681,8 +711,9 @@ const zhTW: Dictionary = {
     saturation: "飽和度扣分",
     saturationValue: "−{pct}%（{advertisers} 個投放中的廣告主{stores}，已出現 {days} 天）",
     saturationStores: "、{n} 家店賣同類商品",
-    cap: "單一來源上限",
-    capApplied: "已套用（最高 70 分）",
+    cap: "分數上限",
+    capApplied: "已套用：只有一個來源（最高 {max} 分）",
+    capAppliedThin: "已套用：只量到一個訊號（最高 {max} 分）",
     capNotApplied: "未套用",
   },
   margin: {
@@ -732,7 +763,10 @@ const zhTW: Dictionary = {
     supplierHeading: "供應商報價（{n}）",
     price: "價格 {price}",
     sold90: "90 天售出 {n} 件",
+    cjOrders: "CJ 訂單 {n} 筆",
     listedBy: "{n} 家店上架",
+    cjCountNote:
+      "CJ 平台計數：經由 CJ 下的訂單數（CJ 未公開統計期間）與有幾個 CJ 使用者上架這個商品，不代表整個市場。",
     viewListing: "查看商品",
     none: "還沒有蒐集到證據。",
   },
@@ -791,6 +825,7 @@ const zhTW: Dictionary = {
       ad_library_web: "Ad Library 網站",
       shopify_catalog: "Global Catalog",
       shopify_catalog_lookup: "Global Catalog（廣告主商店）",
+      cj_api: "CJ Dropshipping API",
     } as Record<string, string>,
     columns: {
       source: "來源",
@@ -807,7 +842,7 @@ const zhTW: Dictionary = {
   },
   discover: {
     title: "探索",
-    intro: "從公開的廣告與商店資料中，找出現在正在熱賣的產品。",
+    intro: "從公開的廣告、供應商銷量（CJ）與商店資料中，找出現在正在熱賣的產品。",
     loading: "探索狀態載入中…",
     start: "開始探索",
     starting: "啟動中…",
@@ -831,6 +866,7 @@ const zhTW: Dictionary = {
       fx: "更新匯率",
       discover: "搜尋 Meta 廣告",
       advertisers: "查看廣告主的最新廣告",
+      cj: "搜尋 CJ 熱銷商品",
       collect: "到 Shopify 查售價與競爭狀況",
       stores: "查廣告主自己商店的售價",
       dedupe: "合併重複的產品",
@@ -853,6 +889,16 @@ const zhTW: Dictionary = {
       stalled: "太久沒有進展",
       tick_limit: "執行時間用完",
       incompatible_state: "網站更新後無法接續",
+    },
+    cjSkipReasons: {
+      backoff: "CJ 最近拒絕了請求（速率或點數上限），所以 CJ 暫停",
+      not_configured: "尚未設定 CJ（缺少 CJ_API_KEY）",
+    },
+    cjFailures: {
+      auth: "CJ 拒絕了 API 金鑰。請檢查設定中的 CJ_API_KEY；這次執行已停止 CJ 搜尋。",
+      points: "今天的 CJ API 點數用完了，所以 CJ 搜尋暫停。",
+      rate_limited: "CJ 要求放慢速度（請求太多），所以 CJ 搜尋暫停。",
+      service: "CJ 暫時出了問題，下次執行會再試。",
     },
     runStatus: {
       running: "執行中",
@@ -894,10 +940,14 @@ const zhTW: Dictionary = {
     blockedCause: "發生了什麼：",
     blockedTitle: "Meta 擋下了這台伺服器",
     blockedBody:
-      "Meta 拒絕了這台伺服器的請求，所以 Meta 搜尋會暫停到 {time}，我們不會嘗試繞過封鎖。在那之前按下按鈕只會更新售價、合併重複產品並重新評分。如果想早點搜尋，可以在自己的電腦上執行探索，結果會寫進同一個資料庫（步驟見部署說明文件）。",
+      "Meta 拒絕了這台伺服器的請求，所以 Meta 搜尋會暫停到 {time}，我們不會嘗試繞過封鎖；時間到了會自動再試。",
+    metaPausedCj:
+      "沒有 Meta 也會繼續探索：會到 CJ 搜尋有真實供應商銷量的產品，並更新售價、合併重複產品、重新評分。",
+    metaPausedNoCj:
+      "在那之前按下按鈕只會更新售價、合併重複產品並重新評分。在 Vercel 專案設定加入 CJ_API_KEY 後，Meta 暫停期間也能從 CJ 的供應商銷量找到產品。",
     dailyCapTitle: "今天的 Meta 搜尋次數已用完",
     dailyCapBody:
-      "今天已經做了 {used}/{cap} 次完整的 Meta 搜尋（含每日自動執行）。按鈕還是可以用，但只會更新售價、合併重複產品並重新評分。次數在 UTC 午夜（台灣時間早上 8 點）重新計算。",
+      "今天已經做了 {used}/{cap} 次完整的 Meta 搜尋（含每日自動執行）。次數在 UTC 午夜（台灣時間早上 8 點）重新計算。",
     cronOffTitle: "每日自動探索尚未啟用",
     cronOffBody:
       "網站管理者要在 Vercel 專案設定中加入 CRON_SECRET，網站才會每天自動探索。沒有設定的話，仍然可以用按鈕手動探索。",

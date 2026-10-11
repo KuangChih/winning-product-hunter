@@ -309,6 +309,18 @@ export const sourceBackoff = pgTable(
   (t) => [primaryKey({ columns: [t.provider, t.egress] })],
 );
 
+/**
+ * Access tokens of official APIs whose token endpoint is rate limited (CJ: ADR-014), reused
+ * until shortly before they expire. `token` is encrypted with a key derived from the API key in
+ * the environment (src/lib/token-crypto.ts): a database dump alone does not reveal it.
+ */
+export const apiTokens = pgTable("api_tokens", {
+  provider: text("provider").primaryKey(),
+  token: text("token").notNull(),
+  expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
 /** One run of an ingestion job, for the source health dashboard. */
 export const ingestionRuns = pgTable(
   "ingestion_runs",

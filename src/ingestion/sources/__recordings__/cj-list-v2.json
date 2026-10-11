@@ -1,0 +1,128 @@
+{
+  "code": 200,
+  "result": true,
+  "message": "Success",
+  "data": {
+    "pageSize": 20,
+    "pageNumber": 1,
+    "totalRecords": 30,
+    "totalPages": 2,
+    "content": [
+      {
+        "productList": [
+          {
+            "id": "5F9B011D-3393-4B82-A414-491ADE80C872",
+            "nameEn": "Magic Shadow USB Air Humidifier For Home With Projection Night Lights Ultrasonic Car Mist Maker Mini Office Air Purifier",
+            "sku": "CJJJJTJT09042",
+            "listedNum": 23657,
+            "bigImage": "https://oss-cf.cjdropshipping.com/product/2026/02/11/01/52741d81-89be-4f22-b1de-3acc0faf5755.jpg",
+            "sellPrice": "0.74 -- 6.48",
+            "nowPrice": "0.52-3.89",
+            "productType": "0",
+            "categoryId": "87CF251F-8D11-4DE0-A154-9694D9858EB3",
+            "threeCategoryName": null,
+            "saleStatus": "3",
+            "createAt": null,
+            "warehouseInventoryNum": 109199,
+            "verifiedWarehouse": 1,
+            "currency": null
+          },
+          {
+            "id": "1392009095543918592",
+            "nameEn": "350ML Electric Juicer Blender Mixer USB Rechargeable Machine Household Portable Blender Maker Cup Kitchen Tool Kit",
+            "sku": "CJJD1123188",
+            "listedNum": 23529,
+            "bigImage": "https://cf.cjdropshipping.com/c179a293-c7db-47dd-b67b-74b0b6f081cc.png",
+            "sellPrice": "1.73 -- 29.02",
+            "nowPrice": null,
+            "productType": "0",
+            "categoryId": "4D91D172-D6D0-429E-AABC-6F3325A273A6",
+            "threeCategoryName": null,
+            "saleStatus": "3",
+            "createAt": null,
+            "warehouseInventoryNum": 347634,
+            "verifiedWarehouse": 1,
+            "currency": null
+          },
+          {
+            "id": "49EB45C0-68F3-40C4-B2B9-02027D5DA7B0",
+            "nameEn": "Medical Clavicle Posture Corrector Lower Back Correction Strap",
+            "sku": "CJYDQTJM00295",
+            "listedNum": 6095,
+            "bigImage": "https://cf.cjdropshipping.com/15736608/1020949259874.jpg",
+            "sellPrice": "2.66 -- 5.19",
+            "nowPrice": null,
+            "productType": "0",
+            "categoryId": "C20B25A2-348C-48C8-A2C8-FE33749A40DE",
+            "threeCategoryName": null,
+            "saleStatus": "3",
+            "createAt": null,
+            "warehouseInventoryNum": 104658,
+            "verifiedWarehouse": 2,
+            "currency": null
+          },
+          {
+            "id": "7237F264-297E-46BC-A253-47EDB1634E5D",
+            "nameEn": "Elastic Posture Corrector For Men & Women",
+            "sku": "CJYDQTJM00156",
+            "listedNum": 302,
+            "bigImage": "https://cf.cjdropshipping.com/20190228/523965579583.png",
+            "sellPrice": "1.71 -- 2.95",
+            "nowPrice": null,
+            "productType": "0",
+            "categoryId": "C20B25A2-348C-48C8-A2C8-FE33749A40DE",
+            "threeCategoryName": null,
+            "saleStatus": "3",
+            "createAt": null,
+            "warehouseInventoryNum": 67437,
+            "verifiedWarehouse": 1,
+            "currency": null
+          },
+          {
+            "id": "37559219-6AB6-4237-965F-F3237A9E03A8",
+            "nameEn": "Back Shoulder Spine Posture Corrector",
+            "sku": "CJNSFSYD00051",
+            "listedNum": 720,
+            "bigImage": "https://cf.cjdropshipping.com/20200705/2767109840142.jpg",
+            "sellPrice": "3.30 -- 68.00",
+            "nowPrice": null,
+            "productType": "0",
+            "categoryId": "1E4A1FD7-738C-4AEF-9793-BDE062158BD6",
+            "threeCategoryName": null,
+            "saleStatus": "3",
+            "createAt": null,
+            "warehouseInventoryNum": 251706,
+            "verifiedWarehouse": 2,
+            "currency": null
+          },
+          {
+            "id": "85C80F84-A4D8-4178-8227-4F797E312692",
+            "nameEn": "Spine Bending Posture Corrector",
+            "sku": "CJYDQTJM00362",
+            "listedNum": 9158,
+            "bigImage": "https://cf.cjdropshipping.com/20200108/559376802124.jpg",
+            "sellPrice": "4.56 -- 12.02",
+            "nowPrice": null,
+            "productType": "0",
+            "categoryId": "C20B25A2-348C-48C8-A2C8-FE33749A40DE",
+            "threeCategoryName": null,
+            "saleStatus": "3",
+            "createAt": null,
+            "warehouseInventoryNum": 325316,
+            "verifiedWarehouse": 1,
+            "currency": null
+          }
+        ],
+        "relatedCategoryList": [],
+        "keyWord": "posture corrector",
+        "keyWordOld": "posture corrector"
+      }
+    ]
+  },
+  "pointsInfo": {
+    "total": 50000,
+    "usedToday": 150,
+    "remaining": 50000
+  },
+  "success": true
+}

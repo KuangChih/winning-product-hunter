@@ -268,3 +268,24 @@
 - 踩到的坑：在 Git Bash 用 `DATABASE_URL=pglite:/c/Users/...` 會被 Node 當成 `C:\c\Users\...`，開出空資料庫，e2e 出現 2 個假失敗（「No products yet」strict mode）；要用 `pglite:C:/Users/...`。
 - 限制：診斷只能看到 Meta 回給我們的頁面，不能證明原因；`login_title` 依英文標題判斷；`total_reach_by_location` 的 JSON 形狀（`{key, value}`）與 UK 鍵名要拿到 token 後實測。
 - 下一步：使用者 push 後在 Vercel 再跑一次並貼上「技術細節」；loop 回到 Phase 4C。
+
+## 2026-10-11 — CJ 官方 API 探索（ADR-014）：Meta 被擋時也能找到有真實訂單的產品
+
+- 背景：Vercel 上 Meta Ad Library 網站回 HTTP 403，正式站沒有產品；依 ADR-006 不繞過。使用者決定加入 CJ 探索並提供 `CJ_API_KEY`。
+- 研究（`docs/research/cj-api.md`）：官方文件＋少量真實請求。實測與文件不同處：詳情的 90 天銷量 `soldOut` 在 137 個詳情中**全部是 null**，有值的是 `orderCount`（CJ 未公開期間，看起來是近期窗口）、`totalQuantity`、`latestPaymentDate`；詳情欄位全小寫、0 點；`listV2` 50 點、`createAt` 是 null；trending 的 `timeStart` 篩的不是商品建立時間。token 24 小時內重取會回同一組，有效約 180 天。
+- 做了什麼：
+  - `src/ingestion/sources/cj.ts`：依實測修正型別；`createCjClient`（token 從 `api_tokens` 取用、到期前 7 天才重取、被拒就清除；一次只打一次不重試；錯誤分成 auth / points / rate_limited / service / other；錯誤訊息遮蔽金鑰與 token）。`cj-failure.ts` 給探索頁解釋錯誤。
+  - 新表 `api_tokens`（migration 0011，純新增）；token 以 `CJ_API_KEY` 衍生的金鑰 AES-256-GCM 加密（`src/lib/token-crypto.ts`）。
+  - Runner 新步驟「搜尋 CJ 熱銷商品」（`cj` → `cj_details` → `cj_finalize`，`src/pipeline/runner/cj-units.ts`）：Meta 之後、collect 之前，不受 Meta 退避影響；每 run 最多 11 次列表＋40 次詳情、間隔 1.1 秒、先記帳再送出；點數用完／限流 → 停止並對出口退避；金鑰被拒 → 停止不退避；沒有金鑰 → 「未設定」跳過。舊版存的 run 狀態用 `upgradeState` 補上欄位，可以續跑。
+  - 產品：`products.landing_key = cj:<pid>`；門檻 `CJ_RULES`（上架數 ≥ 50 才查詳情；訂單數 ≥ 50 且最近付款 ≤ 30 天才建立）；`first_seen_at` 用 CJ 的上架時間；證據 `source=cj`、`provider=cj_api`、metrics `stores_listed` / `orders_total` / `units_total`（`units_sold_90d` 只在 CJ 真的回傳時）。與既有產品只靠既有的照片 dHash 規則合併。
+  - 評分 v1.2：市集訂單子分數沒有 90 天銷量時用 CJ 訂單數（說明標示「CJ 平台計數；未公開期間」）；只量到一個子分數的產品最高 50 分（`thin_evidence`），詳情頁顯示上限原因。
+  - 介面：來源標籤「CJ（供應商銷量）」；詳情頁 CJ 訂單數、上架數與「CJ 平台計數」說明、「CJ 商品頁」連結（原本會誤標成「廣告主商品頁」）；探索頁新步驟、CJ 的跳過原因與錯誤說明；Meta 被擋／今日已用完的提示改為「沒有 Meta 也會繼續從 CJ 探索」（沒設金鑰時說明加金鑰能換到什麼），移除「在自己的電腦上執行」。DEPLOY.md 第 4、7、8 節、HUMAN_TODO 第 0 節、CLAUDE.md 已知陷阱同步更新。
+- 成效（示範資料庫複本、模擬 Meta 對 `local` 出口退避、真實 CJ 請求；`.data/dev` 未寫入）：
+  - 改動前：213 個產品、0 個 CJ 產品；有「市集訂單」子分數的 5 個（都是 fixture 樣本資料）；有毛利的 0 個。
+  - 改動後（採用的挑選方式 C）：CJ 51 次請求、550 點（帳號每日 50,000 點）、列表 250 個商品 → 查 40 個詳情 → **19 個新產品**（訂單數 77–7,422、最近付款 3–28 天前）；產品 213 → 232；有市集訂單子分數 5 → 24；跟既有 Meta 產品合併 0 個；有毛利 0 → 0（CJ 產品沒有廣告主售價，Meta 產品沒有對上 CJ 照片）。
+  - CJ 產品分數分布：0–9 分 4、10–19 分 3、20–29 分 3、30–39 分 3、40–49 分 3、50 分 3（受上限）；可信度全部「低」；前 15 名沒有只有 CJ 證據的產品。沒有上限時（第一次量測）只有 CJ 證據的產品 69.6 分排第 1、可信度 0.05 → 加了 50 分上限。
+  - 挑選方式比較：A（合併後取上架數前 40）13 個、B（近期 trending＋最佳比對）3 個、C 19 個，細節見 research 第五節。
+- 驗證：format ✅ lint ✅ typecheck ✅ test ✅（67 檔 403 個；新增 CJ client 4、token 加密 1、CJ 規則 2、runner 5、live deps 1、評分 1、證據 1、摘要 1）build ✅ e2e ✅（47，4 個 worker、示範資料庫複本，`[WebServer]` 沒有錯誤）。瀏覽器（`next start` + 複本 + `PIPELINE_DISABLED=1`）：排名頁 CJ 篩選 19 個、詳情頁中英文、375px 無橫向捲動、探索頁 Meta 被擋提示與 CJ 步驟。自查 diff 與錄下的回應沒有金鑰、token、帳號資訊。
+- 限制：CJ 訂單數只算經由 CJ 下的單、期間未公開，不是整個市場；`listedNum` 是累計上架數（偏向老商品）；只有 CJ 證據的產品沒有廣告類子分數、最高 50 分；CJ 商品頁有反爬驗證頁，連結格式無法自動驗證；CJ 產品在 Shopify collect 排在最後（還沒分數）；CJ ToS 尚未確認（個人研究使用）。
+- 需要使用者：push、在 Vercel Production 加 `CJ_API_KEY` 並 Redeploy，然後按一次「開始探索」回報（HUMAN_TODO 第 0 節）。
+- 下一步：CJ 產品的 collect 排序、CJ 運費試算（到岸毛利）、Meta 官方 Ad Library API（需要 token）。

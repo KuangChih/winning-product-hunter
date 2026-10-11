@@ -78,6 +78,8 @@ export interface PipelineStatus extends Nullable<PipelineProgress> {
   disabled: boolean;
   /** The daily cron can run (`CRON_SECRET` is set). Never the secret itself. */
   cronConfigured: boolean;
+  /** CJ discovery can run (`CJ_API_KEY` is set). Never the key itself. */
+  cjConfigured: boolean;
   canStart: boolean;
   startBlockedReason: StartBlockedReason | null;
 }
@@ -96,6 +98,7 @@ export function toStatus(
     setup: configured && !migrated ? "migrations" : null,
     disabled: pipelineGate(env) !== null,
     cronConfigured: isCronConfigured(env),
+    cjConfigured: !!env.CJ_API_KEY?.trim(),
     canStart: blocked === null,
     startBlockedReason: blocked,
   };

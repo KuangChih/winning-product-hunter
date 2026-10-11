@@ -331,6 +331,9 @@ export function EvidenceList({
       )}
       {listings.length > 0 && (
         <Section title={fill(t.supplierHeading, { n: listings.length })}>
+          {listings.some((l) => l.source === "cj") && (
+            <p className="text-muted-foreground text-xs">{t.cjCountNote}</p>
+          )}
           <ul className="divide-y">
             {listings.map((l) => {
               const parts = [
@@ -339,6 +342,9 @@ export function EvidenceList({
                   : null,
                 l.metrics.units_sold_90d !== undefined
                   ? fill(t.sold90, { n: count(l.metrics.units_sold_90d) })
+                  : null,
+                l.metrics.orders_total !== undefined
+                  ? fill(t.cjOrders, { n: count(l.metrics.orders_total) })
                   : null,
                 l.metrics.stores_listed !== undefined
                   ? fill(t.listedBy, { n: count(l.metrics.stores_listed) })

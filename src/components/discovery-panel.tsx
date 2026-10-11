@@ -48,6 +48,7 @@ export function DiscoveryNotices({
     notices.push(
       <Notice key="backoff" tone="warning" heading="h3" title={labels.blockedTitle}>
         <p>{fill(labels.blockedBody, { time: formatUtc(ad.pausedUntil) })}</p>
+        <p>{status.cjConfigured ? labels.metaPausedCj : labels.metaPausedNoCj}</p>
         {ad.blockReason && (
           <>
             <p>
@@ -68,6 +69,7 @@ export function DiscoveryNotices({
     notices.push(
       <Notice key="cap" heading="h3" title={labels.dailyCapTitle}>
         <p>{fill(labels.dailyCapBody, { used: ad.sweepsToday, cap: ad.dailySweepCap })}</p>
+        <p>{status.cjConfigured ? labels.metaPausedCj : labels.metaPausedNoCj}</p>
       </Notice>,
     );
   }

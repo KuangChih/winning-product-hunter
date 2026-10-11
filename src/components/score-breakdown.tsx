@@ -104,7 +104,13 @@ export function ScoreBreakdown({ breakdown, locale }: { breakdown: Breakdown; lo
         </div>
         <div className="rounded-lg border p-3">
           <dt className="text-muted-foreground">{t.cap}</dt>
-          <dd className="font-medium">{breakdown.capped ? t.capApplied : t.capNotApplied}</dd>
+          <dd className="font-medium">
+            {breakdown.capped
+              ? fill(breakdown.capReason === "thin_evidence" ? t.capAppliedThin : t.capApplied, {
+                  max: breakdown.capLimit ?? 70,
+                })
+              : t.capNotApplied}
+          </dd>
         </div>
       </dl>
     </div>

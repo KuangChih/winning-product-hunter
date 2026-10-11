@@ -155,7 +155,11 @@ describe("DiscoveryPanel", () => {
       screen.getByRole("heading", { name: "Meta is blocking this server" }),
     ).toBeInTheDocument();
     expect(screen.getByText(/paused until 2026-10-11 18:00 UTC/)).toBeInTheDocument();
-    expect(screen.getByText(/run discovery on your own computer/)).toBeInTheDocument();
+    // CJ keeps discovery going; no "run it on your own computer" advice.
+    expect(
+      screen.getByText(/searches CJ for products with real supplier sales/),
+    ).toBeInTheDocument();
+    expect(screen.queryByText(/own computer/)).not.toBeInTheDocument();
     // Which case it was, in plain words, with the diagnostic folded away.
     expect(
       screen.getByText(/Meta asked to log in \(it sent us to a login page\)/),
@@ -176,11 +180,14 @@ describe("DiscoveryPanel", () => {
           sweepsToday: 3,
           dailySweepCap: 3,
         },
+        cjConfigured: false,
       }),
       zh,
     );
     expect(screen.getByRole("heading", { name: "今天的 Meta 搜尋次數已用完" })).toBeInTheDocument();
     expect(screen.getByText(/今天已經做了 3\/3 次/)).toBeInTheDocument();
+    // Without a CJ key the page says what CJ would add instead of promising it.
+    expect(screen.getByText(/加入 CJ_API_KEY/)).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "開始探索" })).toBeEnabled();
   });
 

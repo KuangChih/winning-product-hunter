@@ -1,7 +1,7 @@
 /**
  * Daily real-data pipeline: ECB rates → discover products (Meta Ad Library) → follow advertisers
- * → collect Shopify Global Catalog evidence → advertiser stores → dedupe → match → score. Runs
- * the same resumable runner as the website's "start discovery" button (ADR-013), here without a
+ * → CJ best sellers (ADR-014) → collect Shopify Global Catalog evidence → advertiser stores →
+ * dedupe → match → score. Runs the same resumable runner as the website's "start discovery" button (ADR-013), here without a
  * time budget; on Neon it attaches to a run that is already active.
  *
  *   npm run pipeline -- [--keywords=10] [--advertisers=10] [--collect=20] [--keyword="a,b"]
@@ -97,7 +97,8 @@ async function main() {
   }
   console.log(
     `run #${final.id} ${final.status} in ${final.ticks} ticks, ${Math.round((Date.now() - started) / 1000)} s: ` +
-      `${final.adLibraryRequests} Meta requests, ${s.results.newProducts} new products, ` +
+      `${final.adLibraryRequests} Meta requests, ${s.steps.cj?.requests ?? 0} CJ requests, ` +
+      `${s.results.newProducts} new products (${s.results.cjProducts ?? 0} from CJ), ` +
       `${s.results.newAds} new ads, ${s.results.productsScored} products scored` +
       (s.adLibrary.blocked ? `; Meta blocked: ${s.adLibrary.blocked.reason}` : ""),
   );

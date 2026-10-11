@@ -30,6 +30,7 @@ import {
   PROVIDER_OF,
   recordAttempts,
 } from "../targets";
+import { CJ_UNITS } from "./cj-units";
 import type { Clock, RunnerDeps } from "./deps";
 import {
   AD_LIBRARY_PROVIDER,
@@ -356,7 +357,7 @@ const advertisers: UnitDef = {
 
     const skip = (patch: Parameters<typeof setStep<"advertisers">>[2]): RunState => ({
       ...setStep({ ...s, plan: { ...s.plan, advertiserRequests: [] } }, "advertisers", patch),
-      cursor: "collect",
+      cursor: "cj",
     });
     if (!deps.adLibrary || options.advertisers === 0) {
       return skip({ status: "skipped", skipReason: "not_configured" });
@@ -773,7 +774,8 @@ export const UNITS: Record<Exclude<UnitName, "done">, UnitDef> = {
   discover,
   discover_finalize: finalize("keyword", "advertisers"),
   advertisers,
-  advertisers_finalize: finalize("advertiser", "collect"),
+  advertisers_finalize: finalize("advertiser", "cj"),
+  ...CJ_UNITS,
   collect: collectUnit(COLLECT),
   stores: collectUnit(STORES),
   hash,

@@ -28,6 +28,9 @@
   - 2026-10-11：Vercel 第一次探索顯示「Meta 擋下了這台伺服器」，但當時不知道 Meta 實際回了什麼
   - [x] Meta 回應診斷：分成驗證碼 / 要求登入 / 403 / 429（被擋、退避）與頁面沒有內嵌結果 / 讀不出來（不算被擋、只停這次執行），診斷寫進 `ingestion_runs.error`、步驟錯誤與退避原因，探索頁白話說明 + 技術細節
   - [ ] [blocked: human — 需要下一次 Vercel 執行的「技術細節」] 依實際分類決定 Vercel 上的 Meta 策略（HUMAN_TODO 第 1 項）
+  - [x] 2026-10-11：Vercel 實際回 HTTP 403。CJ 官方 API 探索（ADR-014）：Meta 被擋時照常從 CJ 找有訂單的商品並建立產品（`cj:<pid>`）、token 加密快取、點數／限流退避、探索頁步驟與提示、評分 v1.2（CJ 訂單數 + 證據太少上限 50 分）
+  - [ ] [blocked: human — 需要在 Vercel Production 加 `CJ_API_KEY` 並 Redeploy] 正式站實測 CJ 步驟（HUMAN_TODO 第 0 節）
+  - [ ] Meta 官方 Ad Library API 探索（英國／歐盟，計畫第 5 節）[blocked: human — 需要 `META_ACCESS_TOKEN`]
 
 ## Phase 4C — 找爆品能力強化（最優先；使用者 2026-10-10 要求：要能客觀、實質找到爆品）
 
@@ -46,14 +49,20 @@
 - [ ] `groupAdsByLanding` 同一則廣告跨國重複計數：同一 ad id 在不同國家的搜尋結果會被算成多則，可能讓「有潛力」門檻與擴量訊號偏高；改成依 ad id 去重並量測受影響的產品數
 - [ ] 廣告動能雜訊：一天最多 3 次 Meta 掃描（ADR-013）會讓「每日觀測到的廣告數」偏高；改成只用每日排程（cron）的觀測或依日去重，並在示範資料庫量測分數差異
 - [ ] Meta 請求間隔加隨機抖動：CLAUDE.md 規則寫「隨機間隔」，目前固定 5 秒（M2 之前也是固定）
-- [ ] 真實銷量訊號（Shopify Global Catalog 沒有銷量）：研究並逐一接上能反映實際賣出的第一手來源——CJ 90 天銷量（需金鑰）、Google Merchant Center 熱銷排名（需申請）、TikTok Shop 商品頁公開售出數、Amazon 排名；每個來源標示「實際訂單 / 排名 / 推估」等級，先寫研究文件再實作
+- [ ] CJ 探索後續（ADR-014）：
+  - [ ] CJ 產品在 Shopify collect 排在最後（還沒有分數時排序用 -1，200 多個 Meta 產品排在前面），補「跨店販售」證據前要調整挑選順序並量測
+  - [ ] CJ 訂單數的統計期間：寄信問 CJ，或每天觀測同一商品的 `orderCount` 變化推算；確認後更新說明文字
+  - [ ] CJ `listedNum`（累計上架數）納入飽和懲罰的評估：在複本量測分數差異再決定
+  - [ ] 關鍵字自動延伸也套用到 CJ（CJ 列表 50 點／次，額度很寬）
+- [ ] 真實銷量訊號（Shopify Global Catalog 沒有銷量）：研究並逐一接上能反映實際賣出的第一手來源——CJ 訂單數（2026-10-11 已接上，ADR-014）、Google Merchant Center 熱銷排名（需申請）、TikTok Shop 商品頁公開售出數、Amazon 排名；每個來源標示「實際訂單 / 排名 / 推估」等級，先寫研究文件再實作
 - [ ] 照片比對 v2：CLIP 類圖片向量（transformers.js，在 GitHub Actions 免費執行），能處理裁切、旋轉、修圖；人工標註約 200 組配對量測準確率與漏抓率來定門檻；不確定的配對列為「可能重複」讓使用者確認，不自動合併
 - [ ] 詳情頁的店家評分標示「店家自報，可能不實」（評分不計入 Winning Score）
 
 ## 等待金鑰、決策或資料量
 
-- [ ] [blocked: human — 需要 `CJ_API_KEY`] CJ Dropshipping API v2 adapter：Trending 商品、90 天銷量、各國運費與運送時間、各倉庫存 → 供應成本與需求訊號
-- [ ] [blocked: human — 需要 `CJ_API_KEY`、Pinterest / Merchant Center] 評分 v2：margin 扣除 CJ 運費（到岸毛利）、demandTrend 改用 Pinterest / Google Best sellers
+- [x] CJ Dropshipping API v2 adapter（2026-10-11，ADR-014）：Trending 與關鍵字列表、商品詳情（訂單數、上架數、上架時間）、供貨價；`soldOut`（90 天銷量）實測全是 null
+- [ ] CJ 運費試算（`freightCalculate`，10 點／次）與各倉庫存 → 評分 v2 的到岸毛利（CJ 部分已解除 blocked；先在複本量測有毛利的產品數）
+- [ ] [blocked: human — 需要 Pinterest / Merchant Center] 評分 v2：demandTrend 改用 Pinterest / Google Best sellers
 - [ ] [blocked: human — 需要 Merchant Center] Google Merchant API Best sellers adapter：每週 / 每月熱銷排名、`relative_demand` 與變化（11 國）
 - [ ] [blocked: human — 需要 Pinterest 開發者 app] Pinterest Trends API adapter（US、CA、GB、AU+NZ）
 - [ ] [blocked: human — 需要 developer token] Google Ads API Keyword Planner adapter：關鍵字月搜尋量與趨勢

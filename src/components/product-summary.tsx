@@ -88,7 +88,7 @@ export function ProductSummary({
         <div className="flex flex-wrap gap-2">
           {storePage && (
             <a href={storePage} target="_blank" rel="noopener noreferrer" className={linkClass}>
-              {t.advertiserPage}
+              {product.canonicalKind === "cj" ? t.cjPage : t.advertiserPage}
               <ExternalIcon aria-hidden className="size-3.5" />{" "}
               <span className="sr-only">{t.newTab}</span>
             </a>

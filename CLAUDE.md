@@ -130,3 +130,4 @@
 - `/api/internal/*`（tick 接續、Vercel Cron）被 `src/proxy.ts` 的 matcher 排除、不經網站密碼，各自檢查 Bearer token（`src/lib/internal-auth.ts`）；新增內部 route 一定要先驗證 token、失敗回 401/503（fail closed）。其他 `/api/*` 未登入時 proxy 回 401 JSON，不轉址、不做語言改寫。
 - Tick 預算維持 120–250 秒（預設 200 秒）：預算 + 50 秒硬中止必須小於 Vercel 的 300 秒上限，一個 Meta 單位最長 45 秒、collect 單位 60 秒；調低會讓每個 tick 只做一個單位、撞到 40 個 tick 上限。測試或本機量測要強制分段時才用小預算。
 - 本機量測 pipeline 或跑 e2e 一律用示範資料庫的**複本**（`DATABASE_URL=pglite:<複本路徑>`），不要直接寫 `.data/dev`；e2e 伺服器設了 `PIPELINE_DISABLED=1`，不會送出真實請求。
+- CJ API（ADR-014、`docs/research/cj-api.md`）跟文件不一樣：`productDetail/query` 欄位全小寫、文件寫的 90 天銷量 `soldOut` 實測全是 null（用 `orderCount`，期間未公開）、`listV2` 的 `createAt` 是 null（上架時間在詳情的 `createdate` 字串）。`getAccessToken` 有頻率限制：token 存在 `api_tokens`（加密）重複使用，**不要**在測試或腳本裡反覆向 CJ 取 token；本機量測用複本時第一次會取一次。

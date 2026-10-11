@@ -2,6 +2,7 @@ import { Check, Circle, CircleMinus, CircleX, LoaderCircle } from "lucide-react"
 import type { Dictionary } from "@/i18n/dictionaries";
 import { fill } from "@/i18n/format";
 import type { Locale } from "@/i18n/locales";
+import { cjFailureKind } from "@/ingestion/sources/cj-failure";
 import { adLibraryFailureKind } from "@/ingestion/sources/meta-ad-library-failure";
 import { classifyError } from "@/lib/discovery-client";
 import { formatUtc } from "@/lib/format";
@@ -10,10 +11,16 @@ import type { RunProgress, StepProgress } from "@/pipeline/progress";
 
 export type DiscoverLabels = Dictionary["discover"];
 
-/** A Meta Ad Library page failure says which case it was; other errors say their kind. */
+/**
+ * A Meta Ad Library page failure or a CJ API refusal says which case it was; other errors say
+ * their kind.
+ */
 export function explainError(message: string, labels: DiscoverLabels): string {
   const meta = adLibraryFailureKind(message);
-  return meta ? labels.metaFailures[meta] : labels.errorKinds[classifyError(message)];
+  if (meta) return labels.metaFailures[meta];
+  const cj = cjFailureKind(message);
+  const cjText = cj ? labels.cjFailures[cj] : undefined;
+  return cjText ?? labels.errorKinds[classifyError(message)];
 }
 
 /**
@@ -117,7 +124,10 @@ function StepRow({
           </span>
         </div>
         {step.skipReason && (
-          <p className="text-muted-foreground text-xs">{labels.skipReasons[step.skipReason]}</p>
+          <p className="text-muted-foreground text-xs">
+            {(step.name === "cj" && labels.cjSkipReasons[step.skipReason]) ||
+              labels.skipReasons[step.skipReason]}
+          </p>
         )}
         {/* Result summaries come from the runner in English; shown on English pages only. */}
         {step.detail && locale === "en" && step.status !== "skipped" && (

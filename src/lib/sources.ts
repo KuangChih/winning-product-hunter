@@ -10,7 +10,8 @@ export const SOURCE_LABELS: Record<string, string> = {
   google_trends: "Google Trends",
   aliexpress: "AliExpress",
   amazon: "Amazon",
-  cj: "CJ Dropshipping",
+  // CJ's own counts (orders, listings) and supplier price: platform counts, not the market.
+  cj: "CJ (supplier sales)",
   shopify: "Shopify stores",
 };
 
@@ -19,6 +20,7 @@ const LOCALIZED_LABELS: Partial<Record<Locale, Record<string, string>>> = {
   "zh-TW": {
     tiktok_ads: "TikTok Ads（歐盟）",
     shopify: "Shopify 店家",
+    cj: "CJ（供應商銷量）",
   },
 };
 

@@ -24,7 +24,7 @@ export interface RunOptions {
 
 /** User-facing steps, in order. */
 export type StepName =
-  "fx" | "discover" | "advertisers" | "collect" | "stores" | "dedupe" | "match" | "score";
+  "fx" | "discover" | "advertisers" | "cj" | "collect" | "stores" | "dedupe" | "match" | "score";
 
 /** Units of work; `discover` and `advertisers` are one Ad Library request per unit. */
 export type UnitName =
@@ -33,6 +33,9 @@ export type UnitName =
   | "discover_finalize"
   | "advertisers"
   | "advertisers_finalize"
+  | "cj"
+  | "cj_details"
+  | "cj_finalize"
   | "collect"
   | "stores"
   | "hash"
@@ -43,7 +46,7 @@ export type UnitName =
   | "done";
 
 export type SkipReason =
-  /** Meta blocked this egress recently (ADR-006 back-off). */
+  /** The source (Meta, or CJ for the CJ step) blocked this egress recently (ADR-006 back-off). */
   | "backoff"
   /** Today's Meta sweeps are used up. */
   | "daily_cap"
@@ -81,6 +84,58 @@ export interface CollectStepState extends StepState {
   failedInRow?: number;
   /** First few product errors. */
   errors: string[];
+}
+
+/** One CJ product list request: CJ's trending list or a keyword search (ADR-014). */
+export interface CjListRequest {
+  keyword: string | null;
+  trending: boolean;
+  /** Only products listed on CJ after this time (epoch ms). */
+  createdAfter?: number;
+  /** "listed": most listed first; "match": CJ's best match for the keyword. */
+  orderBy?: "listed" | "match";
+  /** New candidates this request may add, from its first `window` results. */
+  take: number;
+  window?: number;
+}
+
+/** A CJ product kept from the lists for a detail request (trimmed to what is stored). */
+export interface CjCandidate {
+  id: string;
+  title: string;
+  imageUrl: string | null;
+  priceCents: number | null;
+  listedNum: number | null;
+  createAt: number | null;
+  category: string | null;
+  /** The requests that returned it ("trending" or the keyword). */
+  foundBy: string[];
+  /** Filled by the detail request; null when it was not made or failed. */
+  detail: {
+    listed: number | null;
+    soldOut: number | null;
+    orderCount: number | null;
+    totalQuantity: number | null;
+    totalRefundQuantity: number | null;
+    latestPaymentDate: number | null;
+    /** When the product was added to CJ (epoch ms; the lists leave `createAt` empty). */
+    createdAt: number | null;
+  } | null;
+}
+
+export interface CjStepState extends StepState {
+  /** List and detail requests made (each counted before it is sent). */
+  requests: number;
+  /** CJ's points used today, from its latest answer (null before any answer). */
+  pointsUsedToday: number | null;
+  /** Products returned by the lists (with repeats). */
+  listed: number;
+  /** List requests that failed without CJ refusing us (absent in older states). */
+  listFailures?: number;
+  /** Detail requests that failed (such a product is never tracked: no sales data). */
+  detailFailures: number;
+  /** CJ refused us (key, points, rate limit): no more CJ requests in this run. */
+  stopped: { at: string; reason: string } | null;
 }
 
 export interface DedupeStepState extends StepState {
@@ -121,6 +176,8 @@ export interface RunState {
     advertiserRequests: AdRequest[] | null;
     collect: ProductQuery[] | null;
     stores: ProductQuery[] | null;
+    /** CJ list requests (null until planned; absent in states saved before CJ existed). */
+    cj?: CjListRequest[] | null;
   };
   progress: {
     keyword: number;
@@ -128,6 +185,9 @@ export interface RunState {
     collect: number;
     stores: number;
     hashAttempted: number;
+    /** CJ list requests and detail requests done. */
+    cjList?: number;
+    cjDetail?: number;
   };
   /** The unit in flight, written before it starts (a retry finds it). */
   unit: {
@@ -138,7 +198,9 @@ export interface RunState {
     ingestionRunId?: number;
   } | null;
   /** Next allowed request time per rate-limited source (epoch ms). */
-  rate: { adLibraryNextAt: number | null; shopifyNextAt: number | null };
+  rate: { adLibraryNextAt: number | null; shopifyNextAt: number | null; cjNextAt?: number | null };
+  /** CJ products kept for details, best first (absent in states saved before CJ existed). */
+  cjCandidates?: CjCandidate[];
   adLibrary: {
     /** Requests reserved so far (counted before each one is sent). */
     requests: number;
@@ -154,6 +216,8 @@ export interface RunState {
     fx: StepState;
     discover: StepState;
     advertisers: StepState;
+    /** Absent in states saved before CJ existed (see `upgradeState`). */
+    cj: CjStepState;
     collect: CollectStepState;
     stores: CollectStepState;
     dedupe: DedupeStepState;
@@ -161,8 +225,10 @@ export interface RunState {
     score: StepState;
   };
   results: {
-    /** Products created by discovery and advertiser following. */
+    /** Products created by discovery, advertiser following and CJ. */
     newProducts: number;
+    /** Products created from CJ in this run (absent in older states). */
+    cjProducts?: number;
     /** Products created by matching other evidence. */
     matchedProducts: number;
     /** Ads seen for the first time in this run. */

@@ -13,6 +13,7 @@ import {
   finalStatus,
   initialState,
   isCompatibleState,
+  upgradeState,
   setStep,
   STEP_OF_UNIT,
 } from "./state";
@@ -150,7 +151,7 @@ export async function runTick(
 
   // Limits: incompatible state, age, ticks, stalls.
   let s: RunState = isCompatibleState(row.state)
-    ? row.state
+    ? upgradeState(row.state)
     : fastForward(initialState(row.createdAt, new Date(clock.now())), "incompatible_state");
   saved = s;
   const t0 = clock.now();

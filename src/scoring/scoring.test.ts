@@ -165,6 +165,7 @@ describe("scoreProducts", () => {
     newAdActivity14d: 2,
     trendSlope: 0,
     marketplaceOrders: 100,
+    marketplaceBasis: "units_90d",
     supplierPriceCents: 500,
     adMomentum: null,
     adHistoryDays: 0,
@@ -210,6 +211,33 @@ describe("scoreProducts", () => {
     expect(s.confidenceLabel).toBe("low");
   });
 
+  it("caps a product measured by one signal only (e.g. CJ orders) at 50", () => {
+    const cjOnly: ProductFeatures = {
+      ...base,
+      longevity: null,
+      activeAds: 0,
+      activeAdvertisers: 0,
+      newAdActivity14d: null,
+      trendSlope: null,
+      marketReach: null,
+      marketplaceOrders: 5000,
+      marketplaceBasis: "cj_orders",
+      ageDays: 0,
+      sources: ["cj"],
+    };
+    const [top, low] = scoreProducts([cjOnly, { ...cjOnly, marketplaceOrders: 10 }]);
+    expect(top.score).toBe(50);
+    expect(top.breakdown).toMatchObject({
+      capped: true,
+      capLimit: 50,
+      capReason: "thin_evidence",
+    });
+    expect(top.breakdown.subScores.marketplace.explain?.key).toBe("marketplaceCjOrders");
+    expect(top.breakdown.subScores.longevity.value).toBeNull();
+    expect(top.confidenceLabel).toBe("low");
+    expect(low.breakdown.capped).toBe(false);
+  });
+
   it("stores a translatable explanation that matches the English sentence", () => {
     const en = getDictionary("en").breakdown.explain;
     const variants = scoreProducts([
@@ -217,6 +245,7 @@ describe("scoreProducts", () => {
       { ...base, retailUsdCents: 2000 },
       { ...base, supplierPriceCents: null },
       { ...base, adMomentum: 1.5, adHistoryDays: 9 },
+      { ...base, marketplaceBasis: "cj_orders" },
     ]);
     for (const p of variants) {
       for (const sub of Object.values(p.breakdown.subScores)) {

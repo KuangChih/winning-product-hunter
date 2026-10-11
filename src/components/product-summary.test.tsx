@@ -14,6 +14,7 @@ const product: ProductDetail = {
   title: "Neck Fan",
   imageUrl: null,
   canonicalUrl: "https://shop.example/products/neck-fan",
+  canonicalKind: "advertiser",
   firstSeenAt: new Date("2026-09-01T00:00:00Z"),
   score: {
     score: 72.4,
@@ -72,6 +73,26 @@ describe("ProductSummary", () => {
     expect(screen.getByText("這個產品還沒有評分。")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "★ 已收藏" })).toBeInTheDocument();
     expect(screen.queryByRole("link")).toBeNull();
+  });
+
+  it("calls a product found on CJ's page a CJ product page, not the advertiser's", () => {
+    render(
+      <ProductSummary
+        product={{
+          ...product,
+          canonicalUrl: "https://cjdropshipping.com/product/neck-fan-p-1.html",
+          canonicalKind: "cj",
+        }}
+        facts={{ ...facts, primaryAd: null }}
+        watched={false}
+        locale="zh-TW"
+      />,
+    );
+    expect(screen.getByRole("link", { name: /^CJ 商品頁/ })).toHaveAttribute(
+      "href",
+      "https://cjdropshipping.com/product/neck-fan-p-1.html",
+    );
+    expect(screen.queryByRole("link", { name: /廣告主商品頁/ })).toBeNull();
   });
 });
 
