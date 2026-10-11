@@ -14,35 +14,35 @@ const p = (id: string, listedNum: number, extra: Partial<CjListProduct> = {}): C
 });
 
 describe("CJ discovery rules", () => {
-  it("adds the most-listed qualifying products of a list, within its take and window", () => {
+  it("adds on-sale products in CJ's best-match order, never ranked or filtered by listing count", () => {
     const first = addCandidates(
       [],
       [p("A", 300), p("B", 10), p("C", 900), p("D", 500, { saleStatus: "2" }), p("F", 100)],
-      "trending",
-      { take: 2, max: 10 },
+      "neck fan",
+      { take: 3, max: 10 },
     );
-    // B is listed by too few CJ users, D is not on sale; C and A are the two most listed.
-    expect(first.map((c) => c.id)).toEqual(["C", "A"]);
-    expect(first[1]).toMatchObject({ priceCents: 310, foundBy: ["trending"], detail: null });
+    // D is not on sale; B is listed by only 10 CJ users and still checked (listing ≠ sales).
+    expect(first.map((c) => c.id)).toEqual(["A", "B", "C"]);
+    expect(first[0]).toMatchObject({ priceCents: 310, foundBy: ["neck fan"], detail: null });
     // A keyword finding A again only notes it; only its first `window` results count.
     const second = addCandidates(first, [p("A", 300), p("E", 2000), p("G", 5000)], "cat toy", {
       take: 3,
       window: 2,
-      max: 3,
+      max: 4,
     });
     expect(second.map((c) => [c.id, c.foundBy])).toEqual([
-      ["C", ["trending"]],
-      ["A", ["trending", "cat toy"]],
+      ["A", ["neck fan", "cat toy"]],
+      ["B", ["neck fan"]],
+      ["C", ["neck fan"]],
       ["E", ["cat toy"]],
     ]);
     // The run's detail budget caps the total.
-    expect(addCandidates(second, [p("H", 999)], "x", { take: 3, max: 3 })).toHaveLength(3);
-    expect(CJ_RULES.minListedForDetail).toBeGreaterThan(10);
+    expect(addCandidates(second, [p("H", 999)], "x", { take: 3, max: 4 })).toHaveLength(4);
     expect(cjProductKey("A")).toBe("cj:A");
   });
 
   it("tracks only products with enough CJ orders and a recent paid order", () => {
-    const [c] = addCandidates([], [p("A", 300)], "trending", { take: 1, max: 10 });
+    const [c] = addCandidates([], [p("A", 300)], "neck fan", { take: 1, max: 10 });
     const detail = (over: Record<string, unknown>) =>
       candidateDetail({
         id: "A",

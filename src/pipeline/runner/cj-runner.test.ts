@@ -128,21 +128,19 @@ describe("pipeline runner: CJ discovery (ADR-014)", () => {
     expect(run.state.steps.discover).toMatchObject({ status: "skipped", skipReason: "backoff" });
     const cj = run.state.steps.cj;
     expect(cj.status).toBe("done");
-    // Token once, CJ trending + 1 keyword list, then one detail per listed product.
+    // Token once, one keyword list (no CJ "trending" list), then one detail per on-sale result.
     const calls = cjFetch.mock.calls.map(([u]) => String(u));
     expect(calls.filter((u) => u.includes("getAccessToken"))).toHaveLength(1);
-    expect(calls.filter((u) => u.includes("listV2"))).toHaveLength(2);
+    expect(calls.filter((u) => u.includes("listV2"))).toHaveLength(1);
+    expect(calls.some((u) => u.includes("productFlag"))).toBe(false);
     expect(calls.filter((u) => u.includes("productDetail"))).toHaveLength(6);
     // Every HTTP request is counted and paced, the access token included.
-    expect(cj.requests).toBe(9);
+    expect(cj.requests).toBe(8);
     expect(cj.pointsUsedToday).toBe(150);
-    const trending = new URL(calls.find((u) => u.includes("productFlag=0"))!);
-    expect(trending.searchParams.get("timeStart")).toBeNull();
-    expect(trending.searchParams.get("orderBy")).toBe("1"); // most listed
     const keyword = new URL(calls.find((u) => u.includes("keyWord="))!);
     expect(Object.fromEntries(keyword.searchParams)).toMatchObject({
       keyWord: "posture corrector",
-      orderBy: "1", // most listed (its first 20 results)
+      orderBy: "0", // CJ's best match: relevance, never the listing count
       size: "20",
     });
 
@@ -267,7 +265,7 @@ describe("pipeline runner: CJ discovery (ADR-014)", () => {
       },
     };
     await driveRun(t.db, deps({ clock }), (await newRun()).id);
-    expect(sentAt).toHaveLength(9);
+    expect(sentAt).toHaveLength(8);
     const gaps = sentAt.slice(1).map((v, i) => v - sentAt[i]);
     expect(Math.min(...gaps)).toBeGreaterThanOrEqual(CJ_INTERVAL_MS);
   });
@@ -359,7 +357,7 @@ describe("pipeline runner: CJ discovery (ADR-014)", () => {
       "85C80F84-A4D8-4178-8227-4F797E312692-big",
     ]);
     expect(run.state.steps.cj).toMatchObject({ freightQuotes: 2, status: "done" });
-    expect(run.state.steps.cj.requests).toBe(11);
+    expect(run.state.steps.cj.requests).toBe(10);
     const rows = await t.db.select().from(cjLandedCosts);
     expect(rows).toHaveLength(2);
     expect(rows[0]).toMatchObject({

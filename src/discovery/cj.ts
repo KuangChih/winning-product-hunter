@@ -14,8 +14,6 @@ import type { CjCandidate } from "@/pipeline/runner/types";
 const DAY = 86_400_000;
 
 export const CJ_RULES = {
-  /** A list product needs at least this many CJ users listing it to get a detail request. */
-  minListedForDetail: 50,
   /**
    * A product is tracked when CJ reports at least this many orders under it (CJ's own count;
    * the period is not published, see the research note)…
@@ -31,24 +29,23 @@ export function cjProductKey(id: string): string {
 }
 
 /**
- * New products a request may add for detail requests (the run's detail budget is shared).
- * Measured 2026-10-11 (docs/research/cj-api.md): the most-listed products of CJ's trending list
- * and of a keyword search led to 13 tracked products out of 40 details; CJ's best match plus a
- * "listed in the last 365 days" trending filter led to 3 out of 36 (mostly products without
- * orders). Recency comes from the order rule (`maxDaysSinceLastOrder`), not from the lists.
+ * New products a keyword search may add for detail requests (user rule 2026-10-11: only CJ's
+ * verifiable sales count). CJ's lists cannot be sorted by sales: its "trending" list is CJ's own
+ * pick (possibly what CJ wants sold) and the listing count is not sales, so neither selects
+ * candidates. A keyword's best-match results (relevance only) all get a detail request (0
+ * points, paced 1.5 s), and the detail's order count and latest paid order decide.
  */
 export const CJ_TAKE = {
-  trending: 10,
-  keyword: 3,
-  /** Most-listed results of a keyword drift off topic further down; look at the first 20. */
+  keyword: 12,
+  /** Best-match results drift off topic further down; look at the first 20. */
   keywordWindow: 20,
 };
 
 /**
- * Adds the most-listed qualifying products of one list answer (on sale, listed by at least
- * `minListedForDetail` CJ users) to the candidates: at most `take` new ones from the first
- * `window` results, and never more than `max` candidates in all. A product found again only
- * notes the request that found it.
+ * Adds the on-sale products of one keyword answer, in CJ's best-match order (relevance, not
+ * popularity), to the candidates: at most `take` new ones from the first `window` results, and
+ * never more than `max` candidates in all. A product found again only notes the request that
+ * found it. The listing count plays no part (it is not sales).
  */
 export function addCandidates(
   existing: CjCandidate[],
@@ -58,18 +55,13 @@ export function addCandidates(
 ): CjCandidate[] {
   const out = existing.map((c) => ({ ...c, foundBy: [...c.foundBy] }));
   const byId = new Map(out.map((c) => [c.id, c]));
-  const qualifying = products
-    .slice(0, window)
-    .filter(
-      (p) =>
-        !!p.id &&
-        !!p.nameEn &&
-        // "3" = on sale; anything else cannot be sold now.
-        (p.saleStatus === undefined || p.saleStatus === "3") &&
-        typeof p.listedNum === "number" &&
-        p.listedNum >= CJ_RULES.minListedForDetail,
-    )
-    .sort((a, b) => b.listedNum! - a.listedNum! || a.id.localeCompare(b.id));
+  const qualifying = products.slice(0, window).filter(
+    (p) =>
+      !!p.id &&
+      !!p.nameEn &&
+      // "3" = on sale; anything else cannot be sold now.
+      (p.saleStatus === undefined || p.saleStatus === "3"),
+  );
   let added = 0;
   for (const p of qualifying) {
     const prev = byId.get(p.id);
@@ -84,7 +76,7 @@ export function addCandidates(
       title: p.nameEn.trim(),
       imageUrl: p.bigImage ?? null,
       priceCents: parseCjPriceCents(p.nowPrice ?? p.sellPrice) ?? null,
-      listedNum: p.listedNum!,
+      listedNum: typeof p.listedNum === "number" ? p.listedNum : null,
       createAt: typeof p.createAt === "number" ? p.createAt : null,
       category: p.threeCategoryName ?? null,
       foundBy: [foundBy],

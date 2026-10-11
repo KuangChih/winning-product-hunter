@@ -103,14 +103,10 @@ export interface CollectStepState extends StepState {
   errors: string[];
 }
 
-/** One CJ product list request: CJ's trending list or a keyword search (ADR-014). */
+/** One CJ product list request: a keyword search, best match (ADR-014). */
 export interface CjListRequest {
+  /** Null only in states saved before 2026-10-11 (CJ's "trending" list): never sent. */
   keyword: string | null;
-  trending: boolean;
-  /** Only products listed on CJ after this time (epoch ms). */
-  createdAfter?: number;
-  /** "listed": most listed first; "match": CJ's best match for the keyword. */
-  orderBy?: "listed" | "match";
   /** New candidates this request may add, from its first `window` results. */
   take: number;
   window?: number;
@@ -125,7 +121,7 @@ export interface CjCandidate {
   listedNum: number | null;
   createAt: number | null;
   category: string | null;
-  /** The requests that returned it ("trending" or the keyword). */
+  /** The keyword searches that returned it. */
   foundBy: string[];
   /** Filled by the detail request; null when it was not made or failed. */
   detail: {

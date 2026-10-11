@@ -71,7 +71,7 @@ describe("CJ client (recorded answers)", () => {
     expect(Object.fromEntries(listUrl.searchParams)).toEqual({
       page: "1",
       size: "50",
-      orderBy: "1",
+      orderBy: "0",
       sort: "desc",
       keyWord: "posture corrector",
     });

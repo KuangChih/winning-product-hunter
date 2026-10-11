@@ -47,12 +47,14 @@ export const CJ_INTERVAL_MS = 1_500;
 export const CJ_QPS_WAIT_MS = 3_000;
 /** …at most this many attempts in all. */
 export const CJ_QPS_ATTEMPTS = 3;
-/** List requests per run (50 points each): CJ trending + up to 10 keywords. */
-export const MAX_CJ_LIST_REQUESTS = 11;
-/** Products per list request. */
-export const CJ_LIST_SIZE = 50;
-/** Detail requests per run (free, but spaced like every request). */
-export const MAX_CJ_DETAIL_REQUESTS = 40;
+/** List requests per run (50 points each): one per keyword, up to 10. */
+export const MAX_CJ_LIST_REQUESTS = 10;
+/**
+ * Detail requests per run: free (0 points) but paced like every request, so 120 take about 180 s
+ * (one Vercel tick of the ~200 s budget). Up to `CJ_TAKE.keyword` per keyword: with 10 keywords
+ * every on-topic best-match result of the first `CJ_TAKE.keywordWindow` gets checked.
+ */
+export const MAX_CJ_DETAIL_REQUESTS = 120;
 /** Requests per unit; a unit also stops starting requests after `CJ_UNIT_MS`. */
 export const CJ_LIST_BATCH = 3;
 export const CJ_DETAIL_BATCH = 10;
@@ -65,30 +67,26 @@ const cjStep = (s: RunState): CjStepState => s.steps.cj;
 
 /** What a list request is called in the candidates' `foundBy`. */
 export function cjRequestLabel(r: CjListRequest): string {
-  return r.keyword ?? (r.trending ? "trending" : "all");
+  return r.keyword ?? "all";
 }
 
-/** The run's CJ list requests: CJ's trending products, then the run's keywords (most listed). */
+/**
+ * The run's CJ list requests: one keyword search per run keyword, CJ's best match. No CJ
+ * "trending" list and no sorting by listing count (user rule 2026-10-11: only verifiable sales).
+ */
 export function planCjRequests(s: RunState, options: UnitCtx["options"]): CjListRequest[] {
   const now = runNow(s);
   const keywords =
     s.plan.keywords ??
     options.keywords ??
     keywordsForDay(now, options.keywordCount, DISCOVERY_KEYWORDS);
-  const trending: CjListRequest = {
-    keyword: null,
-    trending: true,
-    orderBy: "listed",
-    take: CJ_TAKE.trending,
-  };
-  const searches = keywords.map((keyword): CjListRequest => ({
-    keyword,
-    trending: false,
-    orderBy: "listed",
-    take: CJ_TAKE.keyword,
-    window: CJ_TAKE.keywordWindow,
-  }));
-  return [trending, ...searches].slice(0, MAX_CJ_LIST_REQUESTS);
+  return keywords
+    .map((keyword): CjListRequest => ({
+      keyword,
+      take: CJ_TAKE.keyword,
+      window: CJ_TAKE.keywordWindow,
+    }))
+    .slice(0, MAX_CJ_LIST_REQUESTS);
 }
 
 type Outcome = { ok: true; points: CjPointsInfo | null } | { ok: false; error: unknown };
@@ -197,15 +195,20 @@ const cj: UnitDef = {
     for (let n = 0; idx < requests.length && n < batch; n++) {
       if (n > 0 && (clock.now() > ctx.softStop || clock.now() > unitEnd)) break;
       const req = requests[idx];
+      // A request planned before 2026-10-11 without a keyword (CJ's "trending" list) is never
+      // sent: CJ's own picks are not sales evidence.
+      if (!req.keyword) {
+        idx++;
+        s = setStep({ ...s, progress: { ...s.progress, cjList: idx } }, "cj", { done: idx });
+        continue;
+      }
+      const keyword = req.keyword;
       const r = await counted(ctx, s, (client) =>
         client.listProducts(
           {
-            keyword: req.keyword ?? undefined,
-            trending: req.trending,
-            createdAfter: req.createdAfter,
-            orderBy: req.orderBy,
+            keyword,
             // Points are per request: a keyword only needs its first results.
-            size: req.window === undefined ? CJ_LIST_SIZE : Math.max(20, req.window),
+            size: Math.max(20, req.window ?? 20),
           },
           ctx.signal,
         ),

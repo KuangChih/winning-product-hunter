@@ -417,7 +417,9 @@ describe("EvidenceList", () => {
       />,
     );
     expect(screen.getByText("CJ（供應商銷量）")).toBeInTheDocument();
-    expect(screen.getByText("價格 3.89 USD · CJ 訂單 682 筆 · 9,158 家店上架")).toBeInTheDocument();
+    expect(
+      screen.getByText("價格 3.89 USD · CJ 訂單 682 筆 · 上架店家數 9,158（不是銷量）"),
+    ).toBeInTheDocument();
     expect(screen.getByText(/CJ 平台計數：.*不代表整個市場/)).toBeInTheDocument();
   });
 });

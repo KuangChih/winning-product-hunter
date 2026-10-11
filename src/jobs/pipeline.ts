@@ -1,6 +1,6 @@
 /**
  * Daily real-data pipeline: ECB rates → discover products (Meta Ad Library) → follow advertisers
- * → CJ best sellers (ADR-014) → collect Shopify Global Catalog evidence → advertiser stores →
+ * → CJ products with real orders (keyword search, ADR-014) → collect Shopify Global Catalog evidence → advertiser stores →
  * dedupe → match → score. Runs the same resumable runner as the website's "start discovery" button (ADR-013), here without a
  * time budget; on Neon it attaches to a run that is already active.
  *

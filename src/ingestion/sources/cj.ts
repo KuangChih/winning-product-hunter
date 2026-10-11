@@ -254,12 +254,6 @@ export const CJ_TOKEN_RENEW_BEFORE_MS = 7 * 86_400_000;
 
 export interface CjListQuery {
   keyword?: string;
-  /** `productFlag=0`: CJ's own "trending" products. */
-  trending?: boolean;
-  /** Only products added to CJ after this time (`timeStart`, epoch ms). */
-  createdAfter?: number;
-  /** "listed": most-listed first (default); "match": CJ's best match for the keyword. */
-  orderBy?: "listed" | "match";
   page?: number;
   size?: number;
 }
@@ -414,13 +408,11 @@ export function createCjClient({
       const params = new URLSearchParams({
         page: String(q.page ?? 1),
         size: String(q.size ?? 20),
-        // 1 → listing count (most listed first); 0 → best match.
-        orderBy: q.orderBy === "match" ? "0" : "1",
+        // CJ's best match (relevance). Never the listing count: it is not sales (ADR-014).
+        orderBy: "0",
         sort: "desc",
       });
       if (q.keyword) params.set("keyWord", q.keyword);
-      if (q.trending) params.set("productFlag", "0");
-      if (q.createdAfter !== undefined) params.set("timeStart", String(q.createdAfter));
       const body = await authed<NonNullable<CjListV2Response["data"]>>(
         `product/listV2?${params}`,
         { method: "GET" },
