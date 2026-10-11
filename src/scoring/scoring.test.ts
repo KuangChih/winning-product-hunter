@@ -229,6 +229,7 @@ describe("scoreProducts", () => {
     marketplaceOrders: 100,
     marketplaceBasis: "units_90d",
     supplierPriceCents: 500,
+    freightUsdCents: 300,
     adMomentum: null,
     adHistoryDays: 0,
     marketReach: 0.4,
@@ -248,16 +249,31 @@ describe("scoreProducts", () => {
     expect(withGap.confidence).toBeLessThan(scoreProducts([base])[0].confidence);
   });
 
-  it("scores gross margin from store retail price and supplier cost", () => {
-    const [s] = scoreProducts([{ ...base, retailUsdCents: 2000, supplierPriceCents: 500 }]);
-    // (20 − 5) / 20 = 75% margin ≥ 60% → full score.
-    expect(s.breakdown.subScores.margin).toMatchObject({ value: 1, raw: 0.75 });
+  it("scores the landed margin: retail − CJ variant − shipping (ADR-017)", () => {
+    const [s] = scoreProducts([
+      { ...base, retailUsdCents: 2000, supplierPriceCents: 500, freightUsdCents: 300 },
+    ]);
+    // (20 − 5 − 3) / 20 = 60% ≥ 40% → full score.
+    expect(s.breakdown.subScores.margin).toMatchObject({ value: 1, raw: 0.6 });
 
-    const [half] = scoreProducts([{ ...base, retailUsdCents: 1000, supplierPriceCents: 700 }]);
+    const [half] = scoreProducts([
+      { ...base, retailUsdCents: 1000, supplierPriceCents: 500, freightUsdCents: 300 },
+    ]);
     expect(half.breakdown.subScores.margin.value).toBeCloseTo(0.5);
+
+    // Shipping above what the price leaves: a negative margin scores 0, never hidden.
+    const [loss] = scoreProducts([
+      { ...base, retailUsdCents: 2000, supplierPriceCents: 995, freightUsdCents: 2993 },
+    ]);
+    expect(loss.breakdown.subScores.margin).toMatchObject({ value: 0, raw: -0.994 });
 
     const [none] = scoreProducts([{ ...base, retailUsdCents: null }]);
     expect(none.breakdown.subScores.margin.value).toBeNull();
+    const [noShipping] = scoreProducts([{ ...base, retailUsdCents: 2000, freightUsdCents: null }]);
+    expect(noShipping.breakdown.subScores.margin).toMatchObject({
+      value: null,
+      explain: { key: "marginNeedsShipping" },
+    });
   });
 
   it("counts selling stores toward saturation only when known", () => {
@@ -318,6 +334,7 @@ describe("scoreProducts", () => {
       base,
       { ...base, retailUsdCents: 2000 },
       { ...base, retailUsdCents: 2000, retailBasis: "same_photo", retailStores: 4 },
+      { ...base, retailUsdCents: 2000, freightUsdCents: null },
       { ...base, supplierPriceCents: null },
       { ...base, adMomentum: 1.5, adHistoryDays: 9 },
       { ...base, marketplaceBasis: "cj_orders" },
@@ -329,8 +346,8 @@ describe("scoreProducts", () => {
       }
     }
     expect(variants[2].breakdown.subScores.margin.explain).toEqual({
-      key: "marginSamePhoto",
-      params: { retail: "20.00", supplier: "5.00", stores: 4 },
+      key: "landedMarginSamePhoto",
+      params: { retail: "20.00", supplier: "5.00", shipping: "3.00", stores: 4 },
     });
     expect(variants[0].breakdown.subScores.momentum.explain).toEqual({
       key: "momentumNeedsHistory",

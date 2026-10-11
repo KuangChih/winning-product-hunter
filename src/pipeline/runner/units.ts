@@ -22,6 +22,7 @@ import {
 import type { SourceAdapter } from "@/ingestion/types";
 import { hashProductImages, mergeDuplicateProducts } from "@/matching/merge";
 import { hashListingPhotos } from "@/matching/listing-photos";
+import { cjFreight } from "./cj-freight";
 import { runMatching } from "@/matching/run";
 import { runScoring } from "@/scoring/run";
 import {
@@ -817,6 +818,7 @@ export const UNITS: Record<Exclude<UnitName, "done">, UnitDef> = {
   advertisers_finalize: finalize("advertiser", "meta_api"),
   ...META_API_UNITS,
   ...CJ_UNITS,
+  cj_freight: cjFreight,
   collect: collectUnit(COLLECT),
   stores: collectUnit(STORES),
   hash,

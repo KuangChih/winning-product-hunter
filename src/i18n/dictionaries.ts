@@ -191,7 +191,7 @@ const en = {
       marketplace:
         "Sales on the supplier platform (CJ platform count): units sold in 90 days when CJ reports it, otherwise CJ's order count (period not published by CJ), ranked.",
       margin:
-        "Gross margin before shipping: the advertiser's own price (else stores selling the same photo) vs supplier cost.",
+        "Landed margin: the advertiser's own price (else stores selling the same photo) minus the CJ variant's price and shipping to the US.",
     },
     /** Explanations stored as codes with each score, filled with that score's numbers. */
     explain: {
@@ -209,6 +209,11 @@ const en = {
         "Gross margin before shipping: advertiser's price {retail} USD vs supplier {supplier} USD.",
       marginSamePhoto:
         "Gross margin before shipping: median price {retail} USD of {stores} stores selling the same photo vs supplier {supplier} USD.",
+      landedMargin:
+        "Landed margin: advertiser's price {retail} USD − supplier {supplier} USD − shipping {shipping} USD.",
+      landedMarginSamePhoto:
+        "Landed margin: median price {retail} USD of {stores} stores selling the same photo − supplier {supplier} USD − shipping {shipping} USD.",
+      marginNeedsShipping: "Needs a CJ shipping quote to the US (within 15 days).",
       marginNeedsRetail:
         "Needs the advertiser's own store price, or stores selling the same photo (Shopify Global Catalog).",
       marginNeedsSupplier: "Needs a supplier cost (CJ Dropshipping).",
@@ -232,14 +237,24 @@ const en = {
     supplier: "Supplier cost",
     supplierNote: "Cheapest of {n} listings",
     supplierNoteOne: "1 listing (CJ: its most expensive variant)",
-    grossMargin: "Gross margin",
+    supplierVariant: "CJ variant “{variant}”: {basis}",
+    basisSinglePrice: "all {total} variants cost the same",
+    basisStoreOptions:
+      "most expensive of the {matched} variants the same-photo stores offer (of {total})",
+    basisMaxVariant: "the stores' variant is unknown: most expensive of {total} variants",
+    shipping: "Shipping to the US",
+    shippingNote: "{carrier}, {min}–{max} days (CJ quote {date})",
+    shippingNone: "No CJ option arrives within {days} days",
+    grossMargin: "Landed margin",
     perUnit: "{amount} per unit",
     missing: "Not enough data for a margin yet: needs {items}.",
     missingJoin: " and ",
+    missingSep: ", ",
     missingRetail:
       "the advertiser's own store price, or stores selling the same photo (Shopify Global Catalog)",
     missingSupplier: "a supplier cost (CJ Dropshipping listing)",
-    caveat: "Before shipping, ad spend, payment fees and returns.",
+    missingShipping: "a CJ shipping quote to the US within 15 days",
+    caveat: "After the product's cost and shipping; before ad spend, payment fees and returns.",
   },
   evidence: {
     adsHeading: "Ads ({n})",
@@ -730,7 +745,7 @@ const zhTW: Dictionary = {
       marketplace:
         "供應商平台的銷量（CJ 平台計數）：CJ 有提供時用近 90 天售出件數，否則用 CJ 的訂單數（CJ 未公開期間），再排名。",
       margin:
-        "運費前毛利：廣告主自己的售價（沒有時用賣同款、照片相同商品的店家售價）與供應商報價的差距。",
+        "到岸毛利：廣告主自己的售價（沒有時用賣同款、照片相同商品的店家售價）減去 CJ 規格的供貨價與寄到美國的運費。",
     },
     explain: {
       longevity: "投放最久的 3 則廣告的平均存活時間（已停止的廣告算一半）。",
@@ -745,6 +760,11 @@ const zhTW: Dictionary = {
       margin: "運費前毛利：廣告主售價 {retail} USD，供應商報價 {supplier} USD。",
       marginSamePhoto:
         "運費前毛利：{stores} 家賣同款（照片相同）商品的店家售價中位數 {retail} USD，供應商報價 {supplier} USD。",
+      landedMargin:
+        "到岸毛利：廣告主售價 {retail} USD − 供貨價 {supplier} USD − 運費 {shipping} USD。",
+      landedMarginSamePhoto:
+        "到岸毛利：{stores} 家賣同款（照片相同）商品的店家售價中位數 {retail} USD − 供貨價 {supplier} USD − 運費 {shipping} USD。",
+      marginNeedsShipping: "需要 CJ 寄到美國的運費報價（15 天內送達）。",
       marginNeedsRetail:
         "需要廣告主自己商店的售價，或賣同款（照片相同）商品的店家售價（Shopify Global Catalog）。",
       marginNeedsSupplier: "需要供應商報價（CJ Dropshipping）。",
@@ -768,14 +788,23 @@ const zhTW: Dictionary = {
     supplier: "供貨成本",
     supplierNote: "{n} 個供應商報價中最便宜的",
     supplierNoteOne: "1 個供應商報價（CJ 取最貴的規格）",
-    grossMargin: "毛利率",
+    supplierVariant: "CJ 規格「{variant}」：{basis}",
+    basisSinglePrice: "{total} 個規格同價",
+    basisStoreOptions: "同款店家有賣的 {matched} 個規格中最貴的（共 {total} 個）",
+    basisMaxVariant: "不確定店家賣哪個規格：{total} 個規格中最貴的",
+    shipping: "寄到美國的運費",
+    shippingNote: "{carrier}，{min}–{max} 天（CJ 報價 {date}）",
+    shippingNone: "CJ 沒有 {days} 天內送達的物流",
+    grossMargin: "到岸毛利率",
     perUnit: "每件 {amount}",
     missing: "資料還不夠算毛利：需要{items}。",
     missingJoin: "與",
+    missingSep: "、",
     missingRetail:
       "廣告主自己商店的售價，或賣同款（照片相同）商品的店家售價（Shopify Global Catalog）",
     missingSupplier: "供應商報價（CJ Dropshipping）",
-    caveat: "尚未扣除運費、廣告費、金流手續費與退貨。",
+    missingShipping: "CJ 寄到美國、15 天內送達的運費報價",
+    caveat: "已扣除供貨價與運費；尚未扣除廣告費、金流手續費與退貨。",
   },
   evidence: {
     adsHeading: "廣告（{n}）",

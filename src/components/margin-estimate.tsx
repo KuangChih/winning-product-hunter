@@ -1,6 +1,6 @@
 import type { Dictionary } from "@/i18n/dictionaries";
 import { fill } from "@/i18n/format";
-import { formatUsd as usd } from "@/lib/format";
+import { formatUsd as usd, formatUtc } from "@/lib/format";
 import type { MarginEstimate as Estimate } from "@/lib/margin";
 
 function Figure({ label, value, note }: { label: string; value: string; note?: string }) {
@@ -16,10 +16,21 @@ function Figure({ label, value, note }: { label: string; value: string; note?: s
 /** Retail vs supplier cost before shipping, with what is missing spelled out. */
 export function MarginEstimate({ estimate, t }: { estimate: Estimate; t: Dictionary["margin"] }) {
   const e = estimate;
-  const missing = e.missing.map((m) => (m === "retail" ? t.missingRetail : t.missingSupplier));
+  const missing = e.missing.map((m) =>
+    m === "retail" ? t.missingRetail : m === "supplier" ? t.missingSupplier : t.missingShipping,
+  );
+  const l = e.landed;
+  const counts = { matched: l?.matchedVariants ?? 0, total: l?.totalVariants ?? 0 };
+  const basis = !l
+    ? null
+    : l.variantBasis === "single_price"
+      ? fill(t.basisSinglePrice, counts)
+      : l.variantBasis === "store_options"
+        ? fill(t.basisStoreOptions, counts)
+        : fill(t.basisMaxVariant, counts);
   return (
     <div className="space-y-3">
-      <div className="grid gap-3 sm:grid-cols-3">
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <Figure
           label={e.retailBasis === "same_photo" ? t.retailSamePhoto : t.retail}
           value={e.retailUsdCents === null ? "—" : usd(e.retailUsdCents)}
@@ -39,9 +50,27 @@ export function MarginEstimate({ estimate, t }: { estimate: Estimate; t: Diction
           note={
             e.supplierUsdCents === null
               ? undefined
-              : e.supplierListings === 1
-                ? t.supplierNoteOne
-                : fill(t.supplierNote, { n: e.supplierListings })
+              : l
+                ? fill(t.supplierVariant, { variant: l.variantKey || "—", basis: basis ?? "" })
+                : e.supplierListings === 1
+                  ? t.supplierNoteOne
+                  : fill(t.supplierNote, { n: e.supplierListings })
+          }
+        />
+        <Figure
+          label={t.shipping}
+          value={e.shippingUsdCents === null ? "—" : usd(e.shippingUsdCents)}
+          note={
+            !l
+              ? undefined
+              : l.carrier === null
+                ? fill(t.shippingNone, { days: l.maxDaysAllowed })
+                : fill(t.shippingNote, {
+                    carrier: l.carrier,
+                    min: l.minDays ?? "?",
+                    max: l.maxDays ?? "?",
+                    date: formatUtc(l.quotedAt).slice(0, 10),
+                  })
           }
         />
         <Figure
@@ -55,7 +84,14 @@ export function MarginEstimate({ estimate, t }: { estimate: Estimate; t: Diction
         />
       </div>
       <p className="text-muted-foreground text-xs">
-        {missing.length > 0 ? fill(t.missing, { items: missing.join(t.missingJoin) }) : t.caveat}
+        {missing.length > 0
+          ? fill(t.missing, {
+              items:
+                missing.length === 1
+                  ? missing[0]
+                  : missing.slice(0, -1).join(t.missingSep) + t.missingJoin + missing.at(-1),
+            })
+          : t.caveat}
       </p>
     </div>
   );

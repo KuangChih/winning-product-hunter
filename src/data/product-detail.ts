@@ -1,7 +1,9 @@
 import { and, desc, eq, exists, inArray, not, sql } from "drizzle-orm";
 import type { AnyDatabase } from "@/db/client";
-import { productScores, products, signalSnapshots, sourceItems } from "@/db/schema";
+import { cjLandedCosts, productScores, products, signalSnapshots, sourceItems } from "@/db/schema";
 import type { FxRates } from "@/lib/fx";
+import type { LandedCostRow } from "@/lib/margin";
+import { LANDED_COUNTRY } from "@/pricing/landed";
 import { SEARCH_LISTING_PROVIDER, samePhotoOf } from "@/matching/same-photo";
 import type { ScoreBreakdown } from "@/scoring/score";
 import { getLatestFxRates } from "./fx";
@@ -58,6 +60,8 @@ export interface ProductDetail {
   isSample: boolean;
   /** Latest ECB rates, for showing prices from several currencies together. */
   fxRates: FxRates | null;
+  /** CJ variant and shipping quote to the US (ADR-017); null when not quoted. */
+  landedCost: LandedCostRow | null;
 }
 
 /** Products with any sample (fixture) evidence: never shown on the website. */
@@ -120,7 +124,7 @@ export async function getProductDetail(
     .select({ id: sourceItems.id })
     .from(sourceItems)
     .where(eq(sourceItems.productId, product.id));
-  const [scores, items, snapshots, fxRates] = await Promise.all([
+  const [scores, items, snapshots, fxRates, [landedCost]] = await Promise.all([
     db
       .select()
       .from(productScores)
@@ -161,6 +165,12 @@ export async function getProductDetail(
       .where(inArray(signalSnapshots.sourceItemId, itemIds))
       .orderBy(signalSnapshots.observedAt),
     getLatestFxRates(db),
+    db
+      .select()
+      .from(cjLandedCosts)
+      .where(
+        and(eq(cjLandedCosts.productId, product.id), eq(cjLandedCosts.country, LANDED_COUNTRY)),
+      ),
   ]);
 
   // Group once instead of filtering all snapshots for every item.
@@ -214,5 +224,6 @@ export async function getProductDetail(
     evidence,
     isSample,
     fxRates,
+    landedCost: landedCost ?? null,
   };
 }

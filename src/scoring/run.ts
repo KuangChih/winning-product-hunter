@@ -1,6 +1,7 @@
 import { and, eq, inArray, isNotNull, sql } from "drizzle-orm";
 import type { AnyDatabase } from "@/db/client";
-import { productScores, products, signalSnapshots, sourceItems } from "@/db/schema";
+import { cjLandedCosts, productScores, products, signalSnapshots, sourceItems } from "@/db/schema";
+import { LANDED_COUNTRY } from "@/pricing/landed";
 import { getLatestFxRates } from "@/data/fx";
 import {
   extractFeatures,
@@ -129,7 +130,7 @@ export async function runScoring(db: AnyDatabase, now: Date = new Date()) {
     .where(isNotNull(sourceItems.productId));
   if (items.length === 0) return { productsScored: 0 };
 
-  const [{ snapsByItem, adDaysByProduct }, fx, productRows] = await Promise.all([
+  const [{ snapsByItem, adDaysByProduct }, fx, productRows, landedRows] = await Promise.all([
     loadSnapshots(db),
     getLatestFxRates(db),
     db
@@ -149,7 +150,16 @@ export async function runScoring(db: AnyDatabase, now: Date = new Date()) {
             .where(isNotNull(sourceItems.productId)),
         ),
       ),
+    db
+      .select({
+        productId: cjLandedCosts.productId,
+        variantPriceCents: cjLandedCosts.variantPriceCents,
+        freightCents: cjLandedCosts.freightCents,
+      })
+      .from(cjLandedCosts)
+      .where(eq(cjLandedCosts.country, LANDED_COUNTRY)),
   ]);
+  const landedOf = new Map(landedRows.map((r) => [r.productId, r]));
 
   const productById = new Map(productRows.map((p) => [p.id, p]));
   const itemsByProduct = new Map<string, ItemInput[]>();
@@ -183,6 +193,7 @@ export async function runScoring(db: AnyDatabase, now: Date = new Date()) {
       now,
       fx,
       adDaysByProduct.get(p.id) ?? { recent: [], total: 0 },
+      landedOf.get(p.id) ?? null,
     ),
   );
   const scores = scoreProducts(features);

@@ -29,6 +29,7 @@ const product: ProductDetail = {
   evidence: [],
   isSample: false,
   fxRates: null,
+  landedCost: null,
 };
 
 const facts: AdFacts = {

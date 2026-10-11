@@ -1,8 +1,8 @@
 // @vitest-environment node
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import sharp from "sharp";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { productScores, products, sourceItems } from "@/db/schema";
+import { cjLandedCosts, productScores, products, sourceItems } from "@/db/schema";
 import { createTestDb } from "@/db/testing/pglite";
 import { ingestItems } from "@/ingestion/run";
 import { runScoring } from "@/scoring/run";
@@ -137,16 +137,40 @@ describe("hashListingPhotos (ADR-016)", () => {
       more: false,
     });
 
+    // Without a shipping quote there is no margin (ADR-017); with one, the landed margin.
     await runScoring(t.db, NOW);
-    const [score] = await t.db
-      .select()
-      .from(productScores)
-      .where(eq(productScores.productId, cj.id));
-    const margin = (score.breakdown as ScoreBreakdown).subScores.margin;
-    // Median of the two same-photo stores (20 and 30 USD) vs CJ's 5 USD; c.com is a different product.
-    expect(margin.explain).toEqual({
-      key: "marginSamePhoto",
-      params: { retail: "25.00", supplier: "5.00", stores: 2 },
+    const marginOf = async (at: Date) => {
+      const [score] = await t.db
+        .select()
+        .from(productScores)
+        .where(and(eq(productScores.productId, cj.id), eq(productScores.computedAt, at)));
+      return (score.breakdown as ScoreBreakdown).subScores.margin;
+    };
+    expect((await marginOf(NOW)).explain).toEqual({ key: "marginNeedsShipping" });
+    await t.db.insert(cjLandedCosts).values({
+      productId: cj.id,
+      country: "US",
+      cjPid: "cj-1",
+      vid: "v1",
+      variantKey: "Grey-60cm",
+      variantPriceCents: 500,
+      variantBasis: "single_price",
+      matchedVariants: 1,
+      totalVariants: 1,
+      carrier: "YunExpress Ordinary",
+      freightCents: 700,
+      minDays: 4,
+      maxDays: 7,
+      shippingOptions: 3,
+      maxDaysAllowed: 15,
+      quotedAt: NOW,
+    });
+    const later = new Date(NOW.getTime() + 1000);
+    await runScoring(t.db, later);
+    // Median of the two same-photo stores (20 and 30 USD) − 5 − 7; c.com is a different product.
+    expect((await marginOf(later)).explain).toEqual({
+      key: "landedMarginSamePhoto",
+      params: { retail: "25.00", supplier: "5.00", shipping: "7.00", stores: 2 },
     });
   });
 

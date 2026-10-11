@@ -69,6 +69,11 @@ export function dedupeAds(items: ItemInput[]): ItemInput[] {
   return out;
 }
 
+export interface LandedCostInput {
+  variantPriceCents: number;
+  freightCents: number | null;
+}
+
 /**
  * Raw, un-normalized evidence for one product. `null` means the product has no data for
  * that signal; it must not be treated as zero (ADR-002).
@@ -115,7 +120,13 @@ export interface ProductFeatures {
    */
   marketplaceOrders: number | null;
   marketplaceBasis: "units_90d" | "cj_orders" | null;
+  /**
+   * Supplier cost in USD cents: the CJ variant of the landed cost (ADR-017) when there is one,
+   * else the cheapest supplier listing (CJ: its most expensive variant).
+   */
   supplierPriceCents: number | null;
+  /** Shipping to the US for that variant (CJ quote); null without a usable quote. */
+  freightUsdCents: number | null;
   /** Days since the earliest observation of this product anywhere. */
   ageDays: number;
   sources: Source[];
@@ -179,6 +190,8 @@ export function extractFeatures(
    * from the ads' snapshots, which must then hold every snapshot.
    */
   adDays?: AdDays,
+  /** The product's landed cost to the US (`cj_landed_costs`), when quoted. */
+  landed?: LandedCostInput | null,
 ): ProductFeatures {
   items = dedupeAds(items);
   const ads = items.filter((i) => i.kind === "ad" && i.startedAt);
@@ -296,7 +309,12 @@ export function extractFeatures(
         ? Math.max(...cjOrders)
         : null,
     marketplaceBasis: orders.length ? "units_90d" : cjOrders.length ? "cj_orders" : null,
-    supplierPriceCents: prices.length ? Math.min(...prices) : null,
+    supplierPriceCents: landed
+      ? landed.variantPriceCents
+      : prices.length
+        ? Math.min(...prices)
+        : null,
+    freightUsdCents: landed?.freightCents ?? null,
     ageDays: Math.max(0, (now.getTime() - earliest) / DAY),
     sources: [...new Set(items.map((i) => i.source))].sort(),
   };

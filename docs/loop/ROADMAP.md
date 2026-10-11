@@ -54,7 +54,8 @@
 - [x] **CJ 請求節奏**（2026-10-11）：實測 CJ 每秒上限（被拒的請求不佔額度、1 秒後即恢復）→ 間隔 1.5 秒、從每個 HTTP 請求（含 token）的送出時間算並先寫入狀態；`1600200` 等 3 秒重送最多 3 次、不退避；只有點數用完才退避。複本連續 3 次探索 154 個 CJ 請求 0 次被拒
 - [x] **同款照片比對 v1（ADR-016）**：Shopify 搜尋結果的照片與產品照片相同（dHash）→「其他店家賣的同款商品」，沒有廣告主售價時用同款店家售價中位數當售價（毛利、排名頁售價、詳情頁）；評分 v1.3「證據太少」上限只算需求訊號；CJ 供貨價改取規格區間最高價。Vercel 情境（只有 CJ 產品）：有毛利 0 → 4 / 18、同款店家 5 家
 - [ ] 同款照片比對後續：
-  - [ ] CJ 規格比對：供貨價現在取規格區間最高價（14 / 18 個 CJ 產品有區間，最高／最低差 1.1–34 倍），改用商品詳情的 variants 與店家售價對應的規格
+  - [x] CJ 規格比對（ADR-017）：全部同價／與同款店家選項對得上的規格／對不上用最貴規格並標示；4 個有售價的產品中 3 個對到店家選項（抱枕 22 → 10 個規格、最高價 9.95 → 4.86）
+  - [ ] 規格比對 v2：店家選項與 CJ 規格名稱不同字（"Large" vs "60cm"、件數）時對不上；評估用 Shopify 規格的價格／圖片對應
   - [ ] 同款店家數是否納入評分（跨店販售 = 需求？）：先累積資料、回測再決定；目前只顯示與用於售價
   - [ ] 搜尋查詢：CJ 長標題的前 20 筆不一定含同款；評估用前 6 個字或 CJ 商品的關鍵字再查一次（每個產品多 5 次 Shopify 請求），量測同款店家數的增加
   - [ ] 既有 Meta 產品（示範資料庫 208 個）也跑同款比對，量測有廣告主售價以外多出的售價覆蓋率
@@ -70,7 +71,8 @@
 ## 等待金鑰、決策或資料量
 
 - [x] CJ Dropshipping API v2 adapter（2026-10-11，ADR-014）：Trending 與關鍵字列表、商品詳情（訂單數、上架數、上架時間）、供貨價；`soldOut`（90 天銷量）實測全是 null
-- [ ] CJ 運費試算（`freightCalculate`，10 點／次）與各倉庫存 → 評分 v2 的到岸毛利（CJ 部分已解除 blocked；ADR-016 之後 Vercel 情境已有 4 / 18 個產品有運費前毛利，運費能讓它變成到岸毛利）
+- [x] CJ 運費試算（ADR-017）：`cj_freight` 單位、每次探索 ≤ 20 次（200 點）、寄到美國 15 天內最便宜、`cj_landed_costs`；評分 v1.4 毛利改到岸毛利（缺任何一項是「—」）
+- [ ] 到岸毛利後續：其他四國（GB／CA／AU／NZ）的運費與各國售價；CJ 美國倉（`startCountryCode=US`）是否更便宜；毛利滿分門檻 40% 要回測
 - [ ] [blocked: human — 需要 Pinterest / Merchant Center] 評分 v2：demandTrend 改用 Pinterest / Google Best sellers
 - [ ] [blocked: human — 需要 Merchant Center] Google Merchant API Best sellers adapter：每週 / 每月熱銷排名、`relative_demand` 與變化（11 國）
 - [ ] [blocked: human — 需要 Pinterest 開發者 app] Pinterest Trends API adapter（US、CA、GB、AU+NZ）

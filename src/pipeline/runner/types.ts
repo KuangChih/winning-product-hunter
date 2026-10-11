@@ -4,6 +4,7 @@
  * strings, rate times epoch ms). Type-only module: the schema imports it.
  */
 import type { ProductQuery } from "@/ingestion/collect-for-products";
+import type { CjVariant } from "@/ingestion/sources/cj";
 
 export type Trigger = "web" | "cron" | "cli";
 export type RunStatus = "running" | "succeeded" | "partial" | "failed";
@@ -47,6 +48,7 @@ export type UnitName =
   | "cj"
   | "cj_details"
   | "cj_finalize"
+  | "cj_freight"
   | "collect"
   | "stores"
   | "hash"
@@ -135,6 +137,8 @@ export interface CjCandidate {
     latestPaymentDate: number | null;
     /** When the product was added to CJ (epoch ms; the lists leave `createAt` empty). */
     createdAt: number | null;
+    /** Its variants (ADR-017; absent in states saved before). */
+    variants?: CjVariant[];
   } | null;
 }
 
@@ -151,6 +155,9 @@ export interface CjStepState extends StepState {
   detailFailures: number;
   /** Requests CJ refused for its per-second limit and that were sent again (absent in older states). */
   qpsRetries?: number;
+  /** Shipping quotes stored / failed (ADR-017; absent in older states). */
+  freightQuotes?: number;
+  freightFailures?: number;
   /** CJ refused us (key, points, rate limit): no more CJ requests in this run. */
   stopped: { at: string; reason: string } | null;
 }
@@ -231,6 +238,8 @@ export interface RunState {
     cjDetail?: number;
     /** Official Meta API requests done. */
     metaApi?: number;
+    /** CJ shipping quote requests made (ADR-017). */
+    cjFreight?: number;
   };
   /** The unit in flight, written before it starts (a retry finds it). */
   unit: {
@@ -249,6 +258,8 @@ export interface RunState {
   };
   /** CJ products kept for details, best first (absent in states saved before CJ existed). */
   cjCandidates?: CjCandidate[];
+  /** Products a shipping quote was asked for in this run (never asked twice). */
+  cjFreightTried?: string[];
   adLibrary: {
     /** Requests reserved so far (counted before each one is sent). */
     requests: number;

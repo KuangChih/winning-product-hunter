@@ -63,7 +63,7 @@ async function ProductDetailView({
   if ("redirectTo" in product) redirect(`/products/${encodeURIComponent(product.redirectTo)}`);
   const now = new Date();
   const facts = adFacts(product.evidence, now);
-  const margin = estimateMargin(product.evidence, product.fxRates);
+  const margin = estimateMargin(product.evidence, product.fxRates, product.landedCost);
   const markets = sortByMarketPriority(new Set(product.evidence.flatMap((e) => e.countries)));
   const watched = await isWatched(db, product.id);
 

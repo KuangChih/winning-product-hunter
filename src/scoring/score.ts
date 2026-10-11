@@ -1,7 +1,7 @@
 import { MOMENTUM_MIN_BASELINE_DAYS, type ProductFeatures } from "./features";
 import { clamp, percentileRanks } from "./stats";
 
-export const SCORING_VERSION = "v1.3";
+export const SCORING_VERSION = "v1.4";
 
 /** Weights and parameters from docs/research/scoring.md. Tunable after back-testing. */
 export const SCORING_CONFIG = {
@@ -14,8 +14,8 @@ export const SCORING_CONFIG = {
     marketplace: 0.15,
     margin: 0.15,
   },
-  /** Gross margin (before shipping) that earns a full margin score. */
-  fullMargin: 0.6,
+  /** Landed margin (after the CJ variant's price and shipping, ADR-017) for a full margin score. */
+  fullMargin: 0.4,
   corroborationPerSource: 0.1,
   corroborationMax: 1.3,
   saturationMaxPenalty: 0.5,
@@ -73,6 +73,9 @@ export type ExplainKey =
   | "marketplaceCjOrders"
   | "margin"
   | "marginSamePhoto"
+  | "landedMargin"
+  | "landedMarginSamePhoto"
+  | "marginNeedsShipping"
   | "marginNeedsRetail"
   | "marginNeedsSupplier";
 
@@ -113,36 +116,51 @@ function rankNullable(values: Array<number | null>): Array<number | null> {
 }
 
 /**
- * Gross margin before shipping: (retail − supplier cost) / retail, from Shopify and CJ. Retail
- * is the advertiser's own price, else the median of stores selling the same photo (ADR-016).
+ * Landed margin (ADR-017): (retail − CJ variant price − shipping to the US) / retail. Retail is
+ * the advertiser's own price, else the median of stores selling the same photo (ADR-016). Any
+ * missing input leaves the sub-score empty: nothing is estimated.
  */
 function marginSubScore(f: ProductFeatures, weight: number): SubScore {
-  if (f.retailUsdCents === null || f.supplierPriceCents === null || f.retailUsdCents <= 0) {
-    return {
-      value: null,
-      weight,
-      raw: null,
-      basis:
-        f.retailUsdCents === null
-          ? "Needs the advertiser's own store price, or stores selling the same photo (Shopify Global Catalog)."
-          : "Needs a supplier cost (CJ Dropshipping).",
-      explain: { key: f.retailUsdCents === null ? "marginNeedsRetail" : "marginNeedsSupplier" },
-    };
+  const missing =
+    f.retailUsdCents === null || f.retailUsdCents <= 0
+      ? ({
+          key: "marginNeedsRetail",
+          basis:
+            "Needs the advertiser's own store price, or stores selling the same photo (Shopify Global Catalog).",
+        } as const)
+      : f.supplierPriceCents === null
+        ? ({
+            key: "marginNeedsSupplier",
+            basis: "Needs a supplier cost (CJ Dropshipping).",
+          } as const)
+        : f.freightUsdCents === null
+          ? ({
+              key: "marginNeedsShipping",
+              basis: "Needs a CJ shipping quote to the US (within 15 days).",
+            } as const)
+          : null;
+  if (missing) {
+    return { value: null, weight, raw: null, basis: missing.basis, explain: { key: missing.key } };
   }
-  const margin = (f.retailUsdCents - f.supplierPriceCents) / f.retailUsdCents;
-  const retail = (f.retailUsdCents / 100).toFixed(2);
-  const supplier = (f.supplierPriceCents / 100).toFixed(2);
+  const retailCents = f.retailUsdCents!;
+  const margin = (retailCents - f.supplierPriceCents! - f.freightUsdCents!) / retailCents;
+  const retail = (retailCents / 100).toFixed(2);
+  const supplier = (f.supplierPriceCents! / 100).toFixed(2);
+  const shipping = (f.freightUsdCents! / 100).toFixed(2);
   const samePhoto = f.retailBasis === "same_photo";
   return {
     value: clamp(margin / SCORING_CONFIG.fullMargin),
     weight,
     raw: Math.round(margin * 1000) / 1000,
     basis: samePhoto
-      ? `Gross margin before shipping: median price ${retail} USD of ${f.retailStores} stores selling the same photo vs supplier ${supplier} USD.`
-      : `Gross margin before shipping: advertiser's price ${retail} USD vs supplier ${supplier} USD.`,
+      ? `Landed margin: median price ${retail} USD of ${f.retailStores} stores selling the same photo − supplier ${supplier} USD − shipping ${shipping} USD.`
+      : `Landed margin: advertiser's price ${retail} USD − supplier ${supplier} USD − shipping ${shipping} USD.`,
     explain: samePhoto
-      ? { key: "marginSamePhoto", params: { retail, supplier, stores: f.retailStores } }
-      : { key: "margin", params: { retail, supplier } },
+      ? {
+          key: "landedMarginSamePhoto",
+          params: { retail, supplier, shipping, stores: f.retailStores },
+        }
+      : { key: "landedMargin", params: { retail, supplier, shipping } },
   };
 }
 

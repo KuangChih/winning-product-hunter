@@ -360,3 +360,39 @@ export const fxRates = pgTable(
   },
   (t) => [primaryKey({ columns: [t.date, t.currency] })],
 );
+
+/**
+ * What one unit of a product costs to source from CJ and ship to a country (ADR-017): the CJ
+ * variant the price is based on (and why), and the cheapest shipping option within the allowed
+ * delivery time. One row per product and destination; the shipping quote is refreshed when the
+ * variant changes or the quote is old.
+ */
+export const cjLandedCosts = pgTable(
+  "cj_landed_costs",
+  {
+    productId: uuid("product_id")
+      .notNull()
+      .references(() => products.id, { onDelete: "cascade" }),
+    country: text("country").notNull(),
+    cjPid: text("cj_pid").notNull(),
+    vid: text("vid").notNull(),
+    variantKey: text("variant_key").notNull(),
+    variantPriceCents: integer("variant_price_cents").notNull(),
+    weightG: integer("weight_g"),
+    /** "single_price" | "store_options" | "max_variant" (see src/pricing/landed.ts). */
+    variantBasis: text("variant_basis").notNull(),
+    /** Variants the price was chosen from, of all the product's variants. */
+    matchedVariants: integer("matched_variants").notNull(),
+    totalVariants: integer("total_variants").notNull(),
+    /** Null when no shipping option arrives within `maxDaysAllowed`. */
+    carrier: text("carrier"),
+    freightCents: integer("freight_cents"),
+    minDays: integer("min_days"),
+    maxDays: integer("max_days"),
+    shippingOptions: integer("shipping_options").notNull(),
+    maxDaysAllowed: integer("max_days_allowed").notNull(),
+    quotedAt: timestamp("quoted_at", { withTimezone: true }).notNull(),
+    ...timestamps,
+  },
+  (t) => [primaryKey({ columns: [t.productId, t.country] })],
+);

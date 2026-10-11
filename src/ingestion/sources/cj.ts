@@ -82,13 +82,55 @@ export interface CjProductDetail {
   /** When the product was added to CJ, epoch ms as a string ("1588790768000"). */
   createdate?: string | null;
   saleStatus?: string;
+  /** The variants (measured: `id` is the variant id `vid`, `variantkey` e.g. "Blue-40cm"). */
+  stanProducts?: Array<{
+    id?: string;
+    variantkey?: string | null;
+    sellprice?: string | number | null;
+    nowPrice?: string | number | null;
+    /** Grams. */
+    weight?: number | string | null;
+  }> | null;
+}
+
+/** One CJ variant: what a store actually buys and ships (ADR-017). */
+export interface CjVariant {
+  vid: string;
+  /** CJ's variant name, e.g. "Blue-40cm". */
+  key: string;
+  priceCents: number;
+  /** Grams (drives the shipping cost). */
+  weightG: number | null;
+}
+
+/** The variants of a detail answer that have an id and a price. */
+export function parseCjVariants(d: CjProductDetail): CjVariant[] {
+  return (d.stanProducts ?? []).flatMap((v) => {
+    const priceCents = parseCjPriceCents(v.nowPrice ?? v.sellprice ?? undefined);
+    if (!v.id || priceCents === undefined) return [];
+    const w = Number(v.weight);
+    return [
+      {
+        vid: String(v.id),
+        key: (v.variantkey ?? "").trim(),
+        priceCents,
+        weightG: Number.isFinite(w) && w > 0 ? w : null,
+      },
+    ];
+  });
 }
 
 export type CjProductDetailResponse = CjResponse<CjProductDetail>;
 
-/** `POST logistic/freightCalculate`. */
+/** `POST logistic/freightCalculate` (10 points; USD). */
 export type CjFreightResponse = CjResponse<
-  Array<{ logisticName: string; logisticAging: string; logisticPrice: number }>
+  Array<{
+    logisticName: string;
+    logisticAging: string;
+    logisticPrice: number;
+    /** Postage + taxes + clearance (measured: higher than the price for NZ). */
+    totalPostageFee?: number | null;
+  }>
 >;
 
 export class CjApiError extends Error {
@@ -187,14 +229,17 @@ export interface ShippingOption {
   maxDays: number | null;
 }
 
-/** Shipping options for one destination, cheapest first. "2-5" → 2..5 days. */
+/**
+ * Shipping options for one destination, cheapest first. "2-5" → 2..5 days. The cost is the
+ * total postage fee (taxes and clearance included) when CJ gives one.
+ */
 export function parseCjFreight(res: CjFreightResponse): ShippingOption[] {
   return unwrap(res)
     .map((o) => {
       const [min, max] = (o.logisticAging.match(/\d+/g) ?? []).map(Number);
       return {
         carrier: o.logisticName,
-        costCents: Math.round(o.logisticPrice * 100),
+        costCents: Math.round((o.totalPostageFee ?? o.logisticPrice) * 100),
         minDays: min ?? null,
         maxDays: max ?? min ?? null,
       };
@@ -227,6 +272,11 @@ export interface CjListResult {
 
 export interface CjClient {
   listProducts(q: CjListQuery, signal?: AbortSignal): Promise<CjListResult>;
+  /** Shipping options for one variant from China (10 points per call). */
+  freight(
+    q: { vid: string; to: string; from?: string },
+    signal?: AbortSignal,
+  ): Promise<{ options: ShippingOption[]; points: CjPointsInfo | null }>;
   productDetail(
     id: string,
     signal?: AbortSignal,
@@ -380,6 +430,25 @@ export function createCjClient({
       return {
         products: data.content.flatMap((c) => c.productList ?? []),
         totalRecords: data.totalRecords,
+        points: body.pointsInfo ?? null,
+      };
+    },
+    async freight({ vid, to, from = "CN" }, signal) {
+      const body = await authed<NonNullable<CjFreightResponse["data"]>>(
+        "logistic/freightCalculate",
+        {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({
+            startCountryCode: from,
+            endCountryCode: to,
+            products: [{ quantity: 1, vid }],
+          }),
+        },
+        signal,
+      );
+      return {
+        options: parseCjFreight(body as CjFreightResponse),
         points: body.pointsInfo ?? null,
       };
     },

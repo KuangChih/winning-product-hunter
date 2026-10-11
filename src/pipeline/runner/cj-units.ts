@@ -101,7 +101,7 @@ const isQpsRefusal = (err: unknown) => err instanceof CjApiError && err.kind ===
  * undercounts and the spacing holds across ticks. A per-second refusal is sent again after a
  * short wait (see `CJ_QPS_ATTEMPTS`).
  */
-async function counted<T extends { points: CjPointsInfo | null }>(
+export async function counted<T extends { points: CjPointsInfo | null }>(
   ctx: UnitCtx,
   s: RunState,
   send: (client: CjClient) => Promise<T>,
@@ -334,7 +334,8 @@ const cjFinalize: UnitDef = {
   async run(ctx) {
     const { db, runId } = ctx;
     let s = ctx.state;
-    const next = s.steps.collect.status === "skipped" ? WRAP_UP_FROM : "collect";
+    // Shipping quotes (ADR-017) come next, unless the run is being wrapped up.
+    const next = s.steps.collect.status === "skipped" ? WRAP_UP_FROM : "cj_freight";
     const st = cjStep(s);
     const candidates = s.cjCandidates ?? [];
     if (st.requests === 0) {

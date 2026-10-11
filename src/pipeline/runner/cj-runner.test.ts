@@ -4,6 +4,7 @@ import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   apiTokens,
+  cjLandedCosts,
   ingestionRuns,
   productScores,
   products,
@@ -304,6 +305,81 @@ describe("pipeline runner: CJ discovery (ADR-014)", () => {
     cjFetch.mockImplementation(inner);
     const second = await driveRun(t.db, deps(), (await newRun()).id);
     expect(second.state.steps.cj.status).toBe("done");
+  });
+
+  it("quotes shipping to the US for each tracked product's variant and reuses the quote (ADR-017)", async () => {
+    const inner = cjFetch.getMockImplementation()!;
+    const freightCalls: string[] = [];
+    cjFetch.mockImplementation(async (url, init) => {
+      const u = String(url);
+      if (u.includes("freightCalculate")) {
+        const body = JSON.parse(String(init?.body));
+        freightCalls.push(body.products[0].vid);
+        expect(body).toMatchObject({ startCountryCode: "CN", endCountryCode: "US" });
+        return Response.json({
+          code: 200,
+          result: true,
+          message: "Success",
+          pointsInfo: { total: 50000, usedToday: 160, remaining: 49840 },
+          data: [
+            { logisticName: "CJPacket Eub", logisticAging: "12-50", logisticPrice: 3.1 },
+            { logisticName: "YunExpress Ordinary", logisticAging: "4-7", logisticPrice: 7.5 },
+            {
+              logisticName: "CJPacket Ordinary",
+              logisticAging: "4-9",
+              logisticPrice: 6.9,
+              totalPostageFee: 7.9,
+            },
+          ],
+        });
+      }
+      const res = await inner(url, init);
+      if (!u.includes("productDetail")) return res;
+      const json = await res.json();
+      return Response.json({
+        ...json,
+        data: {
+          ...json.data,
+          stanProducts: [
+            {
+              id: `${json.data.id}-small`,
+              variantkey: "Blue-40cm",
+              sellprice: "3.32",
+              weight: 301,
+            },
+            { id: `${json.data.id}-big`, variantkey: "Blue-80cm", sellprice: "9.95", weight: 1300 },
+          ],
+        },
+      });
+    });
+    const run = await driveRun(t.db, deps(), (await newRun()).id);
+    // Two tracked products: one quote each, for the most expensive (and heaviest) variant.
+    expect(freightCalls.sort()).toEqual([
+      "5F9B011D-3393-4B82-A414-491ADE80C872-big",
+      "85C80F84-A4D8-4178-8227-4F797E312692-big",
+    ]);
+    expect(run.state.steps.cj).toMatchObject({ freightQuotes: 2, status: "done" });
+    expect(run.state.steps.cj.requests).toBe(11);
+    const rows = await t.db.select().from(cjLandedCosts);
+    expect(rows).toHaveLength(2);
+    expect(rows[0]).toMatchObject({
+      country: "US",
+      variantKey: "Blue-80cm",
+      variantPriceCents: 995,
+      weightG: 1300,
+      variantBasis: "max_variant",
+      matchedVariants: 2,
+      totalVariants: 2,
+      // The cheapest option within 15 days (Eub takes up to 50).
+      carrier: "YunExpress Ordinary",
+      freightCents: 750,
+      maxDays: 7,
+      shippingOptions: 3,
+    });
+
+    freightCalls.length = 0;
+    await driveRun(t.db, deps(), (await newRun()).id);
+    expect(freightCalls).toEqual([]);
   });
 
   it("a refused key stops CJ without a back-off and drops the stored token", async () => {

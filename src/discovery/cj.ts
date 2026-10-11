@@ -5,6 +5,7 @@
  */
 import {
   parseCjPriceCents,
+  parseCjVariants,
   type CjListProduct,
   type CjProductDetail,
 } from "@/ingestion/sources/cj";
@@ -106,6 +107,7 @@ export function candidateDetail(d: CjProductDetail): NonNullable<CjCandidate["de
     totalRefundQuantity: num(d.totalRefundQuantity),
     latestPaymentDate: num(d.latestPaymentDate),
     createdAt: d.createdate && /^\d+$/.test(d.createdate) ? Number(d.createdate) : null,
+    variants: parseCjVariants(d),
   };
 }
 
