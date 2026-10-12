@@ -50,11 +50,12 @@ export const CJ_QPS_ATTEMPTS = 3;
 /** List requests per run (50 points each): one per keyword, up to 10. */
 export const MAX_CJ_LIST_REQUESTS = 10;
 /**
- * Detail requests per run: free (0 points) but paced like every request, so 120 take about 180 s
- * (one Vercel tick of the ~200 s budget). Up to `CJ_TAKE.keyword` per keyword: with 10 keywords
- * every on-topic best-match result of the first `CJ_TAKE.keywordWindow` gets checked.
+ * Detail requests per run: free (0 points) but paced like every request (1.5 s), so 400 take
+ * about 600 s, three to four Vercel ticks of the ~200 s budget (far below the 40-tick limit).
+ * Enough for every on-sale product of the first 40 best-match results of 10 keywords (user
+ * decision 2026-10-12); products found by several keywords are checked once.
  */
-export const MAX_CJ_DETAIL_REQUESTS = 120;
+export const MAX_CJ_DETAIL_REQUESTS = 400;
 /** Requests per unit; a unit also stops starting requests after `CJ_UNIT_MS`. */
 export const CJ_LIST_BATCH = 3;
 export const CJ_DETAIL_BATCH = 10;
@@ -207,7 +208,8 @@ const cj: UnitDef = {
         client.listProducts(
           {
             keyword,
-            // Points are per request: a keyword only needs its first results.
+            // The first 40 results in one request (CJ charges per request, not per result; the
+            // same products as two pages of 20, for half the points).
             size: Math.max(20, req.window ?? 20),
           },
           ctx.signal,

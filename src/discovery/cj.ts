@@ -36,9 +36,9 @@ export function cjProductKey(id: string): string {
  * points, paced 1.5 s), and the detail's order count and latest paid order decide.
  */
 export const CJ_TAKE = {
-  keyword: 12,
-  /** Best-match results drift off topic further down; look at the first 20. */
-  keywordWindow: 20,
+  /** Every on-sale product of the first 40 best-match results (user decision 2026-10-12). */
+  keyword: 40,
+  keywordWindow: 40,
 };
 
 /**

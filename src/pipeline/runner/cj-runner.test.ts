@@ -141,7 +141,7 @@ describe("pipeline runner: CJ discovery (ADR-014)", () => {
     expect(Object.fromEntries(keyword.searchParams)).toMatchObject({
       keyWord: "posture corrector",
       orderBy: "0", // CJ's best match: relevance, never the listing count
-      size: "20",
+      size: "40",
     });
 
     // Only products with ≥ 50 CJ orders and a recent order are tracked.
