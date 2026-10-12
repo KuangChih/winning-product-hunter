@@ -93,6 +93,14 @@ export function planCjRequests(s: RunState, options: UnitCtx["options"]): CjList
 type Outcome = { ok: true; points: CjPointsInfo | null } | { ok: false; error: unknown };
 
 const isQpsRefusal = (err: unknown) => err instanceof CjApiError && err.kind === "rate_limited";
+/** The request timed out on our side (not a CJ answer). */
+export const isTimeout = (err: unknown) => {
+  if (typeof err !== "object" || err === null) return false;
+  const { name, message } = err as { name?: unknown; message?: unknown };
+  return name === "TimeoutError" || (typeof message === "string" && /timed? ?out/i.test(message));
+};
+/** A timed-out request is sent at most this many times in all. */
+export const CJ_TIMEOUT_ATTEMPTS = 2;
 
 /**
  * Sends one CJ call. Every HTTP request it makes (the access token included) is paced: the count
@@ -124,6 +132,13 @@ export async function counted<T extends { points: CjPointsInfo | null }>(
       return { s: next, result, outcome: { ok: true, points: result.points } };
     } catch (error) {
       if (signal.aborted) throw error;
+      // A slow answer (timeout) is sent once more, if the tick still has time. CJ charges the
+      // timed-out request too (measured), so only once; the pacing above still applies.
+      if (isTimeout(error) && attempt < CJ_TIMEOUT_ATTEMPTS && clock.now() < ctx.softStop) {
+        next = setStep(next, "cj", { timeoutRetries: (cjStep(next).timeoutRetries ?? 0) + 1 });
+        await ctx.save(next);
+        continue;
+      }
       if (!isQpsRefusal(error) || attempt >= CJ_QPS_ATTEMPTS) {
         return { s: next, outcome: { ok: false, error } };
       }

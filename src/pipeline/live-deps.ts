@@ -22,7 +22,9 @@ export const TIMEOUTS = {
   metaApi: 30_000,
   shopify: 20_000,
   ecb: 15_000,
-  cj: 15_000,
+  // Measured 2026-10-12: CJ answers in 0.4–1.7 s, with rare answers near 15 s (14.6 s seen);
+  // 15 s timed out about once per run (docs/research/cj-api.md, section 10).
+  cj: 30_000,
 } as const;
 
 /**

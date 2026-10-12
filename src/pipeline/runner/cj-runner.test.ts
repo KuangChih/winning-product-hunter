@@ -287,6 +287,37 @@ describe("pipeline runner: CJ discovery (ADR-014)", () => {
     expect(backoffs.filter((b) => b.provider === CJ_PROVIDER)).toHaveLength(0);
   });
 
+  it("sends a timed-out request once more (CJ is sometimes slow, 2026-10-12)", async () => {
+    const inner = cjFetch.getMockImplementation()!;
+    let timedOut = 0;
+    cjFetch.mockImplementation(async (url, init) => {
+      if (String(url).includes("listV2") && timedOut < 1) {
+        timedOut++;
+        throw new DOMException("The operation was aborted due to timeout", "TimeoutError");
+      }
+      return inner(url, init);
+    });
+    const run = await driveRun(t.db, deps(), (await newRun()).id);
+    expect(run.state.steps.cj).toMatchObject({ status: "done", timeoutRetries: 1 });
+    expect(run.state.steps.cj.listFailures ?? 0).toBe(0);
+    expect(run.state.results.cjProducts).toBe(2);
+    // Both attempts are counted (CJ charges a timed-out request too).
+    expect(cjFetch.mock.calls.filter(([u]) => String(u).includes("listV2"))).toHaveLength(2);
+  });
+
+  it("gives up on a request that times out twice and goes on with the next one", async () => {
+    const inner = cjFetch.getMockImplementation()!;
+    cjFetch.mockImplementation(async (url, init) => {
+      if (String(url).includes("listV2")) {
+        throw new DOMException("The operation was aborted due to timeout", "TimeoutError");
+      }
+      return inner(url, init);
+    });
+    const run = await driveRun(t.db, deps(), (await newRun()).id);
+    expect(cjFetch.mock.calls.filter(([u]) => String(u).includes("listV2"))).toHaveLength(2);
+    expect(run.state.steps.cj).toMatchObject({ timeoutRetries: 1, listFailures: 1 });
+  });
+
   it("stops CJ for the run when the per-second refusal persists, still without a back-off", async () => {
     const inner = cjFetch.getMockImplementation()!;
     cjFetch.mockImplementation(async (url, init) =>

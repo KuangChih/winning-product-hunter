@@ -165,6 +165,8 @@ export interface CjStepState extends StepState {
   detailFailures: number;
   /** Requests CJ refused for its per-second limit and that were sent again (absent in older states). */
   qpsRetries?: number;
+  /** Requests sent again after timing out (absent in older states). */
+  timeoutRetries?: number;
   /** Shipping quotes stored / failed (ADR-017; absent in older states). */
   freightQuotes?: number;
   freightFailures?: number;
