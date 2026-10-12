@@ -99,6 +99,13 @@
       "when": 1791731026150,
       "tag": "0013_cj_landed_costs",
       "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "7",
+      "when": 1791789337209,
+      "tag": "0014_landing_redirects",
+      "breakpoints": true
     }
   ]
 }

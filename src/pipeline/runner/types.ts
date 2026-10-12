@@ -51,6 +51,7 @@ export type UnitName =
   | "cj_freight"
   | "collect"
   | "stores"
+  | "store_redirects"
   | "hash"
   | "listing_hash"
   | "merge"
@@ -101,6 +102,17 @@ export interface CollectStepState extends StepState {
   failedInRow?: number;
   /** First few product errors. */
   errors: string[];
+  /** Store-page redirect checks (ADR-018; stores step only, absent in older states). */
+  redirects?: {
+    checked: number;
+    requests: number;
+    changed: number;
+    found: number;
+    disallowed: number;
+    blocked: number;
+    /** Stores that refused us in this run (not asked again). */
+    blockedHosts?: string[];
+  };
 }
 
 /** One CJ product list request: a keyword search, best match (ADR-014). */
@@ -220,6 +232,8 @@ export interface RunState {
     cj?: CjListRequest[] | null;
     /** Official Meta API requests (null until planned; absent in states saved before it). */
     metaApi?: MetaApiRequest[] | null;
+    /** Landing pages to check for redirects (ADR-018; absent in older states). */
+    redirects?: ProductQuery[] | null;
   };
   progress: {
     keyword: number;
@@ -236,6 +250,8 @@ export interface RunState {
     metaApi?: number;
     /** CJ shipping quote requests made (ADR-017). */
     cjFreight?: number;
+    /** Landing pages whose redirects were checked (ADR-018). */
+    redirects?: number;
   };
   /** The unit in flight, written before it starts (a retry finds it). */
   unit: {
@@ -251,6 +267,8 @@ export interface RunState {
     shopifyNextAt: number | null;
     cjNextAt?: number | null;
     metaApiNextAt?: number | null;
+    /** Stores' own pages (redirect checks, ADR-018). */
+    storePagesNextAt?: number | null;
   };
   /** CJ products kept for details, best first (absent in states saved before CJ existed). */
   cjCandidates?: CjCandidate[];

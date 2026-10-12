@@ -5,7 +5,13 @@
  */
 import { and, desc, eq, gte, isNotNull, isNull, sql } from "drizzle-orm";
 import type { AnyDatabase } from "@/db/client";
-import { collectionAttempts, productScores, products, sourceItems } from "@/db/schema";
+import {
+  collectionAttempts,
+  landingRedirects,
+  productScores,
+  products,
+  sourceItems,
+} from "@/db/schema";
 import { landingKey } from "@/discovery/landing";
 import { forProducts, type ProductQuery } from "@/ingestion/collect-for-products";
 import {
@@ -215,7 +221,7 @@ export async function pickLandingPages(
   const freshSince = new Date(now.getTime() - freshDays * DAY);
   const provider = PROVIDER_OF.advertiser_stores;
   const landingUrl = sql<string>`${sourceItems.raw}->>'landing_url'`;
-  const [ads, fresh, productRows, samples, attempts] = await Promise.all([
+  const [ads, fresh, productRows, samples, attempts, moved] = await Promise.all([
     db
       .select({ productId: sourceItems.productId, landingUrl })
       .from(sourceItems)
@@ -233,7 +239,13 @@ export async function pickLandingPages(
     db.select({ id: products.id, landingKey: products.landingKey }).from(products),
     sampleProductIds(db),
     attemptsOf(db, provider, now, freshDays),
+    // Pages found to redirect to another page (ADR-018): ask for the final page as well.
+    db
+      .select({ url: landingRedirects.url, finalUrl: landingRedirects.finalUrl })
+      .from(landingRedirects)
+      .where(eq(landingRedirects.outcome, "redirected")),
   ]);
+  const finalOf = new Map(moved.map((m) => [m.url, m.finalUrl]));
   const skip = new Set([...fresh.map((f) => f.productId), ...samples, ...attempts.recent]);
   const urlsByProduct = new Map<string, Set<string>>();
   for (const ad of ads) {
@@ -242,8 +254,11 @@ export async function pickLandingPages(
     const set = urlsByProduct.get(ad.productId!) ?? new Set<string>();
     // Each landing page is asked with and without "www." (the catalog matches the store's own
     // host exactly; measured: most ads link to the bare domain of a "www." store).
-    if (set.size < 2 * (opts.maxUrlsPerProduct ?? 10))
+    if (set.size < 2 * (opts.maxUrlsPerProduct ?? 10)) {
       for (const u of hostVariants(url)) set.add(u);
+      const final = finalOf.get(url);
+      if (final) for (const u of hostVariants(final)) set.add(u);
+    }
     urlsByProduct.set(ad.productId!, set);
   }
   const discovered = new Set(productRows.filter((p) => p.landingKey).map((p) => p.id));

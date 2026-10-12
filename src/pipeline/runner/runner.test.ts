@@ -7,6 +7,7 @@ import { getLatestFxRates } from "@/data/fx";
 import {
   collectionAttempts,
   ingestionRuns,
+  landingRedirects,
   pipelineRuns,
   pipelineStage,
   productScores,
@@ -162,6 +163,98 @@ describe("pipeline runner (recorded responses)", () => {
       "shopify_catalog",
       "shopify_catalog_lookup",
     ]);
+  });
+
+  it("follows a landing page the catalog did not know to where the store moved it (ADR-018)", async () => {
+    const empty = { ...lookupJson, result: { structuredContent: { products: [] } } };
+    lookupFetch.mockImplementationOnce(async () => Response.json(empty));
+    const pageCalls: string[] = [];
+    const other = (host: string) => (host.includes("axzenia") ? "corecareshop.com" : "axzenia.com");
+    const storePageFetch = vi.fn<typeof fetch>(async (input, init) => {
+      const url = new URL(String(input));
+      pageCalls.push(`${init?.method} ${url.host}${url.pathname}`);
+      if (url.pathname === "/robots.txt") return new Response("User-agent: *\nDisallow: /cart");
+      const r = new Response(null, { status: 200 });
+      Object.defineProperty(r, "url", {
+        value: `https://${other(url.host)}${url.pathname}?variant=1`,
+      });
+      return r;
+    });
+    const run = await driveRun(t.db, deps({ storePageFetch }), (await newRun()).id);
+
+    // robots.txt, then HEAD of the landing page; only the final URL is kept.
+    expect(pageCalls).toHaveLength(2);
+    expect(pageCalls[0]).toMatch(/^GET .*\/robots\.txt$/);
+    expect(pageCalls[1]).toMatch(/^HEAD /);
+    const [cached] = await t.db.select().from(landingRedirects);
+    expect(cached).toMatchObject({ outcome: "redirected", status: 200 });
+    expect(cached.finalUrl).not.toContain("?");
+    // The catalog is asked again with the final page and finds it.
+    expect(lookupFetch).toHaveBeenCalledTimes(2);
+    expect(run.state.steps.stores.redirects).toMatchObject({
+      checked: 1,
+      requests: 2,
+      changed: 1,
+      found: 1,
+      blocked: 0,
+    });
+    const own = (await t.db.select().from(sourceItems)).filter(
+      (i) => i.provider === "shopify_catalog_lookup",
+    );
+    expect(own).toHaveLength(1);
+  });
+
+  it("skips a store that refuses us; several refusing stores stop the checks and back off", async () => {
+    const empty = { ...lookupJson, result: { structuredContent: { products: [] } } };
+    lookupFetch.mockImplementation(async () => Response.json(empty));
+    const storePageFetch = vi.fn<typeof fetch>(async (input) => {
+      const r = new Response(String(input).endsWith("/robots.txt") ? "" : null, {
+        status: String(input).endsWith("/robots.txt") ? 200 : 429,
+      });
+      Object.defineProperty(r, "url", { value: String(input) });
+      return r;
+    });
+    const first = await driveRun(t.db, deps({ storePageFetch }), (await newRun()).id);
+    // One refusing store: its page is cached as blocked, no back-off.
+    expect(first.state.steps.stores.redirects).toMatchObject({ checked: 1, blocked: 1 });
+    expect((await t.db.select().from(landingRedirects))[0]).toMatchObject({
+      outcome: "blocked",
+      status: 429,
+    });
+    expect(await t.db.select().from(sourceBackoff)).toHaveLength(0);
+
+    // Three more products whose stores all refuse: the run stops checking and backs off.
+    for (const n of [1, 2, 3]) {
+      const [p] = await t.db
+        .insert(products)
+        .values({
+          slug: `extra-${n}`,
+          title: `Extra ${n}`,
+          landingKey: `handle:extra-${n}`,
+          firstSeenAt: NOW,
+        })
+        .returning();
+      await t.db.insert(sourceItems).values({
+        source: "meta_ads",
+        provider: "ad_library_web",
+        externalId: `extra-ad-${n}`,
+        kind: "ad",
+        productId: p.id,
+        raw: { landing_url: `https://store${n}.example/products/extra-${n}` },
+        firstSeenAt: NOW,
+        lastSeenAt: NOW,
+      });
+      await t.db.insert(collectionAttempts).values({
+        provider: "shopify_catalog_lookup",
+        productId: p.id,
+        attemptedAt: NOW,
+        outcome: "empty",
+      });
+    }
+    const second = await driveRun(t.db, deps({ storePageFetch }), (await newRun()).id);
+    expect(second.state.steps.stores.redirects).toMatchObject({ checked: 3, blocked: 3 });
+    const backoffs = await t.db.select().from(sourceBackoff);
+    expect(backoffs.map((b) => b.provider)).toContain("store_pages");
   });
 
   it("keeps going when discovery is blocked, reports it and backs off", async () => {

@@ -104,5 +104,7 @@ export function createLiveDeps(
         wait,
         retry: { timeoutMs: TIMEOUTS.shopify, fetchImpl },
       }),
+    // Redirect checks of stores' own pages (ADR-018): robots.txt, HEAD, final URL only.
+    storePageFetch: fetchImpl ?? fetch,
   };
 }

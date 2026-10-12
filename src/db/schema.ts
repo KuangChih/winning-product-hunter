@@ -396,3 +396,16 @@ export const cjLandedCosts = pgTable(
   },
   (t) => [primaryKey({ columns: [t.productId, t.country] })],
 );
+
+/**
+ * Where an ad landing page ends up after the store's redirects (ADR-018): only the final URL,
+ * never the page. Re-checked after `REDIRECT_FRESH_DAYS`.
+ */
+export const landingRedirects = pgTable("landing_redirects", {
+  url: text("url").primaryKey(),
+  /** "redirected" | "same" | "disallowed" | "not_found" | "error" | "blocked". */
+  outcome: text("outcome").notNull(),
+  finalUrl: text("final_url"),
+  status: integer("status"),
+  checkedAt: timestamp("checked_at", { withTimezone: true }).notNull(),
+});

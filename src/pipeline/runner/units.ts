@@ -23,6 +23,7 @@ import type { SourceAdapter } from "@/ingestion/types";
 import { hashProductImages, mergeDuplicateProducts } from "@/matching/merge";
 import { hashListingPhotos } from "@/matching/listing-photos";
 import { cjFreight } from "./cj-freight";
+import { storeRedirects } from "./store-redirects";
 import { runMatching } from "@/matching/run";
 import { runScoring } from "@/scoring/run";
 import {
@@ -502,7 +503,7 @@ const STORES: CollectKind = {
   progress: "stores",
   meta: { source: "shopify", provider: PROVIDER_OF.advertiser_stores },
   batch: STORES_BATCH,
-  next: "hash",
+  next: "store_redirects",
   empty: "nothing to look up",
   pick: (db, s) => pickLandingPages(db, STORES_PER_RUN, { now: runNow(s) }),
   adapter: (deps, _o, wait) => deps.storeLookup?.({ country: "US", wait }) ?? null,
@@ -829,6 +830,7 @@ export const UNITS: Record<Exclude<UnitName, "done">, UnitDef> = {
   ...META_API_UNITS,
   ...CJ_UNITS,
   cj_freight: cjFreight,
+  store_redirects: storeRedirects,
   collect: collectUnit(COLLECT),
   stores: collectUnit(STORES),
   hash,

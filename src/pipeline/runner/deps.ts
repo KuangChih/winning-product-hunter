@@ -38,6 +38,8 @@ export interface RunnerDeps {
   shopifyCatalog?(o: { countries: string[]; wait: Wait }): SourceAdapter;
   storeLookup?(o: { country: string; wait: Wait }): SourceAdapter;
   imageRetry?: RetryOptions;
+  /** Fetch for stores' own pages (redirect checks, ADR-018). Absent: those checks are skipped. */
+  storePageFetch?: typeof fetch;
   /** "vercel", "github" or "local": a block of one egress does not stop the other (ADR-006 back-off). */
   egress: string;
   clock?: Clock;
