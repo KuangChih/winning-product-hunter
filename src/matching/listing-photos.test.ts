@@ -8,7 +8,13 @@ import { ingestItems } from "@/ingestion/run";
 import { runScoring } from "@/scoring/run";
 import type { ScoreBreakdown } from "@/scoring/score";
 import { dHash } from "./image-hash";
-import { hashListingPhotos, thumbnailUrl, UNUSABLE_PHOTO } from "./listing-photos";
+import {
+  hashListingPhotos,
+  hashProductGalleries,
+  thumbnailUrl,
+  UNUSABLE_PHOTO,
+} from "./listing-photos";
+import { extraPhotoHashes } from "./product-photos";
 
 const NOW = new Date("2026-10-11T00:00:00Z");
 
@@ -171,6 +177,37 @@ describe("hashListingPhotos (ADR-016)", () => {
     expect((await marginOf(later)).explain).toEqual({
       key: "landedMarginSamePhoto",
       params: { retail: "25.00", supplier: "5.00", shipping: "7.00", stores: 2 },
+    });
+  });
+
+  it("hashes CJ's gallery and variant photos of each product once (ADR-019)", async () => {
+    const p = await product("cj-gallery", null);
+    const a = "https://cf.cjdropshipping.com/a.jpg";
+    const b = "https://cf.cjdropshipping.com/b.jpg";
+    await t.db.insert(sourceItems).values({
+      source: "cj" as const,
+      provider: "cj_api",
+      externalId: "cj-gallery",
+      kind: "listing" as const,
+      productId: p.id,
+      raw: { candidate: { detail: { images: [a, b] } } },
+      firstSeenAt: NOW,
+      lastSeenAt: NOW,
+    });
+    const img = await photo("#333");
+    const fetchImpl: typeof fetch = async (url) =>
+      String(url) === a ? new Response(new Uint8Array(img)) : new Response("", { status: 404 });
+    expect(await hashProductGalleries(t.db, { retry: { fetchImpl, retries: 0 } })).toEqual({
+      hashed: 1,
+      failed: 1,
+      more: false,
+    });
+    const extras = await extraPhotoHashes(t.db);
+    expect(extras.get(p.id)).toEqual([await dHash(img)]);
+    // Nothing left: the photos are not downloaded again.
+    expect(await hashProductGalleries(t.db, { retry: { fetchImpl } })).toMatchObject({
+      hashed: 0,
+      failed: 0,
     });
   });
 

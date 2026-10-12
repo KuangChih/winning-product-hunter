@@ -409,3 +409,22 @@ export const landingRedirects = pgTable("landing_redirects", {
   status: integer("status"),
   checkedAt: timestamp("checked_at", { withTimezone: true }).notNull(),
 });
+
+/**
+ * More photos of a product than its main one (ADR-019): CJ's gallery and variant photos, hashed
+ * (dHash) for same-photo matching. `hash` "-" = the photo could not be used.
+ */
+export const productPhotos = pgTable(
+  "product_photos",
+  {
+    productId: uuid("product_id")
+      .notNull()
+      .references(() => products.id, { onDelete: "cascade" }),
+    url: text("url").notNull(),
+    /** Where the photo comes from, e.g. "cj". */
+    source: text("source").notNull(),
+    hash: text("hash"),
+    hashedAt: timestamp("hashed_at", { withTimezone: true }),
+  },
+  (t) => [primaryKey({ columns: [t.productId, t.url] })],
+);

@@ -90,7 +90,31 @@ export interface CjProductDetail {
     nowPrice?: string | number | null;
     /** Grams. */
     weight?: number | string | null;
+    /** The variant's photo. */
+    img?: string | null;
   }> | null;
+  /** Main photo. */
+  bigimg?: string | null;
+  /** Gallery photos, comma-separated (measured). */
+  img?: string | null;
+}
+
+/** Most CJ photos of one product kept for same-photo matching (ADR-019). */
+export const MAX_CJ_PHOTOS = 30;
+
+/**
+ * Every photo CJ shows for a product (main, gallery, variants), deduplicated: stores selling it
+ * often use one of the gallery or variant photos, not CJ's main photo (ADR-019).
+ */
+export function parseCjImages(d: CjProductDetail): string[] {
+  const all = [
+    d.bigimg,
+    ...String(d.img ?? "").split(","),
+    ...(d.stanProducts ?? []).map((v) => v.img),
+  ]
+    .map((u) => (u ?? "").trim())
+    .filter((u) => u.startsWith("https://"));
+  return [...new Set(all)].slice(0, MAX_CJ_PHOTOS);
 }
 
 /** One CJ variant: what a store actually buys and ships (ADR-017). */

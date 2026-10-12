@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { CjApiError, parseCjFreight, parseCjPriceCents, parseCjProducts } from "./cj";
+import {
+  CjApiError,
+  parseCjFreight,
+  parseCjImages,
+  parseCjPriceCents,
+  parseCjProducts,
+} from "./cj";
 import { parseSerpApiTrends } from "./google-trends";
 import { parseMetaAd } from "./meta-ads";
 
@@ -147,5 +153,21 @@ describe("CJ Dropshipping parsers", () => {
       { carrier: "USPS+", costCents: 471, minDays: 2, maxDays: 5 },
       { carrier: "DHL", costCents: 1820, minDays: 3, maxDays: 5 },
     ]);
+  });
+});
+
+describe("parseCjImages (ADR-019)", () => {
+  it("collects main, gallery (comma-separated) and variant photos once each", () => {
+    const a = "https://cf.cjdropshipping.com/a.jpg";
+    const b = "https://cf.cjdropshipping.com/b.jpg";
+    const c = "https://cf.cjdropshipping.com/c.jpg";
+    expect(
+      parseCjImages({
+        id: "1",
+        bigimg: a,
+        img: `${a},${b}, ,http://insecure.example/x.jpg`,
+        stanProducts: [{ id: "v1", img: c }, { id: "v2", img: b }, { id: "v3" }],
+      }),
+    ).toEqual([a, b, c]);
   });
 });

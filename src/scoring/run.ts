@@ -11,6 +11,7 @@ import {
 } from "./features";
 import { SCORING_VERSION, scoreProducts } from "./score";
 import { metaLibraryId } from "@/ingestion/sources/meta-ads";
+import { extraPhotoHashes } from "@/matching/product-photos";
 import { SEARCH_LISTING_PROVIDER, samePhotoOf } from "@/matching/same-photo";
 
 type Snapshot = ItemInput["snapshots"][number];
@@ -161,7 +162,10 @@ export async function runScoring(db: AnyDatabase, now: Date = new Date()) {
   ]);
   const landedOf = new Map(landedRows.map((r) => [r.productId, r]));
 
-  const productById = new Map(productRows.map((p) => [p.id, p]));
+  const extras = await extraPhotoHashes(db);
+  const productById = new Map(
+    productRows.map((p) => [p.id, { ...p, extraHashes: extras.get(p.id) ?? [] }]),
+  );
   const itemsByProduct = new Map<string, ItemInput[]>();
   for (const i of items) {
     const input: ItemInput = {

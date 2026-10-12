@@ -116,7 +116,7 @@ function unitKey(s: RunState): string {
     case "cj_freight":
       return String(s.progress.cjFreight ?? 0);
     case "listing_hash":
-      return String(s.progress.listingHashAttempted ?? 0);
+      return `${s.progress.galleryHashAttempted ?? 0}-${s.progress.listingHashAttempted ?? 0}`;
     default:
       return "";
   }

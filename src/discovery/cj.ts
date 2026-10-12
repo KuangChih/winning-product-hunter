@@ -5,6 +5,7 @@
  */
 import {
   parseCjPriceCents,
+  parseCjImages,
   parseCjVariants,
   type CjListProduct,
   type CjProductDetail,
@@ -100,6 +101,7 @@ export function candidateDetail(d: CjProductDetail): NonNullable<CjCandidate["de
     latestPaymentDate: num(d.latestPaymentDate),
     createdAt: d.createdate && /^\d+$/.test(d.createdate) ? Number(d.createdate) : null,
     variants: parseCjVariants(d),
+    images: parseCjImages(d),
   };
 }
 

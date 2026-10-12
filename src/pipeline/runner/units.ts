@@ -21,7 +21,7 @@ import {
 } from "@/ingestion/run";
 import type { SourceAdapter } from "@/ingestion/types";
 import { hashProductImages, mergeDuplicateProducts } from "@/matching/merge";
-import { hashListingPhotos } from "@/matching/listing-photos";
+import { hashListingPhotos, hashProductGalleries } from "@/matching/listing-photos";
 import { cjFreight } from "./cj-freight";
 import { storeRedirects } from "./store-redirects";
 import { runMatching } from "@/matching/run";
@@ -87,6 +87,8 @@ export const HASH_PER_RUN = 100;
  */
 export const LISTING_HASH_BATCH = 30;
 export const LISTING_HASH_PER_RUN = 800;
+/** CJ gallery / variant photos per run (ADR-019; up to 30 per CJ product). */
+export const GALLERY_HASH_PER_RUN = 400;
 
 const AD_LIBRARY_META: AdapterMeta = { source: "meta_ads", provider: AD_LIBRARY_PROVIDER };
 
@@ -709,8 +711,31 @@ const hash: UnitDef = {
 const listingHash: UnitDef = {
   worstMs: 60_000,
   async run({ db, deps, clock, state, signal, softStop }) {
-    const done = state.progress.listingHashAttempted ?? 0;
     const remaining = Number.isFinite(softStop) ? Math.max(15_000, softStop - clock.now()) : null;
+    // CJ's other photos of each product first (ADR-019): the store results are compared with them.
+    const galleryDone = state.progress.galleryHashAttempted ?? 0;
+    if (galleryDone < GALLERY_HASH_PER_RUN && !state.progress.galleryHashFinished) {
+      const g = await hashProductGalleries(db, {
+        limit: Math.min(LISTING_HASH_BATCH, GALLERY_HASH_PER_RUN - galleryDone),
+        retry: deps.imageRetry,
+        until: remaining === null ? undefined : Date.now() + remaining,
+        signal,
+      });
+      const d = state.steps.dedupe;
+      return setStep(
+        {
+          ...state,
+          progress: {
+            ...state.progress,
+            galleryHashAttempted: galleryDone + g.hashed + g.failed,
+            galleryHashFinished: !g.more || g.hashed + g.failed === 0,
+          },
+        },
+        "dedupe",
+        { galleryHashed: (d.galleryHashed ?? 0) + g.hashed },
+      );
+    }
+    const done = state.progress.listingHashAttempted ?? 0;
     const r = await hashListingPhotos(db, {
       limit: Math.min(LISTING_HASH_BATCH, LISTING_HASH_PER_RUN - done),
       retry: deps.imageRetry,
@@ -739,7 +764,7 @@ const merge: UnitDef = {
     const d = state.steps.dedupe;
     const detail =
       `${d.hashed} images hashed (${d.failed} failed), ${merged} duplicates merged, ` +
-      `${d.listingsHashed ?? 0} store listing photos compared`;
+      `${d.listingsHashed ?? 0} store listing photos compared, ${d.galleryHashed ?? 0} CJ photos hashed`;
     const s = setStep(state, "dedupe", {
       merged,
       detail,

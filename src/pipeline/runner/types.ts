@@ -147,6 +147,8 @@ export interface CjCandidate {
     createdAt: number | null;
     /** Its variants (ADR-017; absent in states saved before). */
     variants?: CjVariant[];
+    /** All its photos (main, gallery, variants; ADR-019; absent in states saved before). */
+    images?: string[];
   } | null;
 }
 
@@ -195,6 +197,8 @@ export interface DedupeStepState extends StepState {
   /** Shopify search-result photos hashed / unusable (ADR-016; absent in older states). */
   listingsHashed?: number;
   listingsFailed?: number;
+  /** CJ gallery / variant photos hashed (ADR-019). */
+  galleryHashed?: number;
 }
 
 /** One Ad Library page request: a keyword in one country, or an advertiser target. */
@@ -243,6 +247,9 @@ export interface RunState {
     hashAttempted: number;
     /** Shopify search-result photos tried (absent in states saved before ADR-016). */
     listingHashAttempted?: number;
+    /** CJ gallery / variant photos tried, and whether none are left (ADR-019). */
+    galleryHashAttempted?: number;
+    galleryHashFinished?: boolean;
     /** CJ list requests and detail requests done. */
     cjList?: number;
     cjDetail?: number;

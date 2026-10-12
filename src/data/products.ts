@@ -3,6 +3,7 @@ import type { AnyDatabase } from "@/db/client";
 import { productScores, products, sourceItems } from "@/db/schema";
 import { sortByMarketPriority } from "@/lib/markets";
 import { OWN_LISTING_PROVIDER, productRetailPrice, type RetailItem } from "@/lib/retail-price";
+import { extraPhotoHashes } from "@/matching/product-photos";
 import { SEARCH_LISTING_PROVIDER, samePhotoOf } from "@/matching/same-photo";
 import { getLatestFxRates } from "./fx";
 import { type ScoreBreakdown, SUB_SCORE_ORDER, type SubScoreName } from "@/scoring/score";
@@ -155,7 +156,7 @@ export async function getRankedProducts(
     .where(and(latestBatch, real));
 
   // Independent queries run together (PGlite serializes them; Neon runs them in parallel).
-  const [top, evidence, offers, fx] = await Promise.all([
+  const [top, evidence, offers, fx, extras] = await Promise.all([
     db
       .select({
         productId: productScores.productId,
@@ -216,9 +217,12 @@ export async function getRankedProducts(
         ),
       ),
     getLatestFxRates(db),
+    extraPhotoHashes(db),
   ]);
   if (top.length === 0) return [];
-  const photoOf = new Map(top.map((p) => [p.productId, p]));
+  const photoOf = new Map(
+    top.map((p) => [p.productId, { ...p, extraHashes: extras.get(p.productId) ?? [] }]),
+  );
   const offersById = new Map<string, RetailItem[]>();
   for (const { productId, title, imageHash, ...o } of offers) {
     if (productId === null) continue;

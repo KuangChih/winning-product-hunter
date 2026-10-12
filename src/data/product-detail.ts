@@ -4,6 +4,7 @@ import { cjLandedCosts, productScores, products, signalSnapshots, sourceItems } 
 import type { FxRates } from "@/lib/fx";
 import type { LandedCostRow } from "@/lib/margin";
 import { LANDED_COUNTRY } from "@/pricing/landed";
+import { extraPhotoHashes } from "@/matching/product-photos";
 import { SEARCH_LISTING_PROVIDER, samePhotoOf } from "@/matching/same-photo";
 import type { ScoreBreakdown } from "@/scoring/score";
 import { getLatestFxRates } from "./fx";
@@ -124,7 +125,7 @@ export async function getProductDetail(
     .select({ id: sourceItems.id })
     .from(sourceItems)
     .where(eq(sourceItems.productId, product.id));
-  const [scores, items, snapshots, fxRates, [landedCost]] = await Promise.all([
+  const [scores, items, snapshots, fxRates, [landedCost], extras] = await Promise.all([
     db
       .select()
       .from(productScores)
@@ -171,7 +172,9 @@ export async function getProductDetail(
       .where(
         and(eq(cjLandedCosts.productId, product.id), eq(cjLandedCosts.country, LANDED_COUNTRY)),
       ),
+    extraPhotoHashes(db, [product.id]),
   ]);
+  const photoRef = { ...product, extraHashes: extras.get(product.id) ?? [] };
 
   // Group once instead of filtering all snapshots for every item.
   const snapshotsByItem = new Map<string, typeof snapshots>();
@@ -193,7 +196,7 @@ export async function getProductDetail(
       ...i,
       landingUrl: i.kind === "ad" ? i.landingUrl : null,
       ...(i.provider === SEARCH_LISTING_PROVIDER && i.kind === "store_product"
-        ? { samePhoto: samePhotoOf(product, { imageHash, title: i.title }) }
+        ? { samePhoto: samePhotoOf(photoRef, { imageHash, title: i.title }) }
         : {}),
       metrics,
       series,

@@ -10,6 +10,7 @@ import type { AnyDatabase } from "@/db/client";
 import { cjLandedCosts, products, sourceItems } from "@/db/schema";
 import { CjApiError, CJ_PROVIDER, isCjStop, type CjVariant } from "@/ingestion/sources/cj";
 import { OWN_LISTING_PROVIDER } from "@/lib/retail-price";
+import { extraPhotoHashes } from "@/matching/product-photos";
 import { SEARCH_LISTING_PROVIDER, samePhotoOf } from "@/matching/same-photo";
 import {
   chooseShipping,
@@ -73,6 +74,7 @@ export async function pickFreightTargets(
   );
   if (withVariants.length === 0) return [];
   const ids = withVariants.map((l) => l.productId!);
+  const extras = await extraPhotoHashes(db, ids);
 
   const [stores, existing] = await Promise.all([
     db
@@ -102,7 +104,9 @@ export async function pickFreightTargets(
   for (const l of withVariants) {
     const mine = stores.filter((s) => s.productId === l.productId);
     const same = mine.filter(
-      (s) => s.provider === SEARCH_LISTING_PROVIDER && samePhotoOf(l, s) === true,
+      (s) =>
+        s.provider === SEARCH_LISTING_PROVIDER &&
+        samePhotoOf({ ...l, extraHashes: extras.get(l.productId!) ?? [] }, s) === true,
     );
     const labels = same.map((s) =>
       (s.options ?? []).flatMap((o) => (o.values ?? []).flatMap((v) => (v.label ? [v.label] : []))),

@@ -36,12 +36,16 @@ export function isPhotoHash(hash: string | null | undefined): hash is string {
 export interface PhotoRef {
   imageHash: string | null | undefined;
   title: string | null | undefined;
+  /** The product's other photos (CJ gallery and variants, ADR-019); same rule as the main one. */
+  extraHashes?: string[];
 }
 
 /** Whether a search result shows the product's own photo; null when it cannot be compared. */
 export function samePhotoOf(product: PhotoRef | undefined, item: PhotoRef): boolean | null {
-  if (!product || !isPhotoHash(product.imageHash) || !isPhotoHash(item.imageHash)) return null;
-  return isSamePhoto(product, item);
+  if (!product || !isPhotoHash(item.imageHash)) return null;
+  const hashes = [product.imageHash, ...(product.extraHashes ?? [])].filter(isPhotoHash);
+  if (hashes.length === 0) return null;
+  return hashes.some((h) => isSamePhoto({ imageHash: h, title: product.title }, item));
 }
 
 /** Same product by photo (and, for merely similar photos, title); false without both hashes. */

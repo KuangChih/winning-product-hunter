@@ -1,6 +1,6 @@
 import { and, desc, eq, isNotNull, isNull, max, sql } from "drizzle-orm";
 import type { AnyDatabase } from "@/db/client";
-import { products, sourceItems } from "@/db/schema";
+import { productPhotos, products, sourceItems } from "@/db/schema";
 import type { RetryOptions } from "@/ingestion/http";
 import { dHash } from "./image-hash";
 import { fetchImage, isAllowedImageUrl, MAX_IMAGE_BYTES, readCapped } from "./merge";
@@ -99,6 +99,71 @@ export async function hashListingPhotos(
           isNull(sourceItems.imageHash),
         ),
       );
+  }
+  return { hashed, failed, more: stopped || pending.length === limit };
+}
+
+/**
+ * Hashes CJ's other photos of each product (gallery, variants; ADR-019), recorded in
+ * `product_photos` from the CJ listing's detail. Photos that cannot be used are marked "-".
+ */
+export async function hashProductGalleries(
+  db: AnyDatabase,
+  { limit = 30, retry, until, timeoutMs = 15_000, signal }: HashListingOptions = {},
+): Promise<{ hashed: number; failed: number; more: boolean }> {
+  const listings = await db
+    .select({
+      productId: sourceItems.productId,
+      images: sql<string[] | null>`${sourceItems.raw}->'candidate'->'detail'->'images'`,
+    })
+    .from(sourceItems)
+    .innerJoin(products, eq(products.id, sourceItems.productId))
+    .where(
+      and(
+        eq(sourceItems.provider, "cj_api"),
+        eq(sourceItems.kind, "listing"),
+        isNull(products.mergedInto),
+      ),
+    );
+  const rows = listings.flatMap((l) =>
+    Array.isArray(l.images)
+      ? l.images.map((url) => ({ productId: l.productId!, url, source: "cj" }))
+      : [],
+  );
+  if (rows.length > 0) {
+    await db.insert(productPhotos).values(rows).onConflictDoNothing();
+  }
+  const pending = await db
+    .select({ productId: productPhotos.productId, url: productPhotos.url })
+    .from(productPhotos)
+    .where(isNull(productPhotos.hash))
+    .orderBy(productPhotos.productId, productPhotos.url)
+    .limit(limit);
+
+  let hashed = 0;
+  let failed = 0;
+  let stopped = false;
+  for (const p of pending) {
+    signal?.throwIfAborted();
+    if (until !== undefined && Date.now() > until) {
+      stopped = true;
+      break;
+    }
+    let hash = UNUSABLE_PHOTO;
+    if (isAllowedImageUrl(p.url)) {
+      try {
+        const res = await fetchImage(p.url, { signal }, { retries: 1, timeoutMs, ...retry });
+        hash = await dHash(await readCapped(res, MAX_IMAGE_BYTES));
+      } catch (err) {
+        if (signal?.aborted) throw err;
+      }
+    }
+    if (hash === UNUSABLE_PHOTO) failed++;
+    else hashed++;
+    await db
+      .update(productPhotos)
+      .set({ hash, hashedAt: new Date() })
+      .where(and(eq(productPhotos.productId, p.productId), eq(productPhotos.url, p.url)));
   }
   return { hashed, failed, more: stopped || pending.length === limit };
 }

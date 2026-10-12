@@ -60,3 +60,24 @@ describe("samePhotoOf", () => {
     expect(isPhotoHash(null)).toBe(false);
   });
 });
+
+describe("samePhotoOf with a product's other photos (ADR-019)", () => {
+  it("matches a store photo that is one of CJ's gallery or variant photos", () => {
+    const product = { imageHash: FAR, title: "Pet Hair Remover Mitt", extraHashes: [BASE] };
+    expect(samePhotoOf(product, { imageHash: ONE_BIT, title: "Deshedding Glove" })).toBe(true);
+    expect(samePhotoOf(product, { imageHash: SIX_BITS, title: "Dog Water Bowl" })).toBe(false);
+    // Only other photos, no usable main photo: still comparable.
+    expect(
+      samePhotoOf(
+        { imageHash: null, title: "x", extraHashes: [BASE] },
+        { imageHash: BASE, title: "y" },
+      ),
+    ).toBe(true);
+    expect(
+      samePhotoOf(
+        { imageHash: null, title: "x", extraHashes: ["-"] },
+        { imageHash: BASE, title: "y" },
+      ),
+    ).toBeNull();
+  });
+});
