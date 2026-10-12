@@ -5,6 +5,8 @@ import { createTestDb } from "@/db/testing/pglite";
 import type { SourceAdapter } from "@/ingestion/types";
 import {
   collectForTargets,
+  collectLookups,
+  lookupGroupSize,
   hostVariants,
   pickLandingPages,
   pickProducts,
@@ -147,6 +149,69 @@ describe("collection targets", () => {
         "https://shop.example/products/x",
       ]);
       expect(hostVariants("not a url")).toEqual(["not a url"]);
+    });
+  });
+
+  describe("batched store lookups", () => {
+    it("groups products into requests of at most 50 URLs", () => {
+      const q = (n: number) => ({
+        productId: `p${n}`,
+        query: Array.from({ length: n }, (_, i) => `u${i}`),
+      });
+      const targets = [q(20), q(20), q(20), q(60)];
+      expect(lookupGroupSize(targets, 0)).toBe(2); // 40 URLs; a third would make 60
+      expect(lookupGroupSize(targets, 2)).toBe(1);
+      expect(lookupGroupSize(targets, 3)).toBe(1); // one product always goes, even over 50
+    });
+
+    it("sends one request for several products and gives each result to its own page's product", async () => {
+      const [a, b, c] = await Promise.all(["a", "b", "c"].map((x) => product(x)));
+      const calls: string[][] = [];
+      const adapter: SourceAdapter = {
+        source: "shopify",
+        provider: "shopify_catalog_lookup",
+        async *fetch(ctx) {
+          calls.push(ctx.queries);
+          const result = (id: string, url: string) => ({
+            externalId: `lookup|${id}|US`,
+            kind: "store_product" as const,
+            url,
+            metrics: [],
+            raw: {},
+          });
+          // The catalog answers with the store's own host and tracking parameters.
+          yield result("1", "https://www.a.example/products/a-thing?variant=1&_gsid=x");
+          yield result("2", "https://b.example/products/b-thing?variant=2");
+          yield result("3", "https://other.example/products/unrelated");
+        },
+      };
+      const targets = [
+        {
+          productId: a,
+          query: ["https://a.example/products/a-thing", "https://www.a.example/products/a-thing"],
+        },
+        { productId: b, query: ["https://b.example/collections/x/products/b-thing"] },
+        { productId: c, query: ["https://c.example/products/c-thing"] },
+      ];
+      const r = await collectLookups(t.db, adapter, targets, { now: NOW });
+      expect(calls).toHaveLength(1);
+      expect(calls[0]).toHaveLength(4);
+      expect(r).toMatchObject({ status: "succeeded", itemsFetched: 2, unmatched: 1 });
+      const stored = await t.db.select().from(sourceItems);
+      expect(new Map(stored.map((i) => [i.externalId, i.productId]))).toEqual(
+        new Map([
+          ["lookup|1|US", a],
+          ["lookup|2|US", b],
+        ]),
+      );
+      const rows = await t.db.select().from(collectionAttempts);
+      expect(new Map(rows.map((row) => [row.productId, row.outcome]))).toEqual(
+        new Map([
+          [a, "found"],
+          [b, "found"],
+          [c, "empty"],
+        ]),
+      );
     });
   });
 

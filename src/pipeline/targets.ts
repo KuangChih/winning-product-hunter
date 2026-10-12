@@ -351,3 +351,116 @@ export async function collectForTargets(
   );
   return result;
 }
+
+/** URLs one catalog lookup request takes (Shopify `lookup_catalog`). */
+export const LOOKUP_MAX_URLS = 50;
+
+const urlsOf = (t: ProductQuery) => (Array.isArray(t.query) ? t.query : [t.query]);
+
+/**
+ * How many targets from `start` fit in one lookup request (their URLs together at most
+ * `LOOKUP_MAX_URLS`; always at least one target).
+ */
+export function lookupGroupSize(
+  targets: ProductQuery[],
+  start: number,
+  maxUrls = LOOKUP_MAX_URLS,
+): number {
+  let urls = 0;
+  let n = 0;
+  for (let i = start; i < targets.length; i++) {
+    const add = urlsOf(targets[i]).length;
+    if (n > 0 && urls + add > maxUrls) break;
+    urls += add;
+    n++;
+  }
+  return Math.max(1, n);
+}
+
+/** Store and product page of a URL ("store.example|handle:x"), the same with or without www. */
+function pageKey(url: string | undefined): string | null {
+  const k = landingKey(url);
+  return k ? `${k.host}|${k.key}` : null;
+}
+
+/**
+ * Looks up several products' landing pages in one request (store lookups): each result goes to
+ * the product whose landing page it is (same store and product handle); results that match no
+ * requested page are dropped. Records each product's attempt (found / empty, or error for every
+ * product of a failed request).
+ */
+export async function collectLookups(
+  db: AnyDatabase,
+  adapter: SourceAdapter,
+  targets: ProductQuery[],
+  opts: { now?: Date; signal?: AbortSignal; ingestionRunId?: number; pipelineRunId?: number } = {},
+): Promise<IngestionResult & { unmatched: number }> {
+  const owner = new Map<string, string>();
+  for (const t of targets) {
+    for (const u of urlsOf(t)) {
+      const k = pageKey(u);
+      if (k && !owner.has(k)) owner.set(k, t.productId);
+    }
+  }
+  const queries = targets.flatMap(urlsOf).slice(0, LOOKUP_MAX_URLS);
+  let unmatched = 0;
+  const stored = new Set<string>();
+  const mapped: SourceAdapter = {
+    ...adapter,
+    async *fetch(ctx) {
+      for await (const item of adapter.fetch({ ...ctx, queries })) {
+        const productId = owner.get(pageKey(item.url) ?? "");
+        if (!productId) {
+          unmatched++;
+          continue;
+        }
+        yield { ...item, productId };
+      }
+    },
+  };
+  const onStored = (item: FetchedItem) => {
+    if (item.productId) stored.add(item.productId);
+  };
+  const ctx = { queries: [], limit: 10_000, signal: opts.signal };
+  let result: IngestionResult;
+  try {
+    if (opts.ingestionRunId !== undefined) {
+      const observedAt = opts.now ?? new Date();
+      const r = await ingestItems(db, mapped, mapped.fetch(ctx), {
+        now: () => observedAt,
+        signal: opts.signal,
+        onStored,
+      });
+      result = {
+        runId: opts.ingestionRunId,
+        status: r.error === undefined ? "succeeded" : "failed",
+        itemsFetched: r.itemsFetched,
+        ...(r.error === undefined
+          ? {}
+          : { error: r.error instanceof Error ? r.error.message : String(r.error) }),
+      };
+    } else {
+      result = await runIngestion(db, mapped, ctx, () => new Date(), {
+        pipelineRunId: opts.pipelineRunId,
+        onStored,
+      });
+    }
+  } catch (err) {
+    // A caller abort leaves the whole request due (nothing recorded).
+    throw err instanceof IngestionAbortedError ? err.reason : err;
+  }
+  const failed = result.status === "failed";
+  await recordAttempts(
+    db,
+    adapter.provider,
+    targets.map((t): AttemptRow =>
+      stored.has(t.productId)
+        ? { productId: t.productId, outcome: "found" }
+        : failed
+          ? { productId: t.productId, outcome: "error", error: result.error ?? "failed" }
+          : { productId: t.productId, outcome: "empty" },
+    ),
+    opts.now ?? new Date(),
+  );
+  return { ...result, unmatched };
+}

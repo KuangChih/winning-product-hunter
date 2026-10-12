@@ -27,6 +27,8 @@ import { runMatching } from "@/matching/run";
 import { runScoring } from "@/scoring/run";
 import {
   collectForTargets,
+  collectLookups,
+  lookupGroupSize,
   pickLandingPages,
   pickProducts,
   PROVIDER_OF,
@@ -68,7 +70,13 @@ export const AD_LIBRARY_INTERVAL_MS = 5_000;
 export const SHOPIFY_INTERVAL_MS = 1_500;
 /** Products per collect unit (each runs one search per country) and per store-lookup unit. */
 export const COLLECT_BATCH = 4;
-export const STORES_BATCH = 10;
+/** Lookup requests per store-lookup unit (each up to 50 landing pages, several products). */
+export const STORES_BATCH = 3;
+/**
+ * Products whose landing pages are looked up per run: batched 50 URLs per request (with and
+ * without "www."), so about 6–8 requests (measured: 132 pending in the demo database).
+ */
+export const STORES_PER_RUN = 150;
 /** Photos per hash unit, and at most this many per run. */
 export const HASH_BATCH = 30;
 export const HASH_PER_RUN = 100;
@@ -496,7 +504,7 @@ const STORES: CollectKind = {
   batch: STORES_BATCH,
   next: "hash",
   empty: "nothing to look up",
-  pick: (db, s, o) => pickLandingPages(db, o.collect, { now: runNow(s) }),
+  pick: (db, s) => pickLandingPages(db, STORES_PER_RUN, { now: runNow(s) }),
   adapter: (deps, _o, wait) => deps.storeLookup?.({ country: "US", wait }) ?? null,
   detail: (items, n) => `${items} store listings for ${n} products`,
 };
@@ -573,16 +581,18 @@ function collectUnit(kind: CollectKind): UnitDef {
       let blocked = false;
       for (let n = 0; idx < targets.length && n < batch; n++) {
         if (n > 0 && clock.now() > ctx.softStop) break;
-        const p = targets[idx];
+        // Store lookups: several products' pages in one request; searches: one product each.
+        const size = kind.step === "stores" ? lookupGroupSize(targets, idx) : 1;
+        const group = targets.slice(idx, idx + size);
         try {
-          const r = await collectForTargets(db, adapter, [p], {
-            ingestionRunId: st.ingestionRunId,
-            signal,
-            now: observedAt,
-          });
+          const io = { ingestionRunId: st.ingestionRunId, signal, now: observedAt };
+          const r =
+            kind.step === "stores"
+              ? await collectLookups(db, adapter, group, io)
+              : await collectForTargets(db, adapter, group, io);
           st.items += r.itemsFetched;
           if (r.status === "failed") {
-            st.failedProducts++;
+            st.failedProducts += group.length;
             st.failedInRow = (st.failedInRow ?? 0) + 1;
             if (st.errors.length < 5) st.errors.push(r.error ?? "failed");
             blocked = SHOPIFY_BLOCK.test(r.error ?? "");
@@ -591,11 +601,11 @@ function collectUnit(kind: CollectKind): UnitDef {
           }
         } catch (err) {
           if (signal.aborted) throw err;
-          st.failedProducts++;
+          st.failedProducts += group.length;
           st.failedInRow = (st.failedInRow ?? 0) + 1;
           if (st.errors.length < 5) st.errors.push(errorMessage(err));
         }
-        idx++;
+        idx += group.length;
         if ((st.failedInRow ?? 0) >= MAX_FAILED_IN_A_ROW) blocked = true;
         if (blocked) break;
       }
